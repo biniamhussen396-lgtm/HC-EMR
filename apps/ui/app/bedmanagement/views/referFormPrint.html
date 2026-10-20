@@ -19,9 +19,11 @@
         box-shadow: 0 2px 15px rgba(0,0,0,0.15);
     }
     .form-title-section { text-align: center; border-bottom: 2px solid #1a5276; padding-bottom: 8px; margin-bottom: 8px; }
-    .form-title-row { display: flex; align-items: center; justify-content: center; gap: 10px; }
-    .form-title-row img { height: 45px; }
+    .form-title-row { display: flex; align-items: center; justify-content: center; gap: 14px; }
+    .form-title-row img { height: 50px; max-width: 90px; object-fit: contain; }
+    .form-title-text { display: flex; flex-direction: column; align-items: center; }
     .form-title-section h1 { font-size: 12px; margin: 0 0 2px 0; color: #555; font-weight: normal; letter-spacing: 0.5px; }
+    .form-title-section .facility-name { font-size: 15px; margin: 1px 0 3px 0; color: #1a5276; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; }
     .form-title-section h2 { font-size: 15px; margin: 0; color: #1a5276; font-weight: 700; text-transform: uppercase; letter-spacing: 2px; border-top: 1px solid #1a5276; border-bottom: 1px solid #1a5276; padding: 4px 0; }
     .top-bar { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px; font-size: 11px; }
     .top-bar .condition-boxes { display: flex; gap: 12px; align-items: center; }
@@ -58,8 +60,11 @@
 <div class="print-form">
     <div class="form-title-section">
         <div class="form-title-row">
-            <img src="/bahmni_config/openmrs/apps/home/logo.png" alt="Logo">
-            <h1>AMHARA NATIONAL REGIONAL STATE HEALTH BUREAU</h1>
+            <img ng-src="{{facilityLogo || '/bahmni_config/openmrs/apps/home/logo.png'}}" alt="Logo">
+            <div class="form-title-text">
+                <h1>AMHARA NATIONAL REGIONAL STATE HEALTH BUREAU</h1>
+                <div class="facility-name">{{facilityName}}</div>
+            </div>
         </div>
         <h2>PATIENT REFERRAL SLIP</h2>
     </div>
@@ -185,7 +190,7 @@
     </div>
 
     <div class="footer">
-        <div>Boru Meda General Hospital Liaison Office &nbsp;|&nbsp; <span class="phone">033 241 50 06</span></div>
+        <div>{{facilityName}} Liaison Office <span ng-if="facilityPhone">&nbsp;|&nbsp; <span class="phone">{{facilityPhone}}</span></span></div>
         <div style="margin-top:3px;">We Appreciate your Feedback</div>
     </div>
 </div>

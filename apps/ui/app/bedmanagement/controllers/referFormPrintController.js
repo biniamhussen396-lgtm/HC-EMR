@@ -1,10 +1,43 @@
 'use strict';
 
 angular.module('bahmni.ipd')
-    .controller('ReferFormPrintController', ['$scope', '$rootScope', '$state', '$stateParams', 'dispositionService', 'visitService',
-        function ($scope, $rootScope, $state, $stateParams, dispositionService, visitService) {
+    .controller('ReferFormPrintController', ['$scope', '$rootScope', '$state', '$stateParams', '$http', '$bahmniCookieStore', 'dispositionService', 'visitService',
+        function ($scope, $rootScope, $state, $stateParams, $http, $bahmniCookieStore, dispositionService, visitService) {
             $scope.currentDate = new Date();
             $scope.patient = $rootScope.patient;
+            $scope.facilityName = 'Health Facility';
+            $scope.facilityLogo = '/bahmni_config/openmrs/apps/home/logo.png';
+            $scope.facilityPhone = '';
+
+            // Sync facility name & logo dynamically from system configuration
+            $http.get('/bahmni_config/openmrs/apps/home/whiteLabel.json').then(function (response) {
+                if (response.data && response.data.homePage) {
+                    if (response.data.homePage.logo) {
+                        $scope.facilityLogo = response.data.homePage.logo;
+                    }
+                    if (response.data.homePage.header_text) {
+                        var temp = document.createElement('div');
+                        temp.innerHTML = response.data.homePage.header_text;
+                        var raw = (temp.textContent || temp.innerText || '').trim();
+                        raw = raw.replace(/^WELCOME\s*TO\s*/i, '')
+                                 .replace(/\s*EMR\s*System\s*$/i, '')
+                                 .replace(/\s*EMR\s*$/i, '')
+                                 .trim();
+                        if (raw) {
+                            $scope.facilityName = raw;
+                        }
+                    }
+                }
+                var locCookie = $bahmniCookieStore && $bahmniCookieStore.get(Bahmni.Common.Constants.locationCookieName);
+                if ((!$scope.facilityName || $scope.facilityName === 'Health Facility') && locCookie && locCookie.name) {
+                    $scope.facilityName = locCookie.name;
+                }
+            }).catch(function () {
+                var locCookie = $bahmniCookieStore && $bahmniCookieStore.get(Bahmni.Common.Constants.locationCookieName);
+                if (locCookie && locCookie.name) {
+                    $scope.facilityName = locCookie.name;
+                }
+            });
             $scope.woreda = '';
             $scope.kebele = '';
             if ($scope.patient && $scope.patient.address) {

@@ -1,0 +1,3 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_bahmni_sync_dashboard_admin,bahmni.sync.dashboard.admin,model_bahmni_sync_dashboard,base.group_system,1,1,1,1
+access_bahmni_sync_manager_admin,bahmni.sync.manager.admin,model_bahmni_sync_manager,base.group_system,1,1,1,1

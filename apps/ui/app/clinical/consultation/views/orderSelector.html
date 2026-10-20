@@ -6,10 +6,15 @@
                 <li ng-repeat="test in (tab.leftCategory.setMembers | filter:filterByConceptClass | filter:filterBySearchString)">
                     <a class="grid-row-element button orderBtn ng-binding ng-scope"
                        ng-click="toggleOrderSelection(test)"
-                       ng-class="{active:isActiveOrderPresent(test), noteditable:isTestIndirectlyPresent(test)}"
+                       ng-class="{active:(isActiveOrderPresent(test) || isReferralOrderPresent(test)), noteditable:isTestIndirectlyPresent(test), unavailable:isTestUnavailable(test)}"
                        ng-disabled="isTestIndirectlyPresent(test)"
+                       ng-style="isTestUnavailable(test) ? {'color': '#c0392b', 'border-color': '#c0392b', 'background-color': '#fff5f5', 'font-weight': 'bold'} : {}"
                        tooltip="{{getName(test)}}">
-                       <span ng-style="testColor.style"><i class="fa fa-ok" ng-show="isActiveOrderPresent(test)"></i>{{getName(test)}}</span>
+                       <span ng-style="isTestUnavailable(test) ? {'color': '#c0392b', 'font-weight': 'bold'} : {}">
+                           <i class="fa fa-ok" ng-show="isActiveOrderPresent(test) || isReferralOrderPresent(test)"></i>
+                           {{getName(test)}}
+                           <span ng-if="isTestUnavailable(test)" style="color:#c0392b;font-weight:bold;margin-left:4px;">(Stock Out)</span>
+                       </span>
                     </a>
                 </li>
             </ul>

@@ -1,0 +1,36 @@
+<div class="dtp-modal-content" style="padding: 16px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+    <div style="background: linear-gradient(135deg, #2b6cb0, #3182ce); color: white; padding: 12px 16px; border-radius: 6px; margin-bottom: 15px; display: flex; align-items: center; justify-content: space-between;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+            <i class="fa fa-info-circle" style="font-size: 22px;"></i>
+            <div>
+                <h3 style="margin: 0; font-size: 16px; font-weight: 600;">Drug Therapy Problem (DTP) Details</h3>
+                <small style="opacity: 0.9; font-size: 12px;">Flagged issue and clinical recommendation</small>
+            </div>
+        </div>
+        <button type="button" ng-click="closeDtpModal()" style="background: transparent; border: none; color: white; font-size: 18px; cursor: pointer;">&times;</button>
+    </div>
+
+    <div style="background: #fff5f5; border: 1px solid #fed7d7; border-left: 4px solid #e53e3e; border-radius: 4px; padding: 12px 14px; margin-bottom: 15px; font-size: 13px; line-height: 1.6;">
+        <div style="margin-bottom: 8px;">
+            <strong>Prescription:</strong> <span style="color: #2b6cb0; font-weight: 600;">{{ dtpViewPrescription.drug_name || dtpViewPrescription.non_coded_drug_name }}</span> ({{ dtpViewPrescription.strength || '---' }})
+            &bull; {{ dtpViewPrescription.dose }} {{ dtpViewPrescription.dose_units }} &bull; {{ dtpViewPrescription.route }} &bull; {{ dtpViewPrescription.frequency }} &bull; {{ dtpViewPrescription.duration }} {{ dtpViewPrescription.duration_units }}
+        </div>
+        <div style="color: #4a5568; font-size: 12px;">
+            <strong>Prescriber:</strong> {{ dtpViewPrescription.prescriber || 'Prescriber' }}
+        </div>
+    </div>
+
+    <div style="background: #f7fafc; border: 1px solid #e2e8f0; border-radius: 4px; padding: 14px; margin-bottom: 15px; font-size: 13px;">
+        <label style="display: block; font-weight: 600; color: #2d3748; margin-bottom: 6px;">DTP Record & Clinical Notes:</label>
+        <div style="background: white; border: 1px solid #cbd5e0; border-radius: 4px; padding: 12px; white-space: pre-wrap; font-family: monospace; font-size: 13px; color: #2d3748; line-height: 1.6;">
+{{ dtpViewPrescription.dtp || 'No DTP details recorded.' }}
+        </div>
+    </div>
+
+    <div style="display: flex; justify-content: flex-end;">
+        <button type="button" ng-click="closeDtpModal()"
+            style="padding: 8px 18px; background: #3182ce; color: white; border: none; border-radius: 4px; font-weight: 600; cursor: pointer;">
+            Close
+        </button>
+    </div>
+</div>

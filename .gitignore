@@ -68,3 +68,4 @@ patch_bytecode.py
 MessageResources.properties
 analyzerTestName.txt
 openelis-jsp/
+*.deb

@@ -23,7 +23,12 @@ angular.module('bahmni.common.util', [])
                 get: function (name) {
                     var jsonCookie = $.cookie(name);
                     if (jsonCookie) {
-                        return angular.fromJson(decodeURIComponent(jsonCookie));
+                        var decoded = decodeURIComponent(jsonCookie);
+                        try {
+                            return angular.fromJson(decoded);
+                        } catch (e) {
+                            return decoded;
+                        }
                     }
                     return null;
                 },

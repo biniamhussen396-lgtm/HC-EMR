@@ -1,10 +1,39 @@
 'use strict';
 
 angular.module('bahmni.clinical')
-    .controller('OrderController', ['$scope', '$state', 'allOrderables', 'ngDialog', 'diagnosisService', 'retrospectiveEntryService', 'appService', '$translate', 'LogicAndConditionConfigsLoader', '$http',
-        function ($scope, $state, allOrderables, ngDialog, diagnosisService, retrospectiveEntryService, appService, $translate, LogicAndConditionConfigsLoader, $http) {
+    .controller('OrderController', ['$scope', '$rootScope', '$state', 'allOrderables', 'ngDialog', 'diagnosisService', 'retrospectiveEntryService', 'appService', '$translate', 'LogicAndConditionConfigsLoader', '$http', '$interval',
+        function ($scope, $rootScope, $state, allOrderables, ngDialog, diagnosisService, retrospectiveEntryService, appService, $translate, LogicAndConditionConfigsLoader, $http, $interval) {
             $scope.consultation.orders = $scope.consultation.orders || [];
             $scope.consultation.childOrders = $scope.consultation.childOrders || [];
+            $scope.consultation.referralOrders = $scope.consultation.referralOrders || [];
+            $scope.referralOrders = $scope.consultation.referralOrders;
+            $scope.isReferralOrderPresent = function (test) {
+                if (!test || !$scope.referralOrders) return false;
+                return _.some($scope.referralOrders, function (r) {
+                    return r.uuid === test.uuid || (r.concept && r.concept.uuid === test.uuid);
+                });
+            };
+            $scope.openelisInactiveTests = {};
+
+            var fetchInactiveTests = function () {
+                return $http.get('/openelis/pages/test/inactiveTests.jsp').then(function (response) {
+                    if (response.data && typeof response.data === 'object') {
+                        $scope.openelisInactiveTests = response.data;
+                        try {
+                            localStorage.setItem('stockOutTests', JSON.stringify(response.data));
+                        } catch (e) {}
+                    }
+                }).catch(function (err) {
+                    console.warn('Failed to load inactive tests from OpenELIS', err);
+                });
+            };
+            fetchInactiveTests();
+
+            var inactivePoll = $interval(fetchInactiveTests, 15000);
+            $scope.$on('$destroy', function () {
+                if (inactivePoll) $interval.cancel(inactivePoll);
+            });
+
             $scope.allOrdersTemplates = allOrderables;
             var RadiologyOrderOptionsConfig = appService.getAppDescriptor().getConfig("enableRadiologyOrderOptions");
             var LabOrderOptionsConfig = appService.getAppDescriptor().getConfig("enableLabOrderOptions");
@@ -22,8 +51,11 @@ angular.module('bahmni.clinical')
             $scope.locationData = { selectedLabLocation: null };
 
             var fetchLabLocations = function () {
-                return $http.get('/openelis/LabLocationList.do').then(function (response) {
-                    if (response.data && response.data.locations) {
+                var url = '/openelis/pages/location/labLocationList.jsp';
+                return $http.get(url).catch(function () {
+                    return $http.get('/openelis/LabLocationList.do');
+                }).then(function (response) {
+                    if (response && response.data && response.data.locations) {
                         $scope.labLocations = response.data.locations;
                     }
                 }).catch(function (err) {
@@ -195,6 +227,7 @@ angular.module('bahmni.clinical')
             };
 
             $scope.activateTab = function (tab) {
+                fetchInactiveTests();
                 if (tab.klass === "active") {
                     tab.klass = "";
                     $scope.activeTab = undefined;
@@ -216,8 +249,31 @@ angular.module('bahmni.clinical')
                 }
                 var activeTabTestConcepts = _.map(_.flatten(_.map($scope.getOrderTemplate($scope.activeTab.name).setMembers, 'setMembers')), 'uuid');
                 $scope.selectedOrders = _.filter($scope.consultation.orders, function (testOrder) {
-                    return _.indexOf(activeTabTestConcepts, testOrder.concept.uuid) !== -1;
+                    var inTab = _.indexOf(activeTabTestConcepts, testOrder.concept.uuid) !== -1;
+                    return inTab && !$scope.isTestUnavailable(testOrder.concept || testOrder);
                 });
+
+                if ($scope.consultation && $scope.consultation.orders) {
+                    $scope.consultation.orders.forEach(function (order) {
+                        if (order && !order.isDiscontinued && $scope.isTestUnavailable(order.concept || order)) {
+                            var ordUuid = order.concept ? order.concept.uuid : order.uuid;
+                            var exists = _.some($scope.referralOrders, function (r) {
+                                return r.uuid === ordUuid || (r.concept && r.concept.uuid === ordUuid);
+                            });
+                            if (!exists) {
+                                var resolvedName = $scope.getName(order.concept) || extractTestName(order.concept) || (order.concept ? (order.concept.displayName || order.concept.name) : 'Test');
+                                $scope.referralOrders.push({
+                                    uuid: ordUuid,
+                                    name: resolvedName,
+                                    displayName: resolvedName,
+                                    concept: order.concept || order,
+                                    sample: order.concept || order,
+                                    isUnavailable: true
+                                });
+                            }
+                        }
+                    });
+                }
 
                 _.each($scope.selectedOrders, function (order) {
                     order.isUrgent = order.urgency == "STAT" ? true : order.isUrgent;
@@ -420,9 +476,107 @@ angular.module('bahmni.clinical')
                 return count;
             };
 
-            $scope.isTestUnavailable = function (test) {
-                return !_.isEmpty(_.find(test.names, { conceptNameType: null, name: "$inactive" }));
+            var checkNameForUnavailableKeywords = function (nameStr) {
+                if (!nameStr || typeof nameStr !== 'string') return false;
+                var lower = nameStr.toLowerCase();
+                return lower.indexOf('[inactive]') !== -1 ||
+                       lower.indexOf('[deactive]') !== -1 ||
+                       lower.indexOf('[deactivated]') !== -1 ||
+                       lower.indexOf('[stock out]') !== -1 ||
+                       lower.indexOf('[stockout]') !== -1 ||
+                       lower.indexOf('[out of stock]') !== -1 ||
+                       lower.indexOf('(inactive)') !== -1 ||
+                       lower.indexOf('(deactive)') !== -1 ||
+                       lower.indexOf('(stock out)') !== -1 ||
+                       lower.indexOf('(out of stock)') !== -1;
             };
+
+            var extractTestName = function (test) {
+                if (!test) return '';
+                if (typeof test === 'string') return test;
+                if (test.name) {
+                    if (typeof test.name === 'string') return test.name;
+                    if (test.name.display) return test.name.display;
+                    if (test.name.name) return test.name.name;
+                }
+                if (test.displayName) {
+                    if (typeof test.displayName === 'string') return test.displayName;
+                    if (test.displayName.display) return test.displayName.display;
+                    if (test.displayName.name) return test.displayName.name;
+                }
+                if (test.shortName) {
+                    if (typeof test.shortName === 'string') return test.shortName;
+                    if (test.shortName.display) return test.shortName.display;
+                    if (test.shortName.name) return test.shortName.name;
+                }
+                if (test.display) return test.display;
+                return '';
+            };
+
+            var getStockOutMap = function () {
+                try {
+                    var cached = localStorage.getItem('stockOutTests') || localStorage.getItem('stockStatus');
+                    if (cached) {
+                        var parsed = JSON.parse(cached);
+                        var map = {};
+                        if (Array.isArray(parsed)) {
+                            parsed.forEach(function (item) {
+                                if (typeof item === 'string') map[item.toLowerCase().trim()] = true;
+                                else if (item.testName) map[item.testName.toLowerCase().trim()] = true;
+                                else if (item.name) map[item.name.toLowerCase().trim()] = true;
+                                else if (item.conceptUuid) map[item.conceptUuid] = true;
+                            });
+                        } else if (typeof parsed === 'object') {
+                            Object.keys(parsed).forEach(function (k) {
+                                map[k.toLowerCase().trim()] = true;
+                            });
+                        }
+                        return map;
+                    }
+                } catch (e) {}
+                return {};
+            };
+
+            $scope.isTestUnavailable = function (test) {
+                if (!test) return false;
+                if (test.retired === true || test.retired === 'true') return true;
+                if (test.active === false || test.active === 'false') return true;
+                if (test.isActive === 'N' || test.isActive === 'n' || test.isActive === false) return true;
+                if (test.isAvailable === false || test.isAvailable === 'false') return true;
+                if (test.status && (test.status.toLowerCase() === 'stockout' || test.status.toLowerCase() === 'inactive' || test.status.toLowerCase() === 'deactive')) return true;
+
+                var testNameStr = extractTestName(test);
+                if (checkNameForUnavailableKeywords(testNameStr)) return true;
+
+                var cleanName = testNameStr.toLowerCase().trim();
+                if (cleanName && $scope.openelisInactiveTests && $scope.openelisInactiveTests[cleanName]) {
+                    return true;
+                }
+
+                if (Array.isArray(test.names)) {
+                    for (var i = 0; i < test.names.length; i++) {
+                        var n = test.names[i];
+                        var nStr = typeof n === 'string' ? n : (n.name || n.display || '');
+                        var nStrTrim = nStr.trim();
+                        if (nStrTrim === '$inactive' || nStrTrim === '$stockout' || checkNameForUnavailableKeywords(nStrTrim)) {
+                            return true;
+                        }
+                        var nLower = nStrTrim.toLowerCase();
+                        if (nLower && $scope.openelisInactiveTests && $scope.openelisInactiveTests[nLower]) {
+                            return true;
+                        }
+                    }
+                }
+
+                var stockOutMap = getStockOutMap();
+                if (cleanName && stockOutMap[cleanName]) return true;
+                if (test.uuid && stockOutMap[test.uuid]) return true;
+                if (test.uuid && $scope.openelisInactiveTests && $scope.openelisInactiveTests[test.uuid]) return true;
+
+                return false;
+            };
+
+            $scope.isTestInactive = $scope.isTestUnavailable;
 
             $scope.hasUnavailableTests = function () {
                 var template = $scope.getOrderTemplate($scope.activeTab.name);
@@ -432,6 +586,173 @@ angular.module('bahmni.clinical')
                         return $scope.isTestUnavailable(test);
                     });
                 });
+            };
+
+            $scope.hasUnavailableSelectedOrders = function () {
+                if ($scope.referralOrders && $scope.referralOrders.length > 0) return true;
+                return _.some($scope.selectedOrders, function (order) {
+                    var testObj = order.concept || order;
+                    return $scope.isTestUnavailable(testObj);
+                });
+            };
+
+            $scope.printStockOutNotice = function (specificOrder) {
+                var testsToPrint = [];
+                if (specificOrder) {
+                    var sName = extractTestName(specificOrder.concept || specificOrder);
+                    testsToPrint.push({
+                        name: sName || 'Unknown Test',
+                        sampleType: specificOrder.sampleType || specificOrder.sectionName || 'Laboratory'
+                    });
+                } else if ($scope.referralOrders && $scope.referralOrders.length > 0) {
+                    testsToPrint = _.map($scope.referralOrders, function (order) {
+                        return {
+                            name: order.name || extractTestName(order.concept || order) || 'Unknown Test',
+                            sampleType: order.sampleType || 'Laboratory'
+                        };
+                    });
+                } else {
+                    var unavail = _.filter($scope.selectedOrders, function (order) {
+                        return $scope.isTestUnavailable(order.concept || order);
+                    });
+                    if (unavail.length === 0) {
+                        unavail = $scope.selectedOrders;
+                    }
+                    testsToPrint = _.map(unavail, function (order) {
+                        var name = extractTestName(order.concept || order);
+                        return {
+                            name: name || 'Unknown Test',
+                            sampleType: order.sampleType || order.sectionName || 'Laboratory'
+                        };
+                    });
+                }
+
+                if (testsToPrint.length === 0) {
+                    alert("No tests selected for Stock-Out Notice.");
+                    return;
+                }
+
+                var patient = $scope.patient || ($rootScope && $rootScope.patient) || {};
+                var patientName = patient.name || ((patient.givenName || '') + ' ' + (patient.familyName || '')).trim() || 'Patient';
+                var patientId = patient.identifier || '';
+                var patientAge = patient.age || '';
+                var patientGender = patient.gender || '';
+
+                var user = ($rootScope && $rootScope.currentUser) || $scope.currentUser;
+                var clinicianName = '';
+                if (user) {
+                    if (user.provider && user.provider.display) clinicianName = user.provider.display.replace(/\s*-\s*\d+$/, '').trim();
+                    else if (user.provider && user.provider.name) clinicianName = user.provider.name;
+                    else clinicianName = user.username || '';
+                }
+                if (!clinicianName && $rootScope && $rootScope.currentProvider && $rootScope.currentProvider.display) {
+                    clinicianName = $rootScope.currentProvider.display.replace(/\s*-\s*\d+$/, '').trim();
+                }
+
+                var now = new Date();
+                var dateStr = now.toLocaleDateString() + ' ' + now.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                var noticeNo = 'SO-' + now.getFullYear() + ('0' + (now.getMonth() + 1)).slice(-2) + ('0' + now.getDate()).slice(-2) + '-' + Math.floor(1000 + Math.random() * 9000);
+
+                var printWin = window.open('', '_blank', 'width=800,height=700');
+                if (!printWin) {
+                    alert("Please allow popups to print the Stock-Out Notice.");
+                    return;
+                }
+
+                var html = '<!DOCTYPE html><html><head><meta charset="utf-8">';
+                html += '<title>Laboratory Reagent Stock-Out Notice - Boru Meda Hospital</title>';
+                html += '<style>';
+                html += 'body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; margin: 30px; font-size: 13px; color: #222; }';
+                html += '.header { text-align: center; border-bottom: 2px solid #2c3e50; padding-bottom: 12px; margin-bottom: 16px; }';
+                html += '.header h1 { margin: 0; font-size: 18px; color: #1e3a8a; text-transform: uppercase; letter-spacing: 0.5px; }';
+                html += '.header h2 { margin: 4px 0 0 0; font-size: 14px; color: #dc2626; font-weight: bold; }';
+                html += '.meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 16px; margin: 16px 0; background: #f8fafc; border: 1px solid #e2e8f0; padding: 12px; border-radius: 4px; }';
+                html += '.meta-item { display: flex; gap: 8px; font-size: 12px; }';
+                html += '.meta-label { font-weight: bold; color: #475569; min-width: 110px; }';
+                html += '.meta-val { color: #0f172a; font-weight: 500; }';
+                html += 'table { width: 100%; border-collapse: collapse; margin: 16px 0; }';
+                html += 'th, td { border: 1px solid #cbd5e1; padding: 8px 10px; font-size: 12px; text-align: left; }';
+                html += 'th { background: #f1f5f9; color: #1e293b; font-weight: bold; }';
+                html += '.badge-so { background: #fee2e2; color: #b91c1c; font-weight: bold; padding: 2px 6px; border-radius: 3px; font-size: 11px; display: inline-block; }';
+                html += '.notice-box { border: 1px solid #f87171; background: #fff1f2; border-radius: 4px; padding: 12px; margin: 16px 0; }';
+                html += '.notice-box h4 { margin: 0 0 6px 0; color: #991b1b; font-size: 12px; text-transform: uppercase; }';
+                html += '.notice-box ol { margin: 0; padding-left: 20px; font-size: 12px; color: #7f1d1d; }';
+                html += '.sig-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-top: 50px; }';
+                html += '.sig-box { border-top: 1px solid #000; padding-top: 6px; text-align: center; font-size: 11px; }';
+                html += '.footer { text-align: center; font-size: 10px; color: #64748b; margin-top: 30px; border-top: 1px dashed #cbd5e1; padding-top: 8px; }';
+                html += '@media print { body { margin: 15mm; } .no-print { display: none; } }';
+                html += '</style></head><body>';
+
+                html += '<div class="header">';
+                html += '<h1>Boru Meda General Hospital</h1>';
+                html += '<div style="font-size:12px;color:#475569;margin-top:2px;">Laboratory & Diagnostic Services Department</div>';
+                html += '<h2>LABORATORY REAGENT STOCK-OUT NOTICE</h2>';
+                html += '</div>';
+
+                html += '<div class="meta-grid">';
+                html += '<div class="meta-item"><span class="meta-label">Notice Ref:</span><span class="meta-val">' + noticeNo + '</span></div>';
+                html += '<div class="meta-item"><span class="meta-label">Date & Time:</span><span class="meta-val">' + dateStr + '</span></div>';
+                html += '<div class="meta-item"><span class="meta-label">Patient Name:</span><span class="meta-val">' + patientName + '</span></div>';
+                html += '<div class="meta-item"><span class="meta-label">Patient ID (MRN):</span><span class="meta-val">' + (patientId || 'N/A') + '</span></div>';
+                if (patientAge || patientGender) {
+                    html += '<div class="meta-item"><span class="meta-label">Age / Gender:</span><span class="meta-val">' + (patientAge ? patientAge + ' yrs' : '') + (patientGender ? ' / ' + patientGender : '') + '</span></div>';
+                }
+                if (clinicianName) {
+                    html += '<div class="meta-item"><span class="meta-label">Ordering Clinician:</span><span class="meta-val">' + clinicianName + '</span></div>';
+                }
+                html += '</div>';
+
+                html += '<h3 style="font-size:13px;color:#1e293b;margin:12px 0 6px 0;">Affected Unperformed Test(s)</h3>';
+                html += '<table>';
+                html += '<thead><tr><th style="width:35px;">#</th><th>Test Name</th><th>Category / Section</th><th>Reason</th><th>Status</th></tr></thead>';
+                html += '<tbody>';
+                testsToPrint.forEach(function (t, idx) {
+                    html += '<tr>';
+                    html += '<td>' + (idx + 1) + '</td>';
+                    html += '<td><strong>' + t.name + '</strong></td>';
+                    html += '<td>' + t.sampleType + '</td>';
+                    html += '<td>Reagent Stock Out / Consumables Depleted</td>';
+                    html += '<td><span class="badge-so">STOCK-OUT</span></td>';
+                    html += '</tr>';
+                });
+                html += '</tbody></table>';
+
+                html += '<div class="notice-box">';
+                html += '<h4>Clinical Instructions & Next Steps</h4>';
+                html += '<ol>';
+                html += '<li>The requested test(s) listed above could not be processed due to temporary reagent/cartridge stock-out.</li>';
+                html += '<li>The patient is advised to consult their attending clinician for alternative diagnostic evaluation or referral.</li>';
+                html += '<li>Billing has been marked non-billable / void for the affected tests.</li>';
+                html += '</ol>';
+                html += '</div>';
+
+                html += '<div class="sig-grid">';
+                html += '<div class="sig-box"><p style="margin:0;font-weight:bold;">Ordering Clinician / Laboratory Officer</p><p style="margin:4px 0 0 0;color:#64748b;">Signature & Stamp</p></div>';
+                html += '<div class="sig-box"><p style="margin:0;font-weight:bold;">Patient / Guardian</p><p style="margin:4px 0 0 0;color:#64748b;">Signature / Acknowledgement</p></div>';
+                html += '</div>';
+
+                html += '<div class="footer">';
+                html += 'Boru Meda General Hospital &bull; Electronic Medical Record System &bull; Generated on ' + dateStr;
+                html += '</div>';
+
+                html += '<div class="no-print" style="margin-top:20px;text-align:center;">';
+                html += '<button onclick="window.print()" style="padding:8px 20px;font-size:14px;background:#1e3a8a;color:#fff;border:none;border-radius:4px;cursor:pointer;font-weight:bold;margin-right:10px;">Print Notice</button>';
+                html += '<button onclick="window.close()" style="padding:8px 20px;font-size:14px;background:#64748b;color:#fff;border:none;border-radius:4px;cursor:pointer;">Close</button>';
+                html += '</div>';
+
+                html += '</body></html>';
+
+                printWin.document.open();
+                printWin.document.write(html);
+                printWin.document.close();
+                printWin.focus();
+                setTimeout(function () {
+                    try {
+                        printWin.print();
+                    } catch (e) {
+                        console.error("Print error:", e);
+                    }
+                }, 500);
             };
 
             var buildAllCategories = function () {
@@ -453,6 +774,41 @@ angular.module('bahmni.clinical')
 
             $scope.toggleOrderSelection = function (test) {
                 $scope.resetSearchString();
+                if ($scope.isTestUnavailable(test)) {
+                    var idx = _.findIndex($scope.referralOrders, function (r) {
+                        return r.uuid === test.uuid || (r.concept && r.concept.uuid === test.uuid);
+                    });
+                    var resolvedName = $scope.getName(test) || extractTestName(test) || "Test";
+                    if (idx === -1) {
+                        $scope.referralOrders.push({
+                            uuid: test.uuid,
+                            name: resolvedName,
+                            displayName: resolvedName,
+                            concept: test,
+                            sample: test,
+                            isUnavailable: true
+                        });
+                        createOrder(test);
+                        var ord = _.find($scope.consultation.orders, function (o) {
+                            return o.concept && o.concept.uuid === test.uuid;
+                        });
+                        if (ord) {
+                            ord.isUnavailable = true;
+                            ord.hasBeenModified = true;
+                            ord.commentToFulfiller = '[Stock-Out: Reagent Unavailable]';
+                            if (ord.concept) {
+                                ord.concept.name = ord.concept.name || resolvedName;
+                                ord.concept.displayName = ord.concept.displayName || resolvedName;
+                            }
+                        }
+                    } else {
+                        $scope.referralOrders.splice(idx, 1);
+                        removeOrder(test.uuid);
+                    }
+                    $scope.updateSelectedOrdersForActiveTab();
+                    return;
+                }
+
                 var orderPresent = $scope.isActiveOrderPresent(test);
                 if (!orderPresent) {
                     createOrder(test);
@@ -463,6 +819,8 @@ angular.module('bahmni.clinical')
                     removeOrder(test.uuid);
                 }
             };
+
+            $scope.printOutsideReferralSlip = $scope.printStockOutNotice;
 
             $scope.toggleAutomaticOrderSelection = function (test) {
                 $scope.resetSearchString();
@@ -628,29 +986,29 @@ angular.module('bahmni.clinical')
             var sentSamples = [];
 
             $scope.getName = function (sample) {
-                $scope.testColor = {};
+                if (!sample) return '';
                 var name = _.find(sample.names, { conceptNameType: "SHORT" }) || _.find(sample.names, { conceptNameType: "FULLY_SPECIFIED" });
-                var availability = _.isEmpty(_.find(sample.names, { conceptNameType: null, name: "$inactive" })) ? name : _.find(sample.names, { conceptNameType: null, name: "$inactive" });
-                if (name.name != availability.name) {
-                    $scope.testColor.style = { "color": "red" };
-                }
+                var nameStr = (name && name.name) ? name.name : (sample.name ? (sample.name.display || sample.name.name || sample.name) : (sample.displayName || ''));
+
                 // Check if the sample has already been sent
                 if (sentSamples.includes(sample)) {
-                    return name && name.name;
+                    return nameStr;
                 }
                 var createOrderCalled = false;
-                var remove = false; // Flag to determine if the order should be removed
+                var remove = false;
 
-                sample.names.forEach(test => {
-                    if (test.conceptNameType === "FULLY_SPECIFIED" && orderableTests.includes(test.name)) {
-                        $scope.toggleAutomaticOrderSelection(sample);
-                        createOrderCalled = true;
-                    }
-                });
+                if (Array.isArray(sample.names)) {
+                    sample.names.forEach(function (test) {
+                        if (test.conceptNameType === "FULLY_SPECIFIED" && orderableTests.includes(test.name)) {
+                            $scope.toggleAutomaticOrderSelection(sample);
+                            createOrderCalled = true;
+                        }
+                    });
+                }
 
-                if (!createOrderCalled) {
-                    $scope.consultation.orders.forEach(order => {
-                        if (order.automatic === true && order.concept.uuid === sample.uuid) {
+                if (!createOrderCalled && $scope.consultation && $scope.consultation.orders) {
+                    $scope.consultation.orders.forEach(function (order) {
+                        if (order.automatic === true && order.concept && order.concept.uuid === sample.uuid) {
                             remove = true;
                         }
                     });
@@ -660,17 +1018,23 @@ angular.module('bahmni.clinical')
                     }
                 }
 
-                // If createOrder has been called for this sample or the order wasn't removed, add it to the sentSamples array
                 if (createOrderCalled) {
                     sentSamples.push(sample);
                 }
 
-                return name && name.name;
+                return nameStr;
+            };
+
+            $scope.getTestColor = function (test) {
+                if ($scope.isTestUnavailable(test)) {
+                    return { "color": "#c0392b", "font-weight": "bold" };
+                }
+                return {};
             };
 
             $scope.getNameInDefaultLocale = function (sample) {
                 var name = _.find(sample.names, { conceptNameType: "FULLY_SPECIFIED", locale: localStorage.getItem("openmrsDefaultLocale") || "en" });
-                return name ? name.name : sample.name.name;
+                return name ? name.name : (sample.name ? (sample.name.name || sample.name.display || sample.name) : (sample.displayName || ''));
             };
 
             init();

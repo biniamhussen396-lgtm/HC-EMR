@@ -448,9 +448,49 @@ angular.module('bahmni.registration')
             });
         };
 
+        var returnPrescriptionWithDtp = function (prescription, dtpData, patientUuid, config) {
+            var formattedDate = getFormattedDate();
+            var dtpConcept = (config && config.dtp_concept) || "07d93800-d822-4229-996c-2fd05091563e";
+            var stateConcept = (config && config.prescription_state_concept) || "97a9b0ad-ca27-44bb-96c8-fc0502ce09e6";
+
+            var formattedDtpText = "[DTP - " + (dtpData.category || "General") + "] " +
+                "Problem: " + (dtpData.problem || "").trim() + " | " +
+                "Recommendation: " + (dtpData.recommendation || "").trim() + " | " +
+                "Priority: " + (dtpData.priority || "Urgent") +
+                (dtpData.reportedBy ? (" | Reported by: " + dtpData.reportedBy) : "");
+
+            var obsData = [
+                {
+                    person: patientUuid,
+                    concept: dtpConcept,
+                    order: prescription.uuid,
+                    obsDatetime: formattedDate,
+                    value: formattedDtpText
+                },
+                {
+                    person: patientUuid,
+                    concept: stateConcept,
+                    order: prescription.uuid,
+                    obsDatetime: formattedDate,
+                    value: "RETURNED_DTP"
+                }
+            ];
+
+            return deletePrescriptionObservations(prescription.uuid, obsData).then(function () {
+                messagingService.showMessage('info', "Prescription successfully returned to prescriber with DTP.");
+                return formattedDtpText;
+            }).catch(function (err) {
+                console.error("Error returning prescription with DTP:", err);
+                messagingService.showMessage('error', "Failed to return prescription with DTP.");
+                throw err;
+            });
+        };
+
         return {
             getDrugPrescriptions: getDrugPrescriptions,
             handlePrescriptionAction: handlePrescriptionAction,
-            getAllPrescribedPatients: getAllPrescribedPatients
+            getAllPrescribedPatients: getAllPrescribedPatients,
+            returnPrescriptionWithDtp: returnPrescriptionWithDtp,
+            postPrescriptionObs: postPrescriptionObs
         };
     }]);

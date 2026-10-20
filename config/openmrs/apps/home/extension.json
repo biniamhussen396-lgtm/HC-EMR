@@ -7,7 +7,7 @@
     "url": "../registration/index.html#/patient/triagePatient",
     "icon": "fa-ambulance",
     "order": 1,
-    "requiredPrivilege": "app:triage"
+    "requiredPrivilege": "app:registration"
   },
   "registration": {
     "id": "bahmni.registration",
@@ -17,7 +17,7 @@
     "url": "../registration/index.html",
     "icon": "fa-user",
     "order": 1,
-    "requiredPrivilege": "app:registrationApp"
+    "requiredPrivilege": "app:registration"
   },
   "programs": {
     "id": "bahmni.programs",
@@ -47,7 +47,7 @@
     "url": "../adt/",
     "icon": "icon-bahmni-inpatient",
     "order": 4,
-    "requiredPrivilege": "app:adtApp"
+    "requiredPrivilege": "app:adt"
   },
 
     "bahmniIpd": {

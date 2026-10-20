@@ -1,9 +1,11 @@
 <style>
-.order-list{max-height:calc(100vh - 140px);overflow:hidden;display:flex;flex-direction:column}
+.order-list{height:calc(100vh - 110px);max-height:calc(100vh - 110px);overflow:hidden;display:flex;flex-direction:column}
+.order-list > div{display:flex;flex-direction:column;flex:1;min-height:0;height:100%}
 .order-list .clearfix::after{display:none}
+.order-list div[ng-repeat]{display:flex;flex-direction:column;flex:1;min-height:0;height:100%}
 .order-list .order-grid{flex-shrink:0}
-.order-list .dashboard-section{flex:1;min-height:0;overflow:hidden}
-.order-list .dashboard-section-wrapper{height:100%;overflow:hidden}
+.order-list .dashboard-section{flex:1;min-height:0;height:100%;overflow:hidden;display:flex;flex-direction:column}
+.order-list .dashboard-section-wrapper{flex:1;min-height:0;height:100%;overflow:hidden;display:flex;flex-direction:column}
 </style>
 <div class="order-list" alert-on-exit>
     <div ng-class="{'disableOrdersInRetroMode':isRetrospectiveMode()}">

@@ -59,7 +59,10 @@ angular.module('httpErrorInterceptor', [])
                     }
                 } else if (response.status === 404) {
                     if (!_.includes(response.config.url, "implementation_config") && !_.includes(response.config.url, "locale_") &&
-                        !_.includes(response.config.url, "offlineMetadata") && !_.includes(response.config.url, "speciality")) {
+                        !_.includes(response.config.url, "offlineMetadata") && !_.includes(response.config.url, "speciality") &&
+                        !_.includes(response.config.url, "inactiveTests") &&
+                        !_.includes(response.config.url, "LabLocationList") &&
+                        !_.includes(response.config.url, "labLocationList")) {
                         showError("The requested information does not exist");
                     }
                 }

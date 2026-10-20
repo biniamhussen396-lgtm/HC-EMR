@@ -450,7 +450,14 @@
                                         style="width:70px;" />
                                 </td>
                                 <td>
-                                    <span class="rx-status-badge" ng-class="{
+                                    <span ng-if="prescription.status === 'RETURNED_DTP' || prescription.dtp"
+                                        class="rx-status-badge"
+                                        style="background-color: #c0392b; color: white; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; padding: 2px 6px; font-weight: bold; border-radius: 3px;"
+                                        title="Drug Therapy Problem flagged. Click to view clinical details."
+                                        ng-click="viewDtpDetails(prescription)">
+                                        <i class="fa fa-exclamation-triangle"></i> RETURNED (DTP)
+                                    </span>
+                                    <span ng-if="prescription.status !== 'RETURNED_DTP' && !prescription.dtp" class="rx-status-badge" ng-class="{
                                         'rx-status-issued': prescription.status === 'ISSUED',
                                         'rx-status-dispensed': prescription.status === 'DISPENSED',
                                         'rx-status-discarded': prescription.status === 'DISCARDED',
@@ -462,7 +469,7 @@
                                 </td>
                                 <td style="text-align:center;">
                                     <input type="checkbox" class="rx-checkbox" ng-model="prescription.evaluated"
-                                        ng-disabled="prescription.pre_evaluated || !evaluatePrev" />
+                                        ng-disabled="prescription.pre_evaluated || !evaluatePrev || prescription.status === 'RETURNED_DTP'" />
                                 </td>
                                 <td style="text-align:center;">
                                     <span ng-if="rx_config.enforce_odoo_payment_confirmation" class="rx-status-badge" ng-class="{
@@ -474,21 +481,38 @@
                                     </span>
                                     <input ng-if="!rx_config.enforce_odoo_payment_confirmation" type="checkbox" class="rx-checkbox"
                                         ng-model="prescription.paymentStatus"
-                                        ng-disabled="!prescription.receiptNumber || prescription.pre_paid || !paymentPrev" />
+                                        ng-disabled="!prescription.receiptNumber || prescription.pre_paid || !paymentPrev || prescription.status === 'RETURNED_DTP'" />
                                 </td>
                                 <td style="text-align:center;">
                                     <input type="checkbox" class="rx-checkbox" ng-model="prescription.counseled"
-                                        ng-disabled="prescription.status == 'DISPENSED' || prescription.status == 'DISCARDED' || prescription.status == 'STOCKED OUT' || !prescription.paymentStatus" />
+                                        ng-disabled="prescription.status == 'DISPENSED' || prescription.status == 'DISCARDED' || prescription.status == 'STOCKED OUT' || prescription.status == 'RETURNED_DTP' || !prescription.paymentStatus" />
                                 </td>
                                 <td>
-                                    <select class="rx-select" ng-model="selectedAction"
-                                        ng-disabled="prescription.status == 'DISPENSED' || prescription.status == 'DISCARDED' || prescription.status == 'STOCKED OUT'"
-                                        ng-change="handlePrescriptionAction(selectedAction, prescription)">
-                                        <option value="">--Action--</option>
-                                        <option ng-repeat="state in allowedRxActions" value="{{state.label | lowercase}}">
-                                            {{state.label}}
-                                        </option>
-                                    </select>
+                                    <div style="display:flex;align-items:center;gap:3px;">
+                                        <select class="rx-select" ng-model="selectedAction"
+                                            ng-disabled="prescription.status == 'DISPENSED' || prescription.status == 'DISCARDED' || prescription.status == 'STOCKED OUT' || prescription.status == 'RETURNED_DTP'"
+                                            ng-change="handlePrescriptionAction(selectedAction, prescription)">
+                                            <option value="">--Action--</option>
+                                            <option value="dtp" style="color: #c0392b; font-weight: bold;">⚠️ DTP / Return</option>
+                                            <option ng-repeat="state in allowedRxActions" value="{{state.label | lowercase}}">
+                                                {{state.label}}
+                                            </option>
+                                        </select>
+                                        <button type="button" class="rx-btn rx-btn-sm"
+                                            title="Flag Drug Therapy Problem (DTP) & Return to Prescriber"
+                                            style="background-color: #e74c3c; color: white; padding: 2px 6px; font-size: 11px; font-weight: bold; border-radius: 3px;"
+                                            ng-if="prescription.status !== 'DISPENSED' && prescription.status !== 'DISCARDED' && prescription.status !== 'RETURNED_DTP'"
+                                            ng-click="openDtpModal(prescription)">
+                                            <i class="fa fa-reply"></i> DTP
+                                        </button>
+                                        <button type="button" class="rx-btn rx-btn-sm"
+                                            title="View DTP Clinical Details"
+                                            style="background-color: #3182ce; color: white; padding: 2px 6px; font-size: 11px;"
+                                            ng-if="prescription.status === 'RETURNED_DTP' || prescription.dtp"
+                                            ng-click="viewDtpDetails(prescription)">
+                                            <i class="fa fa-info-circle"></i> View DTP
+                                        </button>
+                                    </div>
                                 </td>
                                 <td style="white-space:nowrap;">
                                     <button class="rx-btn rx-btn-primary rx-btn-sm" ng-click="printPrescription(prescription, selectedAction)">
@@ -714,4 +738,149 @@
     </div>
 </body>
 </html>
+</script>
+
+<!-- DTP Modal Template -->
+<script type="text/ng-template" id="views/dtpModal.html">
+<div class="dtp-modal-content" style="padding: 15px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+    <div style="background: linear-gradient(135deg, #c0392b, #e74c3c); color: white; padding: 12px 16px; border-radius: 6px; margin-bottom: 15px; display: flex; align-items: center; justify-content: space-between;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+            <i class="fa fa-exclamation-triangle" style="font-size: 22px;"></i>
+            <div>
+                <h3 style="margin: 0; font-size: 16px; font-weight: 600;">Drug Therapy Problem (DTP)</h3>
+                <small style="opacity: 0.9; font-size: 12px;">Flag clinical issue and return prescription to prescriber</small>
+            </div>
+        </div>
+        <button type="button" ng-click="closeDtpModal()" style="background: transparent; border: none; color: white; font-size: 18px; cursor: pointer;">&times;</button>
+    </div>
+
+    <!-- Patient & Prescription Summary Banner -->
+    <div style="background: #f8f9fa; border: 1px solid #e2e8f0; border-left: 4px solid #3182ce; border-radius: 4px; padding: 10px 14px; margin-bottom: 15px; font-size: 12px; line-height: 1.6;">
+        <div style="display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px;">
+            <div>
+                <strong>Prescription:</strong> <span style="color: #2b6cb0; font-weight: 600;">{{ dtpTargetPrescription.drug_name || dtpTargetPrescription.non_coded_drug_name }}</span> ({{ dtpTargetPrescription.strength || '---' }})
+                &bull; {{ dtpTargetPrescription.dose }} {{ dtpTargetPrescription.dose_units }} &bull; {{ dtpTargetPrescription.route }} &bull; {{ dtpTargetPrescription.frequency }} &bull; {{ dtpTargetPrescription.duration }} {{ dtpTargetPrescription.duration_units }}
+            </div>
+            <div>
+                <strong>Prescriber:</strong> <span style="color: #4a5568;">{{ dtpTargetPrescription.prescriber || 'Prescriber' }}</span>
+            </div>
+        </div>
+        <div style="margin-top: 6px; padding-top: 6px; border-top: 1px dashed #cbd5e0; color: #4a5568; display: flex; gap: 14px; flex-wrap: wrap;">
+            <span><strong>Patient:</strong> {{ patient.name }} ({{ patient.identifier }})</span>
+            <span><strong>Dx:</strong> <span style="color: #d69e2e; font-weight: 600;">{{ hxForRx.diagnosis || 'None recorded' }}</span></span>
+            <span><strong>Vitals:</strong> BP: {{ hxForRx.bp_systolic && hxForRx.bp_diastolic ? (hxForRx.bp_systolic + '/' + hxForRx.bp_diastolic) : '---' }} | Pulse: {{ hxForRx.pulse || '---' }} | Temp: {{ hxForRx.temperature || '---' }}</span>
+        </div>
+    </div>
+
+    <!-- DTP Form -->
+    <form name="dtpFormControls" ng-submit="submitDtp()" style="display: flex; flex-direction: column; gap: 12px; font-size: 13px;">
+        <!-- Category -->
+        <div>
+            <label style="display: block; font-weight: 600; color: #2d3748; margin-bottom: 4px;">
+                Standard DTP Classification <span style="color: #e53e3e;">*</span>:
+            </label>
+            <select ng-model="dtpForm.category" required style="width: 100%; padding: 8px 10px; border: 1px solid #cbd5e0; border-radius: 4px; font-size: 13px; background: white; outline: none;">
+                <option value="">-- Select Standard DTP Category (PCNE / Cipolle Classification) --</option>
+                <option ng-repeat="cat in standardDtpCategories" value="{{cat.label}}">
+                    {{cat.label}} — {{cat.description}}
+                </option>
+            </select>
+        </div>
+
+        <!-- Priority / Urgency -->
+        <div>
+            <label style="display: block; font-weight: 600; color: #2d3748; margin-bottom: 4px;">Priority / Urgency:</label>
+            <div style="display: flex; gap: 20px; align-items: center; padding: 4px 0;">
+                <label style="cursor: pointer; display: flex; align-items: center; gap: 6px; color: #c53030; font-weight: 600;">
+                    <input type="radio" ng-model="dtpForm.priority" value="Urgent (Hold Rx)" style="cursor: pointer;" />
+                    <span>⚠️ Urgent (Hold Rx - Prescription Not Dispensed)</span>
+                </label>
+                <label style="cursor: pointer; display: flex; align-items: center; gap: 6px; color: #4a5568;">
+                    <input type="radio" ng-model="dtpForm.priority" value="Routine (Prescriber Review)" style="cursor: pointer;" />
+                    <span>Routine (Prescriber Review & Guidance)</span>
+                </label>
+            </div>
+        </div>
+
+        <!-- Problem Details -->
+        <div>
+            <label style="display: block; font-weight: 600; color: #2d3748; margin-bottom: 4px;">
+                Identified Drug Therapy Problem <span style="color: #e53e3e;">*</span>:
+            </label>
+            <textarea ng-model="dtpForm.problem" required rows="3"
+                placeholder="Describe the clinical issue clearly (e.g. Indication missing for Typhus fever diagnosis, contraindication, dose too high/low, interaction with current medications, inappropriate route/formulation)..."
+                style="width: 100%; box-sizing: border-box; padding: 8px 10px; border: 1px solid #cbd5e0; border-radius: 4px; font-size: 13px; font-family: inherit; resize: vertical; outline: none;"></textarea>
+        </div>
+
+        <!-- Pharmacist Recommendation -->
+        <div>
+            <label style="display: block; font-weight: 600; color: #2d3748; margin-bottom: 4px;">
+                Pharmacist Clinical Recommendation <span style="color: #e53e3e;">*</span>:
+            </label>
+            <textarea ng-model="dtpForm.recommendation" required rows="3"
+                placeholder="Specify proposed action for the prescriber (e.g. Recommend discontinuing Ceftriaxone and ordering Doxycycline 100mg PO BID x 7d; adjust dose to 500mg daily; re-evaluate renal function)..."
+                style="width: 100%; box-sizing: border-box; padding: 8px 10px; border: 1px solid #cbd5e0; border-radius: 4px; font-size: 13px; font-family: inherit; resize: vertical; outline: none;"></textarea>
+        </div>
+
+        <!-- Notification Note -->
+        <div style="background: #fffaf0; border: 1px solid #feebc8; border-radius: 4px; padding: 8px 12px; font-size: 11px; color: #7b341e; display: flex; align-items: center; gap: 8px;">
+            <i class="fa fa-info-circle" style="font-size: 14px;"></i>
+            <span>Submitting will mark the order as <b>RETURNED (DTP)</b>, remove pending billing records, and send a high-priority alert to the prescriber's <b>Clinical DTP Tab</b> to fix and resend.</span>
+        </div>
+
+        <!-- Action Buttons -->
+        <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 10px; padding-top: 10px; border-top: 1px solid #e2e8f0;">
+            <button type="button" ng-click="closeDtpModal()"
+                style="padding: 8px 16px; background: #edf2f7; color: #4a5568; border: 1px solid #cbd5e0; border-radius: 4px; font-weight: 600; cursor: pointer;">
+                Cancel
+            </button>
+            <button type="submit" ng-disabled="dtpSubmitting"
+                style="padding: 8px 18px; background: #e53e3e; color: white; border: none; border-radius: 4px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px; box-shadow: 0 2px 4px rgba(229, 62, 62, 0.3);">
+                <i class="fa fa-paper-plane"></i>
+                <span ng-if="!dtpSubmitting">Return to Prescriber with DTP</span>
+                <span ng-if="dtpSubmitting">Submitting DTP...</span>
+            </button>
+        </div>
+    </form>
+</div>
+</script>
+
+<!-- DTP View Modal Template -->
+<script type="text/ng-template" id="views/dtpViewModal.html">
+<div class="dtp-modal-content" style="padding: 16px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+    <div style="background: linear-gradient(135deg, #2b6cb0, #3182ce); color: white; padding: 12px 16px; border-radius: 6px; margin-bottom: 15px; display: flex; align-items: center; justify-content: space-between;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+            <i class="fa fa-info-circle" style="font-size: 22px;"></i>
+            <div>
+                <h3 style="margin: 0; font-size: 16px; font-weight: 600;">Drug Therapy Problem (DTP) Details</h3>
+                <small style="opacity: 0.9; font-size: 12px;">Flagged issue and clinical recommendation</small>
+            </div>
+        </div>
+        <button type="button" ng-click="closeDtpModal()" style="background: transparent; border: none; color: white; font-size: 18px; cursor: pointer;">&times;</button>
+    </div>
+
+    <div style="background: #fff5f5; border: 1px solid #fed7d7; border-left: 4px solid #e53e3e; border-radius: 4px; padding: 12px 14px; margin-bottom: 15px; font-size: 13px; line-height: 1.6;">
+        <div style="margin-bottom: 8px;">
+            <strong>Prescription:</strong> <span style="color: #2b6cb0; font-weight: 600;">{{ dtpViewPrescription.drug_name || dtpViewPrescription.non_coded_drug_name }}</span> ({{ dtpViewPrescription.strength || '---' }})
+            &bull; {{ dtpViewPrescription.dose }} {{ dtpViewPrescription.dose_units }} &bull; {{ dtpViewPrescription.route }} &bull; {{ dtpViewPrescription.frequency }} &bull; {{ dtpViewPrescription.duration }} {{ dtpViewPrescription.duration_units }}
+        </div>
+        <div style="color: #4a5568; font-size: 12px;">
+            <strong>Prescriber:</strong> {{ dtpViewPrescription.prescriber || 'Prescriber' }}
+        </div>
+    </div>
+
+    <div style="background: #f7fafc; border: 1px solid #e2e8f0; border-radius: 4px; padding: 14px; margin-bottom: 15px; font-size: 13px;">
+        <label style="display: block; font-weight: 600; color: #2d3748; margin-bottom: 6px;">DTP Record & Clinical Notes:</label>
+        <div style="background: white; border: 1px solid #cbd5e0; border-radius: 4px; padding: 12px; white-space: pre-wrap; font-family: monospace; font-size: 13px; color: #2d3748; line-height: 1.6;">
+{{ dtpViewPrescription.dtp || 'No DTP details recorded.' }}
+        </div>
+    </div>
+
+    <div style="display: flex; justify-content: flex-end;">
+        <button type="button" ng-click="closeDtpModal()"
+            style="padding: 8px 18px; background: #3182ce; color: white; border: none; border-radius: 4px; font-weight: 600; cursor: pointer;">
+            Close
+        </button>
+    </div>
+</div>
 </script>

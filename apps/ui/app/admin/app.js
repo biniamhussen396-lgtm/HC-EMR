@@ -62,6 +62,13 @@ angular.module('admin')
                 data: {
                     backLinks: [{label: "Home", state: "admin.dashboard", icon: "fa-home"}]
                 }
+            }).state('admin.backupRestore', {
+                url: '/backupRestore',
+                templateUrl: 'views/backupRestore.html',
+                controller: 'BackupRestoreController',
+                data: {
+                    backLinks: [{label: "Home", state: "admin.dashboard", icon: "fa-home"}]
+                }
             });
             $httpProvider.defaults.headers.common['Disable-WWW-Authenticate'] = true;
             $bahmniTranslateProvider.init({app: 'admin', shouldMerge: true});

@@ -20,7 +20,8 @@
         "pacsOrders",
         "patientInformation",
         "conditionsList",
-        "referralHistory"
+        "referralHistory",
+        "stockOut"
     ];
     var reactDisplayControls = [
         "allergies",

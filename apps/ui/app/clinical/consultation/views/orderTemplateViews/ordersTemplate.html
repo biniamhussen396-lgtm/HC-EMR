@@ -1,10 +1,10 @@
 <style>
 /* ===== ORDER PAGE ENHANCED STYLES ===== */
 .order-page-enhanced *{box-sizing:border-box}
-.order-page-enhanced{overflow:hidden;max-height:calc(100vh - 160px);display:flex;flex-direction:column}
+.order-page-enhanced{display:flex;flex-direction:column;flex:1;min-height:0;height:calc(100vh - 110px);max-height:calc(100vh - 110px);overflow:hidden}
 
 /* Top Bar */
-.order-top-bar{display:flex;align-items:center;gap:16px;padding:10px 16px;background:#fff;border:1px solid #ddd;border-radius:6px;margin-bottom:6px;flex-wrap:wrap;flex-shrink:0}
+.order-top-bar{display:flex;align-items:center;gap:16px;padding:8px 14px;background:#fff;border:1px solid #ddd;border-radius:6px;margin-bottom:6px;flex-wrap:wrap;flex-shrink:0}
 .order-top-bar__location{display:flex;align-items:center;gap:8px}
 .order-top-bar__label{font-weight:600;font-size:13px;color:#333;white-space:nowrap}
 .order-top-bar__label .required{color:#c0392b}
@@ -46,21 +46,21 @@
 .order-legend{padding:5px 16px;font-size:12px;color:#666;background:#fff8f8;border:1px solid #f5d5d5;border-radius:4px;margin-bottom:6px;display:flex;align-items:center;gap:6px;flex-shrink:0}
 .order-legend__red{color:#c0392b;font-weight:700}
 
-/* Main Layout - FIXED: contains everything */
-.order-main{display:flex;gap:12px;flex:1;min-height:0;overflow:hidden}
+/* Main Layout - ALWAYS SIDE-BY-SIDE */
+.order-main{display:flex;flex-direction:row;gap:12px;flex:1;min-height:0;overflow:hidden}
 
 /* Sidebar */
-.order-sidebar{width:260px;min-width:220px;max-width:300px;display:flex;flex-direction:column;gap:8px;flex-shrink:0;overflow:hidden}
+.order-sidebar{width:260px;min-width:230px;max-width:280px;display:flex;flex-direction:column;gap:8px;flex-shrink:0;min-height:0;height:100%;overflow-y:auto;overflow-x:hidden;padding-right:2px}
 
 /* Selected Orders Panel */
 .order-selected-panel{background:#fff;border:1px solid #ddd;border-radius:6px;overflow:hidden;flex-shrink:0}
-.order-selected-panel__header{display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:#486086;color:#fff}
-.order-selected-panel__header h3{margin:0;font-size:13px;font-weight:600}
-.order-badge{background:#fff;color:#486086;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;min-width:20px;text-align:center}
-.order-selected-panel__body{max-height:150px;overflow-y:auto;padding:4px 0}
-.order-empty-msg{text-align:center;color:#999;font-size:12px;padding:15px 10px;line-height:1.6}
+.order-selected-panel__header{display:flex;align-items:center;justify-content:space-between;padding:7px 10px;background:#486086;color:#fff}
+.order-selected-panel__header h3{margin:0;font-size:12px;font-weight:600}
+.order-badge{background:#fff;color:#486086;padding:2px 7px;border-radius:10px;font-size:11px;font-weight:700;min-width:18px;text-align:center}
+.order-selected-panel__body{max-height:120px;overflow-y:auto;padding:3px 0}
+.order-empty-msg{text-align:center;color:#999;font-size:12px;padding:12px 10px;line-height:1.5}
 .order-selected-list{list-style:none;margin:0;padding:0}
-.order-selected-item{display:flex;align-items:center;justify-content:space-between;padding:5px 10px;border-bottom:1px solid #f0f0f0;transition:background .15s}
+.order-selected-item{display:flex;align-items:center;justify-content:space-between;padding:4px 8px;border-bottom:1px solid #f0f0f0;transition:background .15s}
 .order-selected-item:last-child{border-bottom:none}
 .order-selected-item:hover{background:#f5f8fc}
 .order-selected-item.voided .order-selected-item__name{text-decoration:line-through;color:#999}
@@ -80,38 +80,38 @@
 @keyframes pulse-flag{0%,100%{opacity:1}50%{opacity:.5}}
 
 /* Category Sidebar */
-.order-categories{background:#fff;border:1px solid #ddd;border-radius:6px;overflow:hidden;flex:1;min-height:0;display:flex;flex-direction:column}
-.order-categories__header{display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:#3d7474;color:#fff;flex-shrink:0}
-.order-categories__header h3{margin:0;font-size:13px;font-weight:600}
-.order-categories__count{background:rgba(255,255,255,.25);padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700}
+.order-categories{background:#fff;border:1px solid #ddd;border-radius:6px;overflow:hidden;flex:1;min-height:180px;display:flex;flex-direction:column}
+.order-categories__header{display:flex;align-items:center;justify-content:space-between;padding:7px 10px;background:#3d7474;color:#fff;flex-shrink:0}
+.order-categories__header h3{margin:0;font-size:12px;font-weight:600}
+.order-categories__count{background:rgba(255,255,255,.25);padding:2px 7px;border-radius:10px;font-size:11px;font-weight:700}
 .order-category-list{list-style:none;margin:0;padding:0;overflow-y:auto;flex:1;min-height:0}
-.order-category-item{display:flex;align-items:center;justify-content:space-between;padding:7px 12px;cursor:pointer;border-bottom:1px solid #f0f0f0;transition:all .15s;font-size:13px;color:#333}
+.order-category-item{display:flex;align-items:center;justify-content:space-between;padding:6px 10px;cursor:pointer;border-bottom:1px solid #f0f0f0;transition:all .15s;font-size:12px;color:#333}
 .order-category-item:hover{background:#e8f4f4}
 .order-category-item.active{background:#3d7474;color:#fff}
 .order-category-item__name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .order-category-item__count{font-size:11px;padding:1px 6px;border-radius:8px;background:rgba(0,0,0,.08);min-width:18px;text-align:center}
 .order-category-item.active .order-category-item__count{background:rgba(255,255,255,.25)}
-.order-categories__toggle{width:100%;padding:5px;font-size:12px;border:none;background:#f0f4f4;color:#3d7474;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px;border-top:1px solid #ddd;flex-shrink:0}
+.order-categories__toggle{width:100%;padding:4px;font-size:11px;border:none;background:#f0f4f4;color:#3d7474;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px;border-top:1px solid #ddd;flex-shrink:0}
 .order-categories__toggle:hover{background:#e0eaea}
 
-/* Test Area - FIXED: constrained height with scroll */
-.order-test-area{flex:1;min-width:0;display:flex;flex-direction:column;overflow:hidden}
+/* Test Area */
+.order-test-area{flex:1;min-width:0;display:flex;flex-direction:column;min-height:0;height:100%;overflow:hidden}
 .order-test-area__empty{display:flex;align-items:center;justify-content:center;height:200px;color:#999;font-size:14px;gap:8px}
 
 /* Test Type Tabs */
-.order-type-tabs{display:flex;gap:0;border-bottom:2px solid #e0e0e0;margin-bottom:4px;flex-shrink:0;background:#f8fafb;border-radius:6px 6px 0 0;padding:0 10px}
-.order-type-tab{padding:8px 16px;font-size:13px;font-weight:600;color:#666;cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-2px;transition:all .2s;display:flex;align-items:center;gap:6px;white-space:nowrap}
+.order-type-tabs{display:flex;gap:0;border-bottom:2px solid #e0e0e0;margin-bottom:4px;flex-shrink:0;background:#f8fafb;border-radius:6px 6px 0 0;padding:0 8px}
+.order-type-tab{padding:7px 14px;font-size:12px;font-weight:600;color:#666;cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-2px;transition:all .2s;display:flex;align-items:center;gap:5px;white-space:nowrap}
 .order-type-tab:hover{color:#333;background:rgba(0,0,0,.03)}
 .order-type-tab.active{color:#486086;border-bottom-color:#486086;background:#fff}
-.order-type-tab__badge{font-size:10px;padding:2px 7px;border-radius:8px;background:rgba(0,0,0,.08);font-weight:700}
+.order-type-tab__badge{font-size:10px;padding:1px 6px;border-radius:8px;background:rgba(0,0,0,.08);font-weight:700}
 .order-type-tab.active .order-type-tab__badge{background:#486086;color:#fff}
 
-/* Scrollable test content - KEY FIX */
-.order-test-scroll{flex:1;overflow-y:auto;min-height:0;padding-right:4px}
-.order-test-scroll::-webkit-scrollbar{width:6px}
-.order-test-scroll::-webkit-scrollbar-track{background:#f1f1f1;border-radius:3px}
-.order-test-scroll::-webkit-scrollbar-thumb{background:#c1c1c1;border-radius:3px}
-.order-test-scroll::-webkit-scrollbar-thumb:hover{background:#a1a1a1}
+/* Scrollable test content - ALWAYS SCROLLABLE ALL THE WAY TO THE BOTTOM */
+.order-test-scroll{flex:1;min-height:0;overflow-y:auto !important;overflow-x:hidden;padding-right:6px;padding-bottom:120px;scrollbar-width:thin;scrollbar-color:#b0b8c4 #f1f1f1}
+.order-test-scroll::-webkit-scrollbar{width:8px}
+.order-test-scroll::-webkit-scrollbar-track{background:#f1f1f1;border-radius:4px}
+.order-test-scroll::-webkit-scrollbar-thumb{background:#b0b8c4;border-radius:4px}
+.order-test-scroll::-webkit-scrollbar-thumb:hover{background:#8a96a8}
 
 /* Test Group */
 .order-test-group{background:#fff;border:1px solid #ddd;border-radius:6px;margin-bottom:8px;overflow:hidden}
@@ -128,36 +128,23 @@
 .order-test-card.active{background:#486086;color:#fff;border-color:#486086}
 .order-test-card.active:hover{background:#3d5575}
 .order-test-card.noteditable{background:#f2f8ff;border-color:#c0d8f0;color:#888;cursor:not-allowed}
-.order-test-card.unavailable{color:#c0392b;border-color:#e8c0c0}
-.order-test-card.unavailable.active{color:#fff}
+.order-test-card.unavailable{color:#c0392b !important;border-color:#e8c0c0;background:#fff5f5}
+.order-test-card.unavailable .order-test-card__name{color:#c0392b !important;font-weight:600}
+.order-test-card.unavailable.active{color:#fff !important;background:#c0392b;border-color:#c0392b}
+.order-test-card.unavailable.active .order-test-card__name{color:#fff !important}
+.order-stockout-tag{font-size:9px;background:#c0392b;color:#fff;padding:1px 5px;border-radius:3px;margin-left:auto;font-weight:bold;text-transform:uppercase;letter-spacing:0.3px}
+.order-test-card.unavailable.active .order-stockout-tag{background:#fff;color:#c0392b}
+.order-selected-item.is-unavailable{background:#fff3f3}
+.order-selected-item.is-unavailable .order-selected-item__name{color:#c0392b;font-weight:600}
+.order-btn-print-stockout{background:#c0392b;color:#fff;border:none;padding:3px 8px;border-radius:3px;font-size:11px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:4px;transition:background .2s}
+.order-btn-print-stockout:hover{background:#962d22}
 .order-test-card__check{font-size:11px}
 .order-test-card__name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
-/* Responsive: Tablet */
-@media (max-width:1024px){
-    .order-page-enhanced{max-height:none;overflow:visible}
-    .order-main{flex-direction:column;height:auto;overflow:visible}
-    .order-sidebar{width:100%;max-width:none;flex-direction:row;flex-wrap:wrap;overflow:visible}
-    .order-selected-panel,.order-categories{flex:1;min-width:200px}
-    .order-selected-panel__body{max-height:120px}
-    .order-categories__list-wrap{max-height:150px}
-    .order-test-area{height:auto;overflow:visible}
-    .order-test-scroll{max-height:none;overflow:visible}
+/* Responsive adjustments */
+@media (max-width:960px){
+    .order-sidebar{width:220px;min-width:200px}
     .order-test-card{flex:1 1 calc(50% - 8px);max-width:calc(50% - 8px)}
-}
-
-/* Responsive: Mobile */
-@media (max-width:768px){
-    .order-page-enhanced{max-height:none;overflow:visible}
-    .order-top-bar{flex-direction:column;align-items:stretch;gap:10px}
-    .order-top-bar__location{flex-wrap:wrap}
-    .order-select{min-width:160px;width:100%}
-    .order-main{flex-direction:column;height:auto;overflow:visible}
-    .order-sidebar{width:100%;flex-direction:column;overflow:visible}
-    .order-selected-panel__body{max-height:100px}
-    .order-test-card{flex:1 1 100%;max-width:100%}
-    .order-type-tab{padding:8px 10px;font-size:12px}
-    .order-type-tabs{overflow-x:auto;flex-wrap:nowrap}
 }
 </style>
 
@@ -242,22 +229,40 @@
 
         <!-- Left Sidebar -->
         <div class="order-sidebar">
+
             <!-- Selected Orders -->
             <div class="order-selected-panel">
                 <div class="order-selected-panel__header">
                     <h3>Selected Orders</h3>
-                    <span class="order-badge" ng-if="selectedOrders.length > 0">{{selectedOrders.length}}</span>
+                    <div style="display:flex;align-items:center;gap:6px;">
+                        <button class="order-btn-print-stockout"
+                                ng-if="hasUnavailableSelectedOrders()"
+                                ng-click="printStockOutNotice()"
+                                title="Print Reagent Stock-Out Notice for unavailable tests">
+                            <i class="fa fa-print"></i> Print Stock-Out
+                        </button>
+                        <span class="order-badge" ng-if="selectedOrders.length > 0">{{selectedOrders.length}}</span>
+                    </div>
                 </div>
                 <div class="order-selected-panel__body">
                     <p class="order-empty-msg" ng-hide="selectedOrders.length">
                         <i class="fa fa-inbox"></i><br>No orders selected
                     </p>
                     <ul class="order-selected-list">
-                        <li ng-repeat="order in selectedOrders" class="order-selected-item" ng-class="{'voided': order.isDiscontinued}">
+                        <li ng-repeat="order in selectedOrders" class="order-selected-item"
+                            ng-class="{'voided': order.isDiscontinued, 'is-unavailable': isTestUnavailable(order.concept || order)}">
                             <div class="order-selected-item__name" title="{{::order.concept.displayName || order.concept.shortName || order.concept.name}}">
+                                <span ng-if="isTestUnavailable(order.concept || order)" style="color:#c0392b;font-weight:700;margin-right:3px;" title="Unavailable / Stock Out">[Stock-Out]</span>
                                 {{::order.concept.displayName || order.concept.shortName || order.concept.name}}
                             </div>
                             <div class="order-selected-item__actions">
+                                <button class="order-action-btn"
+                                        style="color:#c0392b"
+                                        ng-if="isTestUnavailable(order.concept || order)"
+                                        ng-click="printStockOutNotice(order)"
+                                        title="Print Stock-Out Notice for this test">
+                                    <i class="fa fa-print"></i>
+                                </button>
                                 <button class="order-action-btn order-action-btn--labnote"
                                         ng-class="{'has-notes': order.labNote}"
                                         ng-click="openLabNotePopup(order)"
@@ -289,6 +294,35 @@
                 </div>
             </div>
 
+            <!-- Outside Referral / Stock-Out Panel -->
+            <div class="order-selected-panel order-stockout-panel" ng-if="referralOrders.length > 0" style="margin-top: 6px; border: 2px solid #c0392b; border-radius: 6px; overflow: hidden; background: #fff5f5; flex-shrink: 0;">
+                <div class="order-selected-panel__header" style="background: #c0392b; color: #fff; padding: 6px 10px; display: flex; justify-content: space-between; align-items: center;">
+                    <h3 style="color: #fff; margin: 0; font-size: 12px; font-weight: bold;">
+                        <i class="fa fa-external-link"></i> Stock-Out (<span class="order-badge" style="background:#fff;color:#c0392b;">{{referralOrders.length}}</span>)
+                    </h3>
+                    <button class="order-btn-print-stockout"
+                            style="background:#fff;color:#c0392b;border:none;padding:2px 8px;border-radius:3px;font-size:11px;font-weight:bold;cursor:pointer;"
+                            ng-click="printStockOutNotice()"
+                            title="Print Stock-Out Notice">
+                        <i class="fa fa-print"></i> Print Slip
+                    </button>
+                </div>
+                <div class="order-selected-panel__body" style="padding: 4px 6px; max-height: 100px; overflow-y: auto;">
+                    <ul class="order-selected-list">
+                        <li ng-repeat="item in referralOrders" class="order-selected-item is-unavailable" style="display:flex; justify-content:space-between; align-items:center; padding: 3px 4px; border-bottom: 1px solid #ffd6d6;">
+                            <div class="order-selected-item__name" style="color: #c0392b; font-weight: 600; font-size: 11px;">
+                                [Stock-Out] {{item.name}}
+                            </div>
+                            <div class="order-selected-item__actions">
+                                <button class="order-action-btn" style="color:#c0392b; cursor:pointer;" ng-click="toggleOrderSelection(item.sample || item.concept)" title="Remove">
+                                    <i class="fa fa-trash-o"></i>
+                                </button>
+                            </div>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+
             <!-- Category Sidebar -->
             <div class="order-categories">
                 <div class="order-categories__header">
@@ -313,6 +347,7 @@
                     {{hideLabTests ? 'Show All' : 'Show Less'}}
                 </button>
             </div>
+
         </div>
 
         <!-- Right: Test Grid -->
@@ -355,17 +390,21 @@
                              ng-repeat="test in (tab.leftCategory.setMembers | filter:filterByConceptClass | filter:filterBySearchString)"
                              ng-click="toggleOrderSelection(test)"
                              ng-class="{
-                                'active': isActiveOrderPresent(test),
+                                'active': (isActiveOrderPresent(test) || isReferralOrderPresent(test)),
                                 'noteditable': isTestIndirectlyPresent(test),
                                 'unavailable': isTestUnavailable(test)
                              }"
-                             ng-disabled="isTestIndirectlyPresent(test)">
-                            <i class="fa fa-check-circle order-test-card__check" ng-show="isActiveOrderPresent(test)"></i>
-                            <span class="order-test-card__name">{{getName(test)}}</span>
+                             ng-style="isTestUnavailable(test) ? {'color': '#c0392b', 'border-color': '#e8c0c0', 'background-color': '#fff5f5', 'font-weight': 'bold'} : {}"
+                             ng-disabled="isTestIndirectlyPresent(test)"
+                             title="{{isTestUnavailable(test) ? 'Unavailable / Reagent Stock Out' : ''}}">
+                            <i class="fa fa-check-circle order-test-card__check" ng-show="isActiveOrderPresent(test) || isReferralOrderPresent(test)"></i>
+                            <span class="order-test-card__name" ng-style="isTestUnavailable(test) ? {'color': '#c0392b', 'font-weight': 'bold'} : {}">{{getName(test)}}</span>
+                            <span ng-if="isTestUnavailable(test)" class="order-stockout-tag">Stock Out</span>
                         </div>
                     </div>
                 </section>
             </div>
         </div>
+
     </div>
 </div>

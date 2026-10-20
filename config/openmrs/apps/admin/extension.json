@@ -56,7 +56,19 @@
         "label": "Beds",
         "url": "/openmrs/owa/bedmanagement/admissionLocations.html",
         "icon": "icon-bahmni-inpatient",
-        "order": 1,
+        "order": 5,
+        "requiredPrivilege": "app:admin"
+    },
+    "backupRestore":{
+        "id": "bahmni.admin.backupRestore",
+        "extensionPointId": "org.bahmni.admin.dashboard",
+        "type": "link",
+        "extensionParams": {
+        },
+        "label": "Backup & Restore",
+        "url": "#/backupRestore",
+        "icon": "fa-database",
+        "order": 6,
         "requiredPrivilege": "app:admin"
     }
 }

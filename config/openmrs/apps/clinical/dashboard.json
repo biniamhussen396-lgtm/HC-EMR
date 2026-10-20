@@ -132,6 +132,12 @@
                 "numberOfVisits": 5,
                 "displayOrder": 8
             },
+            "stockOut": {
+                "title": "Laboratory Stock-Out Alerts",
+                "type": "stockOut",
+                "showDetailsButton": false,
+                "displayOrder": 9
+            },
             "treatments":{  
                 "translationKey":"DASHBOARD_TITLE_TREATMENTS_KEY",
                 "type":"treatment",
@@ -188,16 +194,6 @@
 
                     }
                 }				
-            },
-            "pacs":{  
-                "orderType":"Radiology Order",
-                "type":"pacsOrders",
-                "translationKey":"DASHBOARD_TITLE_PACS_KEY",
-                "displayOrder":8,
-                "dashboardConfig":{  
-                    "pacsImageUrl":"/ohif/viewer?StudyInstanceUIDs={{studyUID}}",
-                    "numberOfVisits":4
-                }
             },
             "labOrdersDisplayControl":{
                 "translationKey":"DASHBOARD_TITLE_LAB_ORDERS_DISPLAY_CONTROL_KEY",

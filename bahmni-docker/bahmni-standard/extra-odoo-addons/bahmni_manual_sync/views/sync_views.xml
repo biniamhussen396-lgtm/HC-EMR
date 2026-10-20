@@ -1,0 +1,162 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Server Actions (Executable directly from menus without forms or saves) -->
+    <record id="action_server_sync_patients" model="ir.actions.server">
+        <field name="name">Sync Missing Patients</field>
+        <field name="model_id" ref="model_bahmni_sync_manager"/>
+        <field name="state">code</field>
+        <field name="code">action = model.action_sync_patients()</field>
+    </record>
+
+    <record id="action_server_sync_all_orders" model="ir.actions.server">
+        <field name="name">Sync All Pending Orders</field>
+        <field name="model_id" ref="model_bahmni_sync_manager"/>
+        <field name="state">code</field>
+        <field name="code">action = model.action_sync_all_global()</field>
+    </record>
+
+    <record id="action_server_start_auth" model="ir.actions.server">
+        <field name="name">Start / Restart Auth Sync</field>
+        <field name="model_id" ref="model_bahmni_sync_manager"/>
+        <field name="state">code</field>
+        <field name="code">action = model.action_start_auth_global()</field>
+    </record>
+
+    <record id="action_server_autofix_markers" model="ir.actions.server">
+        <field name="name">Auto-Fix Stuck Markers</field>
+        <field name="model_id" ref="model_bahmni_sync_manager"/>
+        <field name="state">code</field>
+        <field name="code">
+fixed = model.action_autofix_markers()
+msg = " ".join(fixed) if fixed else "All Atomfeed markers are already healthy!"
+action = {
+    'type': 'ir.actions.client',
+    'tag': 'display_notification',
+    'params': {
+        'title': 'Marker Health Check',
+        'message': msg,
+        'type': 'success',
+        'sticky': False,
+    }
+}
+        </field>
+    </record>
+
+    <record id="action_server_purge_dead_events" model="ir.actions.server">
+        <field name="name">Purge Dead 404 Events</field>
+        <field name="model_id" ref="model_bahmni_sync_manager"/>
+        <field name="state">code</field>
+        <field name="code">action = model.action_purge_dead_events()</field>
+    </record>
+
+    <record id="action_server_refresh_queue" model="ir.actions.server">
+        <field name="name">Refresh Queue</field>
+        <field name="model_id" ref="model_bahmni_sync_manager"/>
+        <field name="state">code</field>
+        <field name="code">action = model.action_refresh_queue()</field>
+    </record>
+
+    <!-- Batch Selection Actions in ⚙ Action Dropdown -->
+    <record id="action_resync_selected_events" model="ir.actions.server">
+        <field name="name">Force Resync Selected Orders</field>
+        <field name="model_id" ref="model_bahmni_sync_manager"/>
+        <field name="binding_model_id" ref="model_bahmni_sync_manager"/>
+        <field name="binding_view_types">list</field>
+        <field name="state">code</field>
+        <field name="code">action = records.action_resync_selected()</field>
+    </record>
+
+    <record id="action_clear_selected_events" model="ir.actions.server">
+        <field name="name">Dismiss / Clear Selected Events</field>
+        <field name="model_id" ref="model_bahmni_sync_manager"/>
+        <field name="binding_model_id" ref="model_bahmni_sync_manager"/>
+        <field name="binding_view_types">list</field>
+        <field name="state">code</field>
+        <field name="code">action = records.action_clear_selected()</field>
+    </record>
+
+    <!-- Main Tree View (When events are present) -->
+    <record id="view_bahmni_sync_manager_tree" model="ir.ui.view">
+        <field name="name">bahmni.sync.manager.tree</field>
+        <field name="model">bahmni.sync.manager</field>
+        <field name="arch" type="xml">
+            <tree string="Bahmni Sync Monitor" create="false" delete="false">
+                <header>
+                    <button name="action_sync_patients" string="Sync Missing Patients" type="object" class="btn-info"/>
+                    <button name="action_sync_all_global" string="Sync All Pending Orders" type="object" class="btn-primary"/>
+                    <button name="action_purge_dead_events" string="Purge Dead 404s" type="object" class="btn-danger"/>
+                    <button name="action_start_auth_global" string="Start / Restart Auth Sync" type="object" class="btn-warning"/>
+                    <button name="action_refresh_queue" string="Refresh Queue" type="object" class="btn-secondary"/>
+                </header>
+                <field name="name"/>
+                <field name="feed_uri"/>
+                <field name="retries"/>
+                <field name="failed_at"/>
+                <field name="error_message"/>
+            </tree>
+        </field>
+    </record>
+
+    <!-- Main Window Action -->
+    <record id="action_bahmni_sync_manager" model="ir.actions.act_window">
+        <field name="name">Bahmni Unsynced Orders Queue</field>
+        <field name="res_model">bahmni.sync.manager</field>
+        <field name="view_mode">tree,form</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                No unsynced orders! All Bahmni events have synchronized successfully.
+            </p>
+        </field>
+    </record>
+
+    <!-- Root Menu: Bahmni Sync Monitor -->
+    <menuitem id="menu_bahmni_sync_root"
+              name="Bahmni Sync Monitor"
+              parent="sale.sale_menu_root"
+              sequence="90"
+              groups="base.group_system"/>
+
+    <!-- Sub-menu 1: The Queue -->
+    <menuitem id="menu_bahmni_sync_queue"
+              name="Unsynced Orders Queue"
+              parent="menu_bahmni_sync_root"
+              action="action_bahmni_sync_manager"
+              sequence="10"/>
+
+    <!-- Sub-menu Actions: Permanently accessible even if queue has 0 records -->
+    <menuitem id="menu_bahmni_action_sync_patients"
+              name="▶ Sync Missing Patients"
+              parent="menu_bahmni_sync_root"
+              action="action_server_sync_patients"
+              sequence="20"/>
+
+    <menuitem id="menu_bahmni_action_sync_orders"
+              name="▶ Sync All Pending Orders"
+              parent="menu_bahmni_sync_root"
+              action="action_server_sync_all_orders"
+              sequence="30"/>
+
+    <menuitem id="menu_bahmni_action_autofix_markers"
+              name="▶ Auto-Fix Stuck Markers"
+              parent="menu_bahmni_sync_root"
+              action="action_server_autofix_markers"
+              sequence="35"/>
+
+    <menuitem id="menu_bahmni_action_purge_404"
+              name="▶ Purge Dead 404 Events"
+              parent="menu_bahmni_sync_root"
+              action="action_server_purge_dead_events"
+              sequence="38"/>
+
+    <menuitem id="menu_bahmni_action_start_auth"
+              name="▶ Start / Restart Auth Sync"
+              parent="menu_bahmni_sync_root"
+              action="action_server_start_auth"
+              sequence="40"/>
+
+    <menuitem id="menu_bahmni_action_refresh"
+              name="↻ Refresh Queue Listing"
+              parent="menu_bahmni_sync_root"
+              action="action_server_refresh_queue"
+              sequence="50"/>
+</odoo>

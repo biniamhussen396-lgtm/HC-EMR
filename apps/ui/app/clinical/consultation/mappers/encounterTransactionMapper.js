@@ -101,6 +101,9 @@ Bahmni.Clinical.EncounterTransactionMapper = function () {
         encounterData.orders = [];
         var addOrdersToEncounter = function () {
             var modifiedOrders = _.filter(consultation.orders, function (order) {
+                if ((order.isUnavailable || (order.concept && order.concept.isUnavailable)) && !order.isDiscontinued) {
+                    return false;
+                }
                 return order.hasBeenModified || order.isDiscontinued || !order.uuid;
             });
             var labConceptClasses = ["Test", "LabSet", "LabTest"];

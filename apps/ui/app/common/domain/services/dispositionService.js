@@ -65,18 +65,20 @@ angular.module('bahmni.common.domain')
         };
 
         var getDispositionByVisit = function (visitUuid) {
+            var locale = ($rootScope.currentUser && $rootScope.currentUser.userProperties && $rootScope.currentUser.userProperties.defaultLocale) || 'en';
             return $http.get(Bahmni.Common.Constants.bahmniDispositionByVisitUrl, {
                 params: {visitUuid: visitUuid,
-                    locale: $rootScope.currentUser.userProperties.defaultLocale}
+                    locale: locale}
             });
         };
 
         var getDispositionByPatient = function (patientUuid, numberOfVisits) {
+            var locale = ($rootScope.currentUser && $rootScope.currentUser.userProperties && $rootScope.currentUser.userProperties.defaultLocale) || 'en';
             return $http.get(Bahmni.Common.Constants.bahmniDispositionByPatientUrl, {
                 params: {
                     patientUuid: patientUuid,
                     numberOfVisits: numberOfVisits,
-                    locale: $rootScope.currentUser.userProperties.defaultLocale
+                    locale: locale
                 }
             });
         };

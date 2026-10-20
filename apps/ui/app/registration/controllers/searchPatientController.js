@@ -736,7 +736,12 @@ angular.module('bahmni.registration')
                     if (startDate || endDate) {
                         var matchingRx = (patient.prescriptions || []).filter(function (rx) {
                             if (!rx.prescription_date) return false;
-                            var rxDate = new Date(rx.prescription_date);
+                            var rxDate;
+                            if (Array.isArray(rx.prescription_date)) {
+                                rxDate = new Date(rx.prescription_date[0], rx.prescription_date[1] - 1, rx.prescription_date[2]);
+                            } else {
+                                rxDate = new Date(rx.prescription_date);
+                            }
                             if (isNaN(rxDate.getTime())) return false;
                             if (startDate && rxDate < startDate) return false;
                             if (endDate && rxDate > endDate) return false;

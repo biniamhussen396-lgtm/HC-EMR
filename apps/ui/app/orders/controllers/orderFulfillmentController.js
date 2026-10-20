@@ -1,13 +1,28 @@
 "use strict";
 
 angular.module('bahmni.orders').controller('OrderFulfillmentController', ['userService', '$http', '$scope', '$rootScope', '$stateParams', '$state', '$q', 'patientContext', 'orderService', 'observationsService', 'orderObservationService',
-    'orderTypeService', 'sessionService', 'encounterService', 'spinner', 'messagingService', 'appService', '$anchorScroll', 'orderFulfillmentConfig', 'contextChangeHandler', '$translate', 'paymentStatusService',
+    'orderTypeService', 'sessionService', 'encounterService', 'spinner', 'messagingService', 'appService', '$anchorScroll', 'orderFulfillmentConfig', 'contextChangeHandler', '$translate', 'paymentStatusService', 'pacsService',
     function (userService, $http, $scope, $rootScope, $stateParams, $state, $q, patientContext, orderService, observationsService, orderObservationService,
-        orderTypeService, sessionService, encounterService, spinner, messagingService, appService, $anchorScroll, orderFulfillmentConfig, contextChangeHandler, $translate, paymentStatusService) {
+        orderTypeService, sessionService, encounterService, spinner, messagingService, appService, $anchorScroll, orderFulfillmentConfig, contextChangeHandler, $translate, paymentStatusService, pacsService) {
         $scope.patient = patientContext.patient;
-        $scope.patient.docpriv = $scope.currentUser.privileges.filter(function (priv) {
-            return priv.name == 'Write Radiology note'
-        })
+        $scope.nonLabOrderTabs = [
+            { orderType: 'Radiology Order', label: 'Radiology (PACS)', icon: 'fa-film' },
+            { orderType: 'Procedure Order', label: 'Procedure Orders', icon: 'fa-medkit' },
+            { orderType: 'Pathology Order', label: 'Pathology Orders', icon: 'fa-flask' },
+            { orderType: 'Ophtha Order', label: 'Ophthalmology & Optometry', icon: 'fa-eye' }
+        ];
+
+        $scope.goToOrderType = function (orderType) {
+            $state.go('orderFulfillment', {
+                patientUuid: $scope.patient.uuid,
+                orderType: orderType
+            });
+        };
+
+        var currentUser = $rootScope.currentUser || $scope.currentUser || { privileges: [] };
+        $scope.patient.docpriv = (currentUser.privileges || []).filter(function (priv) {
+            return priv.name == 'Write Radiology note';
+        });
         $scope.$on("event:confirmSuggestion", function (event, uniqueId) {
 
 
@@ -110,7 +125,31 @@ angular.module('bahmni.orders').controller('OrderFulfillmentController', ['userS
                     }
                     getOrderPaymentStatus(order);
                 });
+                correlatePacsStudies();
             });
+        };
+
+        var correlatePacsStudies = function () {
+            if ($stateParams.orderType === 'Radiology Order' && pacsService) {
+                pacsService.search(patientContext.patient.identifier).then(function (response) {
+                    var studies = response.data || [];
+                    $scope.orders.forEach(function (order) {
+                        var matchingStudy = studies.find(function (study) {
+                            if (!study.identifier) return false;
+                            var matches = study.identifier.filter(function (id) {
+                                return pacsService.getAccessionNumber(id) === order.orderNumber;
+                            });
+                            return matches && matches.length > 0;
+                        });
+                        if (matchingStudy) {
+                            order.studyInstanceUID = matchingStudy.id;
+                            order.pacsStudyUrl = "/ohif/viewer?StudyInstanceUIDs=" + matchingStudy.id;
+                        }
+                    });
+                }, function () {
+                    // Silently handle if PACS service is unavailable
+                });
+            }
         };
 
         var getOrderPaymentStatus = function (order) {

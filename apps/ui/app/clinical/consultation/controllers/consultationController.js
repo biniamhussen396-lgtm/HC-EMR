@@ -727,7 +727,7 @@ angular.module('bahmni.clinical').controller('ConsultationController',
                 var orderTypeClassMap = orderTypeClassMapConfig ? orderTypeClassMapConfig.value : {};
                 var labConceptClasses = orderTypeClassMap["Lab Samples"] || ["Test", "LabSet", "LabTest"];
                 var hasLabOrders = activeOrders && activeOrders.some(function (o) {
-                    return labConceptClasses.indexOf(o.conceptClassName) !== -1;
+                    return !o.isUnavailable && labConceptClasses.indexOf(o.conceptClassName) !== -1;
                 });
                 if (hasLabOrders && !$scope.consultation.labLocationId) {
                     messagingService.showMessage("error", "Please select a Lab Location before saving orders.");

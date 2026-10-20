@@ -237,15 +237,28 @@ angular.module('bahmni.registration')
                         let mapped = {};
 
                         rawHistory.forEach(item => {
-                            let mapping = $scope.rx_config.hx_available.find(m => m.concept_name === item.concept_name);
+                            let mapping = $scope.rx_config && $scope.rx_config.hx_available ? $scope.rx_config.hx_available.find(m => m.concept_name === item.concept_name) : null;
                             if (mapping) {
                                 mapped[mapping.lable] = item.value;
                             } else {
                                 mapped[item.concept_name] = item.value;
                             }
 
+                            // Explicit normalized fallbacks for standard vitals & diagnoses
+                            if (/systolic/i.test(item.concept_name)) mapped.bp_systolic = item.value;
+                            if (/diastolic/i.test(item.concept_name)) mapped.bp_diastolic = item.value;
+                            if (/pulse/i.test(item.concept_name)) mapped.pulse = item.value;
+                            if (/temp/i.test(item.concept_name)) mapped.temperature = item.value;
+                            if (/weight/i.test(item.concept_name)) mapped.weight = item.value;
+                            if (/height/i.test(item.concept_name)) mapped.height = item.value;
+                            if (/diagnosis/i.test(item.concept_name)) {
+                                mapped.diagnosis = item.value;
+                            }
+
                             mapped.date_created = item.date_created;
                         });
+
+                        if (!mapped.diagnosis && mapped.Diagnosis) mapped.diagnosis = mapped.Diagnosis;
 
                         $scope.hxForRx = mapped;
                     } else {
@@ -271,6 +284,8 @@ angular.module('bahmni.registration')
                 if (prescription.status === "DISCARDED") return prescription.status;
                 if (prescription.status === "STOCKED OUT") return prescription.status;
                 if (prescription.status === "DISPENSED") return prescription.status;
+                if (prescription.status === "RETURNED_DTP" || prescription.status === "DTP") return "RETURNED_DTP";
+                if (prescription.dtp) return "RETURNED_DTP";
                 if (prescription.receiptNumber) return "BILLED";
                 if (prescription.paid) return "PAID";
                 if (prescription.evaluated) return "EVALUATED";
@@ -285,6 +300,17 @@ angular.module('bahmni.registration')
                     const response = await prescriptionService.getDrugPrescriptions(patientUuid);
                     let prescriptions = response.data || [];
                     $scope.allPrescriptions = prescriptions;
+
+                    // Compute statuses and flags for all loaded prescriptions
+                    $scope.allPrescriptions.forEach(function (prescription) {
+                        prescription.status = computePrescriptionStatus(prescription);
+                        prescription.evaluated = !!prescription.evaluated;
+                        prescription.paymentStatus = !!prescription.paymentStatus;
+                        if (prescription.status === "DISPENSED") {
+                            prescription.counseled = true;
+                        }
+                        updatePrescriptionFlags(prescription);
+                    });
 
                     // If viewing a specific encounter, filter to only that encounter's prescriptions
                     if ($scope.historicalEncounterUuid) {
@@ -368,8 +394,96 @@ angular.module('bahmni.registration')
 
             $scope.fetchPrescriptions();
 
+            $scope.standardDtpCategories = [
+                { id: "unnecessary", label: "Unnecessary Drug Therapy", description: "No valid medical indication / Duplicate therapy / Non-drug therapy indicated" },
+                { id: "needs_additional", label: "Needs Additional Drug Therapy", description: "Untreated condition / Synergistic or prophylactic therapy required" },
+                { id: "ineffective", label: "Ineffective / Inappropriate Drug", description: "Drug not effective for condition / Inappropriate dosage form / More effective alternative exists" },
+                { id: "dosage_low", label: "Dosage Too Low", description: "Dose too small / Dosing frequency too low / Duration too short / Drug interaction reducing level" },
+                { id: "dosage_high", label: "Dosage Too High", description: "Dose too high / Dosing frequency too rapid / Duration too long / Drug interaction increasing level" },
+                { id: "adr", label: "Adverse Drug Reaction", description: "Undesirable adverse effect / Unsafe drug for patient / Allergic reaction / Toxicity" },
+                { id: "interaction", label: "Drug-Drug / Drug-Food Interaction", description: "Clinically significant pharmacokinetic or pharmacodynamic interaction" },
+                { id: "adherence", label: "Non-Adherence / Administration Barrier", description: "Patient cannot swallow/administer / Cost barrier / Unavailability" }
+            ];
+
+            $scope.openDtpModal = function (prescription) {
+                if (prescription.status === "DISPENSED") {
+                    messagingService.showMessage('error', "Cannot flag DTP on an already dispensed prescription.");
+                    return;
+                }
+                $scope.dtpTargetPrescription = prescription;
+                $scope.dtpForm = {
+                    category: '',
+                    problem: '',
+                    recommendation: '',
+                    priority: 'Urgent (Hold Rx)',
+                    reportedBy: ($rootScope.currentUser && $rootScope.currentUser.username) ? $rootScope.currentUser.username : 'Pharmacist'
+                };
+                $scope.dtpModalInstance = ngDialog.open({
+                    template: 'views/dtpModal.html',
+                    className: 'ngdialog-theme-default dtp-modal-dialog',
+                    scope: $scope,
+                    showClose: true,
+                    closeByDocument: false
+                });
+            };
+
+            $scope.closeDtpModal = function () {
+                if ($scope.dtpModalInstance) {
+                    $scope.dtpModalInstance.close();
+                } else {
+                    ngDialog.close();
+                }
+            };
+
+            $scope.submitDtp = function () {
+                if (!$scope.dtpForm.category) {
+                    messagingService.showMessage('error', "Please select a standard DTP category.");
+                    return;
+                }
+                if (!$scope.dtpForm.problem || $scope.dtpForm.problem.trim() === '') {
+                    messagingService.showMessage('error', "Please describe the drug therapy problem.");
+                    return;
+                }
+                if (!$scope.dtpForm.recommendation || $scope.dtpForm.recommendation.trim() === '') {
+                    messagingService.showMessage('error', "Please specify your pharmacist recommendation for the prescriber.");
+                    return;
+                }
+
+                $scope.dtpSubmitting = true;
+                prescriptionService.returnPrescriptionWithDtp(
+                    $scope.dtpTargetPrescription,
+                    $scope.dtpForm,
+                    patientUuid,
+                    $scope.rx_config
+                ).then(function (formattedDtpText) {
+                    $scope.dtpSubmitting = false;
+                    $scope.dtpTargetPrescription.status = "RETURNED_DTP";
+                    $scope.dtpTargetPrescription.dtp = formattedDtpText;
+                    $scope.closeDtpModal();
+                    $scope.fetchPrescriptions();
+                }).catch(function () {
+                    $scope.dtpSubmitting = false;
+                });
+            };
+
+            $scope.viewDtpDetails = function (prescription) {
+                $scope.dtpViewPrescription = prescription;
+                $scope.dtpViewModalInstance = ngDialog.open({
+                    template: 'views/dtpViewModal.html',
+                    className: 'ngdialog-theme-default dtp-modal-dialog',
+                    scope: $scope,
+                    showClose: true,
+                    closeByDocument: true
+                });
+            };
+
             $scope.handlePrescriptionAction = function (action, prescription) {
+                if (!action) return;
                 console.log("Handling action:", action, "for prescription:", prescription);
+                if (action.toLowerCase() === "dtp" || action.toLowerCase().includes("dtp")) {
+                    $scope.openDtpModal(prescription);
+                    return;
+                }
                 prescriptionService.handlePrescriptionAction(prescription, action, patientUuid, $scope.rx_config, $scope.patient, $scope.providerName);
             };
 

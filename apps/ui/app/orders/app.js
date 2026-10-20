@@ -4,7 +4,7 @@ angular
         'httpErrorInterceptor', 'bahmni.common.routeErrorHandler', 'bahmni.common.uiHelper', 'bahmni.common.patientSearch', 'bahmni.common.util', 'bahmni.common.conceptSet',
         'RecursionHelper', 'infinite-scroll', 'bahmni.common.displaycontrol.patientprofile', 'bahmni.common.obs', 'bahmni.common.displaycontrol.orders', 'bahmni.common.i18n',
         'bahmni.common.displaycontrol.observation', 'bahmni.common.orders', 'pascalprecht.translate', 'ngCookies', 'bahmni.common.uicontrols', 'bahmni.common.logging',
-        'bahmni.common.gallery', 'bahmni.common.ethiopianDateSelector'])
+        'bahmni.common.gallery', 'bahmni.common.ethiopianDateSelector', 'bahmni.common.services', 'bahmni.common.displaycontrol.pacsOrders'])
     .config(['$urlRouterProvider', '$stateProvider', '$httpProvider', '$bahmniTranslateProvider', '$compileProvider',
         function ($urlRouterProvider, $stateProvider, $httpProvider, $bahmniTranslateProvider, $compileProvider) {
             $httpProvider.defaults.headers.common['Disable-WWW-Authenticate'] = true;

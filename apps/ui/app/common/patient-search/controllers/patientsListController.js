@@ -2,8 +2,9 @@
 
 angular.module('bahmni.common.patientSearch')
 .controller('PatientsListController', ['$scope', '$window', 'patientService', '$rootScope', 'appService', 'spinner',
-    '$stateParams', '$bahmniCookieStore', 'printer', 'configurationService', '$timeout', 'observationsService', 'dispositionService',
-    function ($scope, $window, patientService, $rootScope, appService, spinner, $stateParams, $bahmniCookieStore, printer, configurationService, $timeout, observationsService, dispositionService) {
+    '$stateParams', '$bahmniCookieStore', 'printer', 'configurationService', '$timeout', 'observationsService', '$injector',
+    function ($scope, $window, patientService, $rootScope, appService, spinner, $stateParams, $bahmniCookieStore, printer, configurationService, $timeout, observationsService, $injector) {
+        var dispositionService = $injector.has('dispositionService') ? $injector.get('dispositionService') : null;
         $scope.preferExtraIdInSearchResults = appService.getAppDescriptor().getConfigValue("preferExtraIdInSearchResults");
         $scope.activeHeaders = [];
         const DEFAULT_FETCH_DELAY = 2000;
@@ -68,7 +69,7 @@ angular.module('bahmni.common.patientSearch')
                         }
                     });
                 }
-                if(patient.activeVisitUuid){
+                if(patient.activeVisitUuid && dispositionService){
                     dispositionService.getDispositionByVisit(patient.activeVisitUuid).then(function (response) {
                         var dispositions = response.data;
                         if(dispositions && dispositions.length > 0){
@@ -118,48 +119,7 @@ angular.module('bahmni.common.patientSearch')
                     if ($scope.search.isSelectedSearch(searchType)) {
                         $scope.search.updatePatientList(response.data);
                     }
-                    if(searchType.id == "bahmni.clinical.patients.search.linkedPatients"){
-                        if(searchType.patientCount>0){
-                            $rootScope.linkedExists = true;
-                            $rootScope.linkNotCount = searchType.patientCount;
-                            $scope.linkageNotifications = (response.data)
-                        }
-                    }
-                    if(searchType.id == "bahmni.clinical.patients.search.PatientsWithLabresult"){
-                        if(searchType.patientCount>0){
-                            $rootScope.labResultExists = true;
-                            $rootScope.labNotCount = searchType.patientCount;
-                            $scope.labResultNotifications = (response.data)
-                        }
-                    }
-                    if(searchType.id == "bahmni.clinical.patients.search.PatientsWithRadiologyresult"){
-                        if(searchType.patientCount>0){
-                            $rootScope.radResultExists = true;
-                            $rootScope.radNotCount = searchType.patientCount;
-                            $scope.radResultNotifications = (response.data)
-                        }
-                    }
-                    if(searchType.id == "bahmni.clinical.patients.search.PatientsWithPathologyresult"){
-                        if(searchType.patientCount>0){
-                            $rootScope.patResultExists = true;
-                            $rootScope.patNotCount = searchType.patientCount;
-                            $scope.patResultNotifications = (response.data)
-                        }
-                    }
-                    if(searchType.id == "bahmni.clinical.patients.search.PatientsWithProcedureresult"){
-                        if(searchType.patientCount>0){
-                            $rootScope.procResultExists = true;
-                            $rootScope.procNotCount = searchType.patientCount;
-                            $scope.pocResultNotifications = (response.data)
-                        }
-                    }
-                    if(searchType.id == "bahmni.clinical.patients.search.dtpCases"){
-                        if(searchType.patientCount>0){
-                            $rootScope.dtpCaseExists = true;
-                            $rootScope.dtpNotCount = searchType.patientCount;
-                            $scope.dtpCaseNotifications = (response.data)
-                        }
-                    }
+                    updateNotifications(searchType, response.data);
                     if (patientListSpinner) {
                         hideSpinner(spinner, patientListSpinner, $(".tab-content"));
                     }
@@ -341,6 +301,51 @@ angular.module('bahmni.common.patientSearch')
                 }
             }
         };
+        var updateNotifications = function (searchType, data) {
+            if (searchType.id == "bahmni.clinical.patients.search.linkedPatients") {
+                if (searchType.patientCount > 0) {
+                    $rootScope.linkedExists = true;
+                    $rootScope.linkNotCount = searchType.patientCount;
+                    $scope.linkageNotifications = data;
+                }
+            }
+            if (searchType.id == "bahmni.clinical.patients.search.PatientsWithLabresult") {
+                if (searchType.patientCount > 0) {
+                    $rootScope.labResultExists = true;
+                    $rootScope.labNotCount = searchType.patientCount;
+                    $scope.labResultNotifications = data;
+                }
+            }
+            if (searchType.id == "bahmni.clinical.patients.search.PatientsWithRadiologyresult") {
+                if (searchType.patientCount > 0) {
+                    $rootScope.radResultExists = true;
+                    $rootScope.radNotCount = searchType.patientCount;
+                    $scope.radResultNotifications = data;
+                }
+            }
+            if (searchType.id == "bahmni.clinical.patients.search.PatientsWithPathologyresult") {
+                if (searchType.patientCount > 0) {
+                    $rootScope.patResultExists = true;
+                    $rootScope.patNotCount = searchType.patientCount;
+                    $scope.patResultNotifications = data;
+                }
+            }
+            if (searchType.id == "bahmni.clinical.patients.search.PatientsWithProcedureresult") {
+                if (searchType.patientCount > 0) {
+                    $rootScope.procResultExists = true;
+                    $rootScope.procNotCount = searchType.patientCount;
+                    $scope.pocResultNotifications = data;
+                }
+            }
+            if (searchType.id == "bahmni.clinical.patients.search.dtpCases") {
+                if (searchType.patientCount > 0) {
+                    $rootScope.dtpCaseExists = true;
+                    $rootScope.dtpNotCount = searchType.patientCount;
+                    $scope.dtpCaseNotifications = data;
+                }
+            }
+        };
+
         var getPatientCountSeriallyBySearchIndex = function (index) {
             if (index === $scope.search.searchTypes.length) {
                 return;
@@ -361,6 +366,7 @@ angular.module('bahmni.common.patientSearch')
                     if ($scope.search.isSelectedSearch(searchType)) {
                         $scope.search.updatePatientList(response.data);
                     }
+                    updateNotifications(searchType, response.data);
                     return getPatientCountSeriallyBySearchIndex(index + 1);
                 });
             }

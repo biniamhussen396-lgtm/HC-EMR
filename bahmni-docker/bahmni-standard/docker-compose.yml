@@ -24,7 +24,7 @@ services:
       - ./bahmni-proxy-http.conf:/usr/local/apache2/conf/bahmni-proxy.conf
       # - ${CERTIFICATE_PATH}:/etc/tls
     ports:
-      - '8186:80'
+      - '${PROXY_PORT:-80}:80'
       - '443:443'
     logging: *log-config
     restart: ${RESTART_POLICY}
@@ -733,6 +733,27 @@ services:
     depends_on:
       openmrs:
         condition: service_started
+    logging: *log-config
+    restart: ${RESTART_POLICY}
+
+  backup-service:
+    profiles: ["bahmni-standard"]
+    build:
+      context: .
+      dockerfile: Dockerfile.backup
+    container_name: bahmni-backup-service
+    ports:
+      - '5055:5055'
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./bahmni_backup_service.py:/app/bahmni_backup_service.py
+      - ../../backups:/opt/emr/backups
+      - ../../config:/opt/emr/config:ro
+    environment:
+      TZ: ${TZ}
+      BACKUP_DIR: /opt/emr/backups
+      CONFIG_DIR: /opt/emr/config
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-adminAdmin!123}
     logging: *log-config
     restart: ${RESTART_POLICY}
 

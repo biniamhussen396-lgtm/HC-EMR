@@ -69,3 +69,5 @@ MessageResources.properties
 analyzerTestName.txt
 openelis-jsp/
 *.deb
+user_guide_screenshots/
+test_shot.png

@@ -17,17 +17,26 @@ import shutil
 import subprocess
 import sys
 import threading
+import tarfile
 import time
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
 
-BACKUP_DIR = "/opt/emr/backups"
-CONFIG_DIR = "/opt/emr/config"
-VOL_BASE = "/var/lib/docker/volumes"
-RETENTION_LIMIT = 10
-PORT = 5055
+BACKUP_DIR = os.environ.get("BACKUP_DIR") or (
+    os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "backups"))
+    if os.name == "nt" or not os.path.exists("/opt/emr/backups")
+    else "/opt/emr/backups"
+)
+CONFIG_DIR = os.environ.get("CONFIG_DIR") or (
+    os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "config"))
+    if os.name == "nt" or not os.path.exists("/opt/emr/config")
+    else "/opt/emr/config"
+)
+VOL_BASE = os.environ.get("VOL_BASE", "/var/lib/docker/volumes")
+RETENTION_LIMIT = int(os.environ.get("RETENTION_LIMIT", 10))
+PORT = int(os.environ.get("BACKUP_PORT", 5055))
 
-MYSQL_PASS = "adminAdmin!123"
+MYSQL_PASS = os.environ.get("MYSQL_ROOT_PASSWORD", "adminAdmin!123")
 
 # Thread-safe operation lock and state
 op_lock = threading.Lock()
@@ -76,23 +85,41 @@ def enforce_retention():
     except Exception as e:
         log(f"Retention check warning: {e}")
 
+def get_container(name_hint):
+    try:
+        res = subprocess.run(f'docker ps --filter "name={name_hint}" --format "{{{{.Names}}}}"', shell=True, capture_output=True, text=True)
+        names = [n.strip() for n in res.stdout.strip().splitlines() if n.strip()]
+        for n in names:
+            if n == f"bahmni-standard-{name_hint}-1" or n == name_hint:
+                return n
+        if names:
+            return names[0]
+    except Exception:
+        pass
+    return f"bahmni-standard-{name_hint}-1"
+
 def dump_databases(target_dir):
     log("Dumping OpenMRS MySQL Database...")
-    run_cmd(f'docker exec bahmni-standard-openmrsdb-1 mysqldump -uroot -p"{MYSQL_PASS}" --single-transaction --routines --triggers openmrs > "{target_dir}/openmrs.sql"')
+    omrs = get_container("openmrsdb")
+    run_cmd(f'docker exec {omrs} mysqldump -uroot -p"{MYSQL_PASS}" --single-transaction --routines --triggers openmrs > "{target_dir}/openmrs.sql"')
 
     log("Dumping OpenELIS ClinLIMS Database...")
-    run_cmd(f'docker exec bahmni-standard-openelisdb-1 pg_dump -U clinlims clinlims > "{target_dir}/clinlims.sql"', check=False)
+    oelis = get_container("openelisdb")
+    run_cmd(f'docker exec {oelis} pg_dump -U clinlims clinlims > "{target_dir}/clinlims.sql"', check=False)
 
     log("Dumping Odoo PostgreSQL Database...")
-    run_cmd(f'docker exec bahmni-standard-odoodb-1 pg_dump -U odoo odoo > "{target_dir}/odoo.sql"', check=False)
+    odoo = get_container("odoodb")
+    run_cmd(f'docker exec {odoo} pg_dump -U odoo odoo > "{target_dir}/odoo.sql"', check=False)
 
     log("Dumping Bahmni Reports Database...")
-    run_cmd(f'docker exec bahmni-standard-reportsdb-1 mysqldump -uroot -p"{MYSQL_PASS}" --single-transaction bahmni_reports > "{target_dir}/bahmni_reports.sql"', check=False)
+    reports = get_container("reportsdb")
+    run_cmd(f'docker exec {reports} mysqldump -uroot -p"{MYSQL_PASS}" --single-transaction bahmni_reports > "{target_dir}/bahmni_reports.sql"', check=False)
 
     log("Dumping PACS Databases...")
-    run_cmd(f'docker exec bahmni-standard-pacsdb-1 pg_dump -U postgres pacs_db > "{target_dir}/pacs_db.sql"', check=False)
-    run_cmd(f'docker exec bahmni-standard-pacsdb-1 pg_dump -U postgres pacs_integration_db > "{target_dir}/pacs_integration_db.sql"', check=False)
-    run_cmd(f'docker exec bahmni-standard-pacsdb-1 pg_dump -U postgres bahmni_pacs > "{target_dir}/bahmni_pacs.sql"', check=False)
+    pacs = get_container("pacsdb")
+    run_cmd(f'docker exec {pacs} pg_dump -U postgres pacs_db > "{target_dir}/pacs_db.sql"', check=False)
+    run_cmd(f'docker exec {pacs} pg_dump -U postgres pacs_integration_db > "{target_dir}/pacs_integration_db.sql"', check=False)
+    run_cmd(f'docker exec {pacs} pg_dump -U postgres bahmni_pacs > "{target_dir}/bahmni_pacs.sql"', check=False)
 
 def dump_volumes(target_dir):
     volumes_dir = os.path.join(target_dir, "volumes")
@@ -115,10 +142,14 @@ def dump_volumes(target_dir):
         src = f"{VOL_BASE}/{vol}/_data"
         dest = f"{volumes_dir}/{vol}.tar.gz"
         if os.path.isdir(src):
-            log(f"Archiving volume: {vol}")
+            log(f"Archiving volume from host path: {vol}")
             run_cmd(f'tar -czf "{dest}" -C "{src}" . 2>/dev/null', check=False)
         else:
-            log(f"Volume directory not found (skipping): {vol}")
+            log(f"Archiving volume via docker: {vol}")
+            try:
+                run_cmd(f'docker run --rm -v "{vol}:/voldata:ro" alpine tar -czf - -C /voldata . > "{dest}"', check=False)
+            except Exception as e:
+                log(f"Volume archive warning for {vol}: {e}")
 
 def dump_modules(target_dir):
     modules_dir = os.path.join(target_dir, "modules")
@@ -199,8 +230,13 @@ def execute_full_backup():
     current_op["progress"] = 85
     current_op["message"] = f"Compressing into {os.path.basename(archive_path)}..."
     log(f"Compressing into {archive_path}...")
-    run_cmd(f'tar -czf "{archive_path}" -C "{BACKUP_DIR}" "{folder_name}"')
-    run_cmd(f'rm -rf "{staging}"')
+    try:
+        run_cmd(f'tar -czf "{archive_path}" -C "{BACKUP_DIR}" "{folder_name}"')
+    except Exception as e:
+        log(f"tar command fallback to python tarfile: {e}")
+        with tarfile.open(archive_path, "w:gz") as tar:
+            tar.add(staging, arcname=folder_name)
+    shutil.rmtree(staging, ignore_errors=True)
 
     enforce_retention()
     current_op["progress"] = 100
@@ -235,8 +271,13 @@ def execute_db_backup():
 
     current_op["progress"] = 85
     current_op["message"] = f"Compressing into {os.path.basename(archive_path)}..."
-    run_cmd(f'tar -czf "{archive_path}" -C "{BACKUP_DIR}" "{folder_name}"')
-    run_cmd(f'rm -rf "{staging}"')
+    try:
+        run_cmd(f'tar -czf "{archive_path}" -C "{BACKUP_DIR}" "{folder_name}"')
+    except Exception as e:
+        log(f"tar command fallback to python tarfile: {e}")
+        with tarfile.open(archive_path, "w:gz") as tar:
+            tar.add(staging, arcname=folder_name)
+    shutil.rmtree(staging, ignore_errors=True)
 
     enforce_retention()
     current_op["progress"] = 100
@@ -288,12 +329,17 @@ def execute_restore(archive_path):
         else:
             raise FileNotFoundError(f"Backup archive not found: {archive_path}")
 
-    temp_dir = "/tmp/bahmni_restore_unpack"
-    run_cmd(f'rm -rf "{temp_dir}" && mkdir -p "{temp_dir}"')
+    temp_dir = os.path.join(tempfile.gettempdir(), "bahmni_restore_unpack")
+    shutil.rmtree(temp_dir, ignore_errors=True)
+    os.makedirs(temp_dir, exist_ok=True)
     log(f"Extracting archive {os.path.basename(archive_path)}...")
     current_op["progress"] = 15
     current_op["message"] = "Extracting backup archive..."
-    run_cmd(f'tar -xzf "{archive_path}" -C "{temp_dir}"')
+    try:
+        run_cmd(f'tar -xzf "{archive_path}" -C "{temp_dir}"')
+    except Exception:
+        with tarfile.open(archive_path, "r:gz") as tar:
+            tar.extractall(temp_dir)
 
     extracted = glob.glob(f"{temp_dir}/bahmni_*")
     source_dir = extracted[0] if extracted else temp_dir
@@ -304,8 +350,9 @@ def execute_restore(archive_path):
         current_op["progress"] = 30
         current_op["message"] = "Restoring OpenMRS database..."
         log("Restoring OpenMRS database...")
-        run_cmd(f'docker exec -i bahmni-standard-openmrsdb-1 mysql -uroot -p"{MYSQL_PASS}" -e "DROP DATABASE IF EXISTS openmrs; CREATE DATABASE openmrs CHARACTER SET utf8;"')
-        run_cmd(f'docker exec -i bahmni-standard-openmrsdb-1 mysql -uroot -p"{MYSQL_PASS}" openmrs < "{openmrs_sql}"')
+        omrs = get_container("openmrsdb")
+        run_cmd(f'docker exec -i {omrs} mysql -uroot -p"{MYSQL_PASS}" -e "DROP DATABASE IF EXISTS openmrs; CREATE DATABASE openmrs CHARACTER SET utf8;"')
+        run_cmd(f'docker exec -i {omrs} mysql -uroot -p"{MYSQL_PASS}" openmrs < "{openmrs_sql}"')
 
     # 2. ClinLIMS / OpenELIS
     clinlims_sql = os.path.join(source_dir, "clinlims.sql")
@@ -313,9 +360,10 @@ def execute_restore(archive_path):
         current_op["progress"] = 45
         current_op["message"] = "Restoring OpenELIS ClinLIMS database..."
         log("Restoring OpenELIS ClinLIMS database...")
-        run_cmd("docker exec -i bahmni-standard-openelisdb-1 dropdb -U clinlims --if-exists clinlims", check=False)
-        run_cmd("docker exec -i bahmni-standard-openelisdb-1 createdb -U clinlims clinlims", check=False)
-        run_cmd(f'docker exec -i bahmni-standard-openelisdb-1 psql -U clinlims -d clinlims < "{clinlims_sql}"')
+        oelis = get_container("openelisdb")
+        run_cmd(f"docker exec -i {oelis} dropdb -U clinlims --if-exists clinlims", check=False)
+        run_cmd(f"docker exec -i {oelis} createdb -U clinlims clinlims", check=False)
+        run_cmd(f'docker exec -i {oelis} psql -U clinlims -d clinlims < "{clinlims_sql}"')
 
     # 3. Odoo
     odoo_sql = os.path.join(source_dir, "odoo.sql")
@@ -323,14 +371,15 @@ def execute_restore(archive_path):
         current_op["progress"] = 60
         current_op["message"] = "Restoring Odoo ERP database..."
         log("Restoring Odoo ERP database...")
+        odoo = get_container("odoodb")
         run_cmd(
-            'docker exec -i bahmni-standard-odoodb-1 psql -U odoo -d postgres -c '
+            f'docker exec -i {odoo} psql -U odoo -d postgres -c '
             '"SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = \'odoo\' AND pid <> pg_backend_pid();"',
             check=False
         )
-        run_cmd("docker exec -i bahmni-standard-odoodb-1 dropdb -U odoo --if-exists odoo", check=False)
-        run_cmd("docker exec -i bahmni-standard-odoodb-1 createdb -U odoo odoo", check=True)
-        run_cmd(f'docker exec -i bahmni-standard-odoodb-1 psql -U odoo -d odoo < "{odoo_sql}"', check=False)
+        run_cmd(f"docker exec -i {odoo} dropdb -U odoo --if-exists odoo", check=False)
+        run_cmd(f"docker exec -i {odoo} createdb -U odoo odoo", check=True)
+        run_cmd(f'docker exec -i {odoo} psql -U odoo -d odoo < "{odoo_sql}"', check=False)
 
     # 4. Reports
     reports_sql = os.path.join(source_dir, "bahmni_reports.sql")
@@ -338,20 +387,22 @@ def execute_restore(archive_path):
         current_op["progress"] = 70
         current_op["message"] = "Restoring Bahmni Reports database..."
         log("Restoring Bahmni Reports database...")
-        run_cmd(f'docker exec -i bahmni-standard-reportsdb-1 mysql -uroot -p"{MYSQL_PASS}" -e "DROP DATABASE IF EXISTS bahmni_reports; CREATE DATABASE bahmni_reports CHARACTER SET utf8;"', check=False)
-        run_cmd(f'docker exec -i bahmni-standard-reportsdb-1 mysql -uroot -p"{MYSQL_PASS}" bahmni_reports < "{reports_sql}"', check=False)
+        reports = get_container("reportsdb")
+        run_cmd(f'docker exec -i {reports} mysql -uroot -p"{MYSQL_PASS}" -e "DROP DATABASE IF EXISTS bahmni_reports; CREATE DATABASE bahmni_reports CHARACTER SET utf8;"', check=False)
+        run_cmd(f'docker exec -i {reports} mysql -uroot -p"{MYSQL_PASS}" bahmni_reports < "{reports_sql}"', check=False)
 
     # 5. PACS
+    pacs = get_container("pacsdb")
     pacs_sql = os.path.join(source_dir, "pacs_db.sql")
     if os.path.exists(pacs_sql):
         log("Restoring PACS databases...")
-        run_cmd(f'docker exec -i bahmni-standard-pacsdb-1 psql -U postgres -d pacs_db < "{pacs_sql}"', check=False)
+        run_cmd(f'docker exec -i {pacs} psql -U postgres -d pacs_db < "{pacs_sql}"', check=False)
     pacs_int_sql = os.path.join(source_dir, "pacs_integration_db.sql")
     if os.path.exists(pacs_int_sql):
-        run_cmd(f'docker exec -i bahmni-standard-pacsdb-1 psql -U postgres -d pacs_integration_db < "{pacs_int_sql}"', check=False)
+        run_cmd(f'docker exec -i {pacs} psql -U postgres -d pacs_integration_db < "{pacs_int_sql}"', check=False)
     bahmni_pacs_sql = os.path.join(source_dir, "bahmni_pacs.sql")
     if os.path.exists(bahmni_pacs_sql):
-        run_cmd(f'docker exec -i bahmni-standard-pacsdb-1 psql -U postgres -d bahmni_pacs < "{bahmni_pacs_sql}"', check=False)
+        run_cmd(f'docker exec -i {pacs} psql -U postgres -d bahmni_pacs < "{bahmni_pacs_sql}"', check=False)
 
     # 6. Volumes (if present in archive)
     volumes_dir = os.path.join(source_dir, "volumes")
@@ -365,14 +416,18 @@ def execute_restore(archive_path):
             if os.path.isdir(vol_dest):
                 log(f"Extracting volume {vol_name}...")
                 run_cmd(f'tar -xzf "{vol_tar}" -C "{vol_dest}"', check=False)
+            else:
+                log(f"Restoring volume via docker: {vol_name}")
+                run_cmd(f'docker run --rm -v "{vol_name}:/voldata" -v "{vol_tar}:/source.tar.gz:ro" alpine sh -c "tar -xzf /source.tar.gz -C /voldata"', check=False)
 
-    # 6. Lab sync state
+    # 7. Lab sync state
     lab_json = os.path.join(source_dir, "lab_last_result.json")
     if os.path.exists(lab_json):
-        run_cmd(f'docker cp "{lab_json}" lab-result-sync:/last_result.json', check=False)
+        sync_c = get_container("lab-result-sync")
+        run_cmd(f'docker cp "{lab_json}" {sync_c}:/last_result.json', check=False)
 
-    # 7. Clean unpack
-    run_cmd(f'rm -rf "{temp_dir}"')
+    # Clean unpack
+    shutil.rmtree(temp_dir, ignore_errors=True)
 
     # 8. Apply frontend patches
     current_op["progress"] = 90
@@ -383,7 +438,8 @@ def execute_restore(archive_path):
     current_op["progress"] = 95
     current_op["message"] = "Restarting application containers..."
     log("Restarting application containers...")
-    run_cmd("docker restart bahmni-standard-odoo-connect-1 bahmni-standard-atomfeed-console-1 bahmni-standard-openmrs-1 bahmni-standard-openelis-1 bahmni-standard-odoo-1", check=False)
+    c_list = [get_container(x) for x in ["odoo-connect", "atomfeed-console", "openmrs", "openelis", "odoo"]]
+    run_cmd(f"docker restart {' '.join(c_list)}", check=False)
 
     current_op["progress"] = 100
     current_op["message"] = f"Restore completed successfully from {os.path.basename(archive_path)}"

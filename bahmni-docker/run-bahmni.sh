@@ -44,8 +44,24 @@ function checkIfDirectoryIsCorrect {
     fi
 }
 
+function detectProxyPort {
+    if [ -z "$PROXY_PORT" ]; then
+        if command -v ss >/dev/null 2>&1 && ss -tuln | grep -q ":80 "; then
+            echo "[INFO] Port 80 is occupied by another application. Using port 8186 for Bahmni Proxy."
+            export PROXY_PORT=8186
+        elif command -v netstat >/dev/null 2>&1 && netstat -tuln 2>/dev/null | grep -q ":80 "; then
+            echo "[INFO] Port 80 is occupied by another application. Using port 8186 for Bahmni Proxy."
+            export PROXY_PORT=8186
+        else
+            echo "[INFO] Port 80 is free. Using default port 80 (http://localhost/) for Bahmni Proxy."
+            export PROXY_PORT=80
+        fi
+    fi
+}
+
 function start {
-    echo "Executing command: 'docker compose up -d' with the images specified in the $file file"
+    detectProxyPort
+    echo "Executing command: 'docker compose up -d' with the images specified in the $file file (Port: $PROXY_PORT)"
     echo "Starting Bahmni with default profile from $file file"
     docker compose --env-file "$file" up -d
 }

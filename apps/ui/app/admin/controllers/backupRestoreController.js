@@ -84,7 +84,8 @@ angular.module('admin')
                 }, function (err) {
                     stopPolling();
                     $scope.status.status = 'error';
-                    $scope.status.message = (err.data && err.data.message) || 'Failed to start full backup';
+                    var msg = (err.data && typeof err.data === 'object' && (err.data.message || err.data.error)) || 'Failed to start full backup. Backup Service is unreachable.';
+                    $scope.status.message = msg;
                 });
             };
 
@@ -101,7 +102,8 @@ angular.module('admin')
                 }, function (err) {
                     stopPolling();
                     $scope.status.status = 'error';
-                    $scope.status.message = (err.data && err.data.message) || 'Failed to start database backup';
+                    var msg = (err.data && typeof err.data === 'object' && (err.data.message || err.data.error)) || 'Failed to start database backup. Backup Service is unreachable.';
+                    $scope.status.message = msg;
                 });
             };
 

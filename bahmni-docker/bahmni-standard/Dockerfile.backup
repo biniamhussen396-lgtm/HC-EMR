@@ -1,0 +1,6 @@
+FROM alpine:latest
+RUN apk add --no-cache python3 docker-cli bash
+WORKDIR /app
+COPY bahmni_backup_service.py /app/bahmni_backup_service.py
+EXPOSE 5055
+CMD ["python3", "/app/bahmni_backup_service.py", "--daemon"]

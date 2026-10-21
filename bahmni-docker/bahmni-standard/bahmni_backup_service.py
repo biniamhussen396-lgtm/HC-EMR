@@ -13,13 +13,15 @@ import datetime
 import glob
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
+import tempfile
 import threading
 import tarfile
 import time
-from http.server import HTTPServer, BaseHTTPRequestHandler
+from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
 
 BACKUP_DIR = os.environ.get("BACKUP_DIR") or (
@@ -70,6 +72,23 @@ def run_cmd(cmd, check=True):
         if check:
             raise RuntimeError(err_msg)
     return res.stdout.strip()
+
+def run_cmd_pipe_in(cmd, in_file_path, check=True):
+    log(f"CMD (PIPE): {cmd} < {os.path.basename(in_file_path)}")
+    try:
+        with open(in_file_path, "rb") as f:
+            res = subprocess.run(cmd, shell=True, stdin=f, capture_output=True)
+        if res.returncode != 0:
+            err_msg = res.stderr.decode("utf-8", errors="replace").strip() or f"Command failed with code {res.returncode}"
+            log(f"ERROR: {err_msg}")
+            if check:
+                raise RuntimeError(err_msg)
+        return res.stdout.decode("utf-8", errors="replace").strip()
+    except Exception as e:
+        log(f"PIPE ERROR: {e}")
+        if check:
+            raise
+        return ""
 
 def enforce_retention():
     try:
@@ -288,9 +307,10 @@ def execute_db_backup():
 
 def apply_frontend_patches():
     log("Applying routing, patient search, and null-safety patches to Bahmni-Web...")
+    bweb = get_container("bahmni-web")
     # Safe UUID formatting
     run_cmd(
-        'docker exec -i bahmni-standard-bahmni-web-1 sed -i '
+        f'docker exec -i {bweb} sed -i '
         r'\'s#\$location\.url("/patient/" + \$scope\.selectedPatient\.uuid + "/crTriageVisit");#'
         r'var cleanUuid = ($scope.selectedPatient.uuid || "").replace(/^\/+/g, ""); '
         r'\$location.url("/patient/" + cleanUuid + "/crTriageVisit");#g\' '
@@ -298,7 +318,7 @@ def apply_frontend_patches():
         check=False
     )
     run_cmd(
-        'docker exec -i bahmni-standard-bahmni-web-1 sed -i '
+        f'docker exec -i {bweb} sed -i '
         r'\'s#\$location\.url("/patient/" + \$scope\.selectedPatient\.uuid + "/prescription");#'
         r'var cleanUuid = ($scope.selectedPatient.uuid || "").replace(/^\/+/g, ""); '
         r'\$location.url("/patient/" + cleanUuid + "/prescription");#g\' '
@@ -307,15 +327,15 @@ def apply_frontend_patches():
     )
     # Safe patient search disposition injection
     run_cmd(
-        'docker exec -i bahmni-standard-bahmni-web-1 sed -i '
+        f'docker exec -i {bweb} sed -i '
         '\'s#if(patient.activeVisitUuid){#if(patient.activeVisitUuid && dispositionService){#g\' '
         '/usr/local/apache2/htdocs/bahmni/common/patient-search/controllers/patientsListController.js',
         check=False
     )
     # Document upload dispositionService inclusion
     run_cmd(
-        'docker exec -i bahmni-standard-bahmni-web-1 grep -q "dispositionService.js" /usr/local/apache2/htdocs/bahmni/document-upload/index.html || '
-        'docker exec -i bahmni-standard-bahmni-web-1 sed -i \'/observationsService\\.js/a \\        <script src="../common/domain/services/dispositionService.js"></script>\' '
+        f'docker exec -i {bweb} grep -q "dispositionService.js" /usr/local/apache2/htdocs/bahmni/document-upload/index.html || '
+        f'docker exec -i {bweb} sed -i \'/observationsService\\.js/a \\        <script src="../common/domain/services/dispositionService.js"></script>\' '
         '/usr/local/apache2/htdocs/bahmni/document-upload/index.html',
         check=False
     )
@@ -338,11 +358,19 @@ def execute_restore(archive_path):
     try:
         run_cmd(f'tar -xzf "{archive_path}" -C "{temp_dir}"')
     except Exception:
-        with tarfile.open(archive_path, "r:gz") as tar:
-            tar.extractall(temp_dir)
+        try:
+            with tarfile.open(archive_path, "r:gz") as tar:
+                tar.extractall(temp_dir, filter="data")
+        except TypeError:
+            with tarfile.open(archive_path, "r:gz") as tar:
+                tar.extractall(temp_dir)
 
-    extracted = glob.glob(f"{temp_dir}/bahmni_*")
-    source_dir = extracted[0] if extracted else temp_dir
+    # Locate source directory containing database dumps
+    source_dir = temp_dir
+    for root, dirs, files in os.walk(temp_dir):
+        if "openmrs.sql" in files or "clinlims.sql" in files or "odoo.sql" in files or "backup_meta.json" in files:
+            source_dir = root
+            break
 
     # 1. OpenMRS
     openmrs_sql = os.path.join(source_dir, "openmrs.sql")
@@ -352,7 +380,7 @@ def execute_restore(archive_path):
         log("Restoring OpenMRS database...")
         omrs = get_container("openmrsdb")
         run_cmd(f'docker exec -i {omrs} mysql -uroot -p"{MYSQL_PASS}" -e "DROP DATABASE IF EXISTS openmrs; CREATE DATABASE openmrs CHARACTER SET utf8;"')
-        run_cmd(f'docker exec -i {omrs} mysql -uroot -p"{MYSQL_PASS}" openmrs < "{openmrs_sql}"')
+        run_cmd_pipe_in(f'docker exec -i {omrs} mysql -uroot -p"{MYSQL_PASS}" --default-character-set=utf8 openmrs', openmrs_sql)
 
     # 2. ClinLIMS / OpenELIS
     clinlims_sql = os.path.join(source_dir, "clinlims.sql")
@@ -361,9 +389,14 @@ def execute_restore(archive_path):
         current_op["message"] = "Restoring OpenELIS ClinLIMS database..."
         log("Restoring OpenELIS ClinLIMS database...")
         oelis = get_container("openelisdb")
+        run_cmd(
+            f'docker exec -i {oelis} psql -U clinlims -d postgres -c '
+            '"SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = \'clinlims\' AND pid <> pg_backend_pid();"',
+            check=False
+        )
         run_cmd(f"docker exec -i {oelis} dropdb -U clinlims --if-exists clinlims", check=False)
         run_cmd(f"docker exec -i {oelis} createdb -U clinlims clinlims", check=False)
-        run_cmd(f'docker exec -i {oelis} psql -U clinlims -d clinlims < "{clinlims_sql}"')
+        run_cmd_pipe_in(f'docker exec -i {oelis} psql -U clinlims -d clinlims', clinlims_sql, check=False)
 
     # 3. Odoo
     odoo_sql = os.path.join(source_dir, "odoo.sql")
@@ -379,7 +412,7 @@ def execute_restore(archive_path):
         )
         run_cmd(f"docker exec -i {odoo} dropdb -U odoo --if-exists odoo", check=False)
         run_cmd(f"docker exec -i {odoo} createdb -U odoo odoo", check=True)
-        run_cmd(f'docker exec -i {odoo} psql -U odoo -d odoo < "{odoo_sql}"', check=False)
+        run_cmd_pipe_in(f'docker exec -i {odoo} psql -U odoo -d odoo', odoo_sql, check=False)
 
     # 4. Reports
     reports_sql = os.path.join(source_dir, "bahmni_reports.sql")
@@ -389,20 +422,20 @@ def execute_restore(archive_path):
         log("Restoring Bahmni Reports database...")
         reports = get_container("reportsdb")
         run_cmd(f'docker exec -i {reports} mysql -uroot -p"{MYSQL_PASS}" -e "DROP DATABASE IF EXISTS bahmni_reports; CREATE DATABASE bahmni_reports CHARACTER SET utf8;"', check=False)
-        run_cmd(f'docker exec -i {reports} mysql -uroot -p"{MYSQL_PASS}" bahmni_reports < "{reports_sql}"', check=False)
+        run_cmd_pipe_in(f'docker exec -i {reports} mysql -uroot -p"{MYSQL_PASS}" --default-character-set=utf8 bahmni_reports', reports_sql, check=False)
 
     # 5. PACS
     pacs = get_container("pacsdb")
     pacs_sql = os.path.join(source_dir, "pacs_db.sql")
     if os.path.exists(pacs_sql):
         log("Restoring PACS databases...")
-        run_cmd(f'docker exec -i {pacs} psql -U postgres -d pacs_db < "{pacs_sql}"', check=False)
+        run_cmd_pipe_in(f'docker exec -i {pacs} psql -U postgres -d pacs_db', pacs_sql, check=False)
     pacs_int_sql = os.path.join(source_dir, "pacs_integration_db.sql")
     if os.path.exists(pacs_int_sql):
-        run_cmd(f'docker exec -i {pacs} psql -U postgres -d pacs_integration_db < "{pacs_int_sql}"', check=False)
+        run_cmd_pipe_in(f'docker exec -i {pacs} psql -U postgres -d pacs_integration_db', pacs_int_sql, check=False)
     bahmni_pacs_sql = os.path.join(source_dir, "bahmni_pacs.sql")
     if os.path.exists(bahmni_pacs_sql):
-        run_cmd(f'docker exec -i {pacs} psql -U postgres -d bahmni_pacs < "{bahmni_pacs_sql}"', check=False)
+        run_cmd_pipe_in(f'docker exec -i {pacs} psql -U postgres -d bahmni_pacs', bahmni_pacs_sql, check=False)
 
     # 6. Volumes (if present in archive)
     volumes_dir = os.path.join(source_dir, "volumes")
@@ -414,17 +447,17 @@ def execute_restore(archive_path):
             vol_name = os.path.basename(vol_tar).replace(".tar.gz", "")
             vol_dest = f"{VOL_BASE}/{vol_name}/_data"
             if os.path.isdir(vol_dest):
-                log(f"Extracting volume {vol_name}...")
+                log(f"Extracting volume from host path: {vol_name}...")
                 run_cmd(f'tar -xzf "{vol_tar}" -C "{vol_dest}"', check=False)
             else:
-                log(f"Restoring volume via docker: {vol_name}")
-                run_cmd(f'docker run --rm -v "{vol_name}:/voldata" -v "{vol_tar}:/source.tar.gz:ro" alpine sh -c "tar -xzf /source.tar.gz -C /voldata"', check=False)
+                log(f"Restoring volume via docker stdin: {vol_name}")
+                run_cmd_pipe_in(f'docker run --rm -i -v "{vol_name}:/voldata" alpine tar -xzf - -C /voldata', vol_tar, check=False)
 
     # 7. Lab sync state
     lab_json = os.path.join(source_dir, "lab_last_result.json")
     if os.path.exists(lab_json):
         sync_c = get_container("lab-result-sync")
-        run_cmd(f'docker cp "{lab_json}" {sync_c}:/last_result.json', check=False)
+        run_cmd_pipe_in(f'docker exec -i {sync_c} sh -c "cat > /last_result.json"', lab_json, check=False)
 
     # Clean unpack
     shutil.rmtree(temp_dir, ignore_errors=True)
@@ -578,9 +611,117 @@ class BackupAPIHandler(BaseHTTPRequestHandler):
         except Exception as e:
             log(f"Download error for {safe_name}: {e}")
 
+    def _handle_upload(self, query_params):
+        content_length = int(self.headers.get("Content-Length", 0))
+        if content_length <= 0:
+            self._send_json(400, {"success": False, "error": "Content-Length header required for upload"})
+            return
+
+        content_type = self.headers.get("Content-Type", "")
+        raw_name = query_params.get("filename", [""])[0] or self.headers.get("X-File-Name", "")
+        do_restore = query_params.get("restore", ["false"])[0].lower() in ("true", "1", "yes") or \
+                     self.headers.get("X-Restore-Now", "").lower() in ("true", "1", "yes")
+
+        os.makedirs(BACKUP_DIR, exist_ok=True)
+
+        if "multipart/form-data" in content_type:
+            boundary = None
+            for p in content_type.split(";"):
+                p = p.strip()
+                if p.startswith("boundary="):
+                    boundary = p.split("=", 1)[1].strip('"').encode("latin1")
+                    break
+            if not boundary:
+                self._send_json(400, {"success": False, "error": "Invalid multipart boundary"})
+                return
+
+            body_bytes = self.rfile.read(content_length)
+            parts = body_bytes.split(b"--" + boundary)
+            file_found = False
+            for part in parts:
+                if b'filename="' in part:
+                    if not raw_name:
+                        match = re.search(rb'filename="([^"]+)"', part)
+                        if match:
+                            raw_name = match.group(1).decode("utf-8", errors="replace")
+                    header_end = part.find(b"\r\n\r\n")
+                    if header_end != -1:
+                        data = part[header_end + 4:]
+                        if data.endswith(b"\r\n"):
+                            data = data[:-2]
+                        safe_name = os.path.basename(raw_name.strip() if raw_name else f"uploaded_backup_{int(time.time())}.tar.gz")
+                        safe_name = re.sub(r'[^a-zA-Z0-9_\-\.]', '_', safe_name)
+                        if not (safe_name.endswith(".tar.gz") or safe_name.endswith(".tgz")):
+                            safe_name += ".tar.gz"
+                        dest_path = os.path.join(BACKUP_DIR, safe_name)
+                        with open(dest_path, "wb") as f:
+                            f.write(data)
+                        file_found = True
+                        break
+            if not file_found:
+                self._send_json(400, {"success": False, "error": "No file content found in multipart body"})
+                return
+        else:
+            safe_name = os.path.basename(raw_name.strip() if raw_name else f"uploaded_backup_{int(time.time())}.tar.gz")
+            safe_name = re.sub(r'[^a-zA-Z0-9_\-\.]', '_', safe_name)
+            if not (safe_name.endswith(".tar.gz") or safe_name.endswith(".tgz")):
+                safe_name += ".tar.gz"
+            dest_path = os.path.join(BACKUP_DIR, safe_name)
+            remaining = content_length
+            with open(dest_path, "wb") as f:
+                while remaining > 0:
+                    chunk = self.rfile.read(min(remaining, 65536))
+                    if not chunk:
+                        break
+                    f.write(chunk)
+                    remaining -= len(chunk)
+
+        # Validate archive integrity
+        try:
+            with tarfile.open(dest_path, "r:*") as t:
+                members = t.getnames()
+                if not members:
+                    raise ValueError("Archive is empty")
+        except Exception as e:
+            if os.path.exists(dest_path):
+                try:
+                    os.remove(dest_path)
+                except OSError:
+                    pass
+            self._send_json(400, {"success": False, "error": f"Uploaded file is not a valid tar/gzip archive: {e}"})
+            return
+
+        size_mb = round(os.path.getsize(dest_path) / (1024 * 1024), 2)
+        log(f"Received uploaded backup: {safe_name} ({size_mb} MB)")
+
+        if do_restore:
+            ok, msg = run_async("restore", execute_restore, safe_name)
+            if not ok:
+                self._send_json(409, {"success": False, "error": msg, "filename": safe_name})
+                return
+            self._send_json(200, {
+                "success": True,
+                "message": f"Archive uploaded successfully ({size_mb} MB) and restore started.",
+                "filename": safe_name,
+                "restoring": True
+            })
+        else:
+            self._send_json(200, {
+                "success": True,
+                "message": f"Backup archive '{safe_name}' ({size_mb} MB) uploaded successfully.",
+                "filename": safe_name,
+                "restoring": False
+            })
+
     def do_POST(self):
         parsed = urlparse(self.path)
         path = parsed.path.rstrip("/").replace("/backup-api", "")
+        query_params = parse_qs(parsed.query)
+
+        if path in ("/api/upload", "/upload"):
+            self._handle_upload(query_params)
+            return
+
         length = int(self.headers.get("Content-Length", 0))
         body = self.rfile.read(length).decode("utf-8") if length > 0 else ""
         payload = {}
@@ -627,7 +768,7 @@ class BackupAPIHandler(BaseHTTPRequestHandler):
 
 def start_server():
     server_address = ("0.0.0.0", PORT)
-    httpd = HTTPServer(server_address, BackupAPIHandler)
+    httpd = ThreadingHTTPServer(server_address, BackupAPIHandler)
     log(f"Bahmni Backup Service running on http://0.0.0.0:{PORT}...")
     try:
         httpd.serve_forever()

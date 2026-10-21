@@ -109,7 +109,7 @@ with open('/tmp/bahmni-proxy.conf', 'r') as f:
 lines = [l for l in c.splitlines() if 'backup-api' not in l and 'Bahmni Backup API' not in l]
 c = '\\n'.join(lines)
 block = '''# Bahmni Backup API
-ProxyPass /backup-api http://172.18.0.1:5055/api
+ProxyPass /backup-api http://172.18.0.1:5055/api connectiontimeout=300 timeout=1800
 ProxyPassReverse /backup-api http://172.18.0.1:5055/api
 '''
 if '#Bahmni Web' in c:

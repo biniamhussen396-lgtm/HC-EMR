@@ -137,6 +137,11 @@ angular.module('admin')
                 });
             };
 
+            $scope.getDownloadUrl = function (backup) {
+                if (!backup || !backup.name) return '';
+                return API_BASE + '/download/' + encodeURIComponent(backup.name);
+            };
+
             $scope.$on('$destroy', function () {
                 stopPolling();
             });

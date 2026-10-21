@@ -466,7 +466,8 @@ def list_backups():
             "path": arc,
             "size_mb": size_mb,
             "modified": mtime,
-            "type": b_type
+            "type": b_type,
+            "download_url": f"/backup-api/download/{base}"
         })
     return items
 
@@ -511,15 +512,29 @@ class BackupAPIHandler(BaseHTTPRequestHandler):
     def do_OPTIONS(self):
         self.send_response(200)
         self._send_cors()
-        self.end_headers()
+    def do_HEAD(self):
+        self.do_GET(head_only=True)
 
-    def do_GET(self):
+    def do_GET(self, head_only=False):
         parsed = urlparse(self.path)
         path = parsed.path.rstrip("/")
         # Handle path prefix if mounted at /backup-api or /api
         path = path.replace("/backup-api", "")
         if not path:
             path = "/"
+
+        query_params = parse_qs(parsed.query)
+        download_file = None
+        if path.startswith("/download/") or path.startswith("/api/download/"):
+            parts = path.split("/download/")
+            if len(parts) > 1 and parts[1]:
+                download_file = parts[1]
+        elif path in ("/download", "/api/download") and "file" in query_params:
+            download_file = query_params["file"][0]
+
+        if download_file:
+            self._serve_download(download_file, head_only=head_only)
+            return
 
         if path in ("/api/backups", "/backups"):
             data = {"backups": list_backups(), "status": current_op}
@@ -528,6 +543,40 @@ class BackupAPIHandler(BaseHTTPRequestHandler):
             self._send_json(200, current_op)
         else:
             self._send_json(404, {"error": "Endpoint not found", "path": path})
+
+    def _serve_download(self, filename, head_only=False):
+        safe_name = os.path.basename(filename.strip())
+        if not safe_name or not safe_name.endswith(".tar.gz"):
+            self._send_json(400, {"error": "Invalid backup archive filename"})
+            return
+
+        file_path = os.path.join(BACKUP_DIR, safe_name)
+        if not os.path.isfile(file_path):
+            self._send_json(404, {"error": f"Backup file not found: {safe_name}"})
+            return
+
+        try:
+            file_size = os.path.getsize(file_path)
+            self.send_response(200)
+            self.send_header("Content-Type", "application/gzip")
+            self.send_header("Content-Disposition", f'attachment; filename="{safe_name}"')
+            self.send_header("Content-Length", str(file_size))
+            self._send_cors()
+            self.end_headers()
+
+            if head_only:
+                return
+
+            with open(file_path, "rb") as f:
+                while True:
+                    chunk = f.read(65536)
+                    if not chunk:
+                        break
+                    self.wfile.write(chunk)
+        except (BrokenPipeError, ConnectionResetError):
+            pass
+        except Exception as e:
+            log(f"Download error for {safe_name}: {e}")
 
     def do_POST(self):
         parsed = urlparse(self.path)

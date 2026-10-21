@@ -147,7 +147,14 @@
                     </td>
                     <td style="padding: 12px 14px; color: #4a5568;">{{backup.modified}}</td>
                     <td style="padding: 12px 14px; color: #4a5568;"><strong>{{backup.size_mb}} MB</strong></td>
-                    <td style="padding: 12px 14px; text-align: right;">
+                    <td style="padding: 12px 14px; text-align: right; white-space: nowrap;">
+                        <a class="btn btn-primary"
+                           ng-href="{{backup.download_url || getDownloadUrl(backup)}}"
+                           download="{{backup.name}}"
+                           title="Download {{backup.name}}"
+                           style="padding: 6px 14px; font-size: 13px; font-weight: 600; border-radius: 4px; background: #3182ce; color: #fff; border: none; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; margin-right: 8px;">
+                            <i class="fa fa-download" style="margin-right: 6px;"></i>Download
+                        </a>
                         <button class="btn btn-warning"
                                 ng-click="confirmRestore(backup)"
                                 ng-disabled="status.status === 'running'"

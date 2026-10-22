@@ -1218,15 +1218,18 @@ def save_branding_config(payload):
         sql_stmts = (
             f"UPDATE location SET name = '{sql_name}' WHERE location_id IN (2, 253); "
             f"UPDATE global_property SET property_value = '{phone_esc}' WHERE property = 'clinic.helpDeskNumber'; "
+            f"SET @clob_uuid = UUID(); "
+            f"INSERT INTO clob_datatype_storage (uuid, value) VALUES (@clob_uuid, '{print_header_html}'); "
             f"DELETE FROM location_attribute WHERE location_id = 2 AND attribute_type_id = 1; "
             f"INSERT INTO location_attribute (location_id, attribute_type_id, value_reference, uuid, creator, date_created) "
-            f"VALUES (2, 1, '{print_header_html}', UUID(), 1, NOW()); "
+            f"VALUES (2, 1, @clob_uuid, UUID(), 1, NOW()); "
             f"DELETE FROM location_attribute WHERE location_id = 253 AND attribute_type_id = 1; "
             f"INSERT INTO location_attribute (location_id, attribute_type_id, value_reference, uuid, creator, date_created) "
-            f"SELECT 253, 1, '{print_header_html}', UUID(), 1, NOW() FROM location WHERE location_id = 253; "
+            f"SELECT 253, 1, @clob_uuid, UUID(), 1, NOW() FROM location WHERE location_id = 253; "
+            f"UPDATE global_property SET property_value = 'SELECT lat.name, \\n       COALESCE(cds.value, la.value_reference) as value\\nFROM location_attribute_type lat\\nINNER JOIN (\\n    SELECT attribute_type_id, \\n           MAX(location_attribute_id) AS max_location_attribute_id\\n    FROM location_attribute\\n    WHERE location_id = 2\\n    GROUP BY attribute_type_id\\n) latest_ids ON lat.location_attribute_type_id = latest_ids.attribute_type_id\\nINNER JOIN location_attribute la ON la.location_attribute_id = latest_ids.max_location_attribute_id\\nLEFT JOIN clob_datatype_storage cds ON la.value_reference = cds.uuid\\nORDER BY lat.location_attribute_type_id;' WHERE property = 'emrapi.sqlSearch.facilityInfo'; "
         )
         run_cmd(f'docker exec -i {omrs} mysql -uroot -p"{MYSQL_PASS}" openmrs -e "{sql_stmts}"', check=False)
-        log("Successfully updated OpenMRS locations, Print Header attribute, and clinic helpdesk number.")
+        log("Successfully updated OpenMRS locations, Print Header clob attribute, and clinic helpdesk number.")
     except Exception as e:
         log(f"Warning updating OpenMRS database: {e}")
 

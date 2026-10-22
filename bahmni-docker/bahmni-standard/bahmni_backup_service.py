@@ -305,6 +305,26 @@ def execute_db_backup():
     log(current_op["message"])
     return archive_path
 
+def ensure_restore_privilege():
+    try:
+        omrs = get_container("openmrsdb")
+        sql = (
+            "INSERT IGNORE INTO privilege (privilege, description, uuid) "
+            "VALUES ('app:admin:restore', 'Bahmni Admin: Privilege to restore system backups and access restore operations', UUID()); "
+            "INSERT IGNORE INTO role_privilege (role, privilege) VALUES "
+            "('SuperAdmin', 'app:admin:restore'), "
+            "('System Developer', 'app:admin:restore'), "
+            "('Privilege Level: Full', 'app:admin:restore');"
+        )
+        res = subprocess.run(
+            f'docker exec -i {omrs} mysql -uroot -p"{MYSQL_PASS}" openmrs -e "{sql}"',
+            shell=True, capture_output=True, text=True
+        )
+        if res.returncode == 0:
+            log("Verified OpenMRS 'app:admin:restore' privilege.")
+    except Exception as e:
+        log(f"Warning verifying OpenMRS privilege: {e}")
+
 def apply_frontend_patches():
     log("Applying routing, patient search, and null-safety patches to Bahmni-Web...")
     bweb = get_container("bahmni-web")
@@ -462,10 +482,11 @@ def execute_restore(archive_path):
     # Clean unpack
     shutil.rmtree(temp_dir, ignore_errors=True)
 
-    # 8. Apply frontend patches
+    # 8. Apply frontend patches & ensure restore privilege in OpenMRS
     current_op["progress"] = 90
-    current_op["message"] = "Applying Web UI patches..."
+    current_op["message"] = "Applying Web UI patches & verifying privileges..."
     apply_frontend_patches()
+    ensure_restore_privilege()
 
     # 9. Cycling services
     current_op["progress"] = 95
@@ -767,6 +788,7 @@ class BackupAPIHandler(BaseHTTPRequestHandler):
         pass
 
 def start_server():
+    threading.Thread(target=ensure_restore_privilege, daemon=True).start()
     server_address = ("0.0.0.0", PORT)
     httpd = ThreadingHTTPServer(server_address, BackupAPIHandler)
     log(f"Bahmni Backup Service running on http://0.0.0.0:{PORT}...")

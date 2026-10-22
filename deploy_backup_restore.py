@@ -170,6 +170,15 @@ WantedBy=multi-user.target
 
     time.sleep(2)
 
+    # 4b. Ensure OpenMRS app:admin:restore privilege
+    print("[*] Ensuring OpenMRS 'app:admin:restore' privilege ...")
+    sql_cmd = (
+        'docker exec -i bahmni-standard-openmrsdb-1 mysql -uroot -p"${MYSQL_ROOT_PASSWORD:-adminAdmin!123}" openmrs -e "'
+        'INSERT IGNORE INTO privilege (privilege, description, uuid) VALUES (\'app:admin:restore\', \'Bahmni Admin: Privilege to restore system backups and access restore operations\', UUID()); '
+        'INSERT IGNORE INTO role_privilege (role, privilege) VALUES (\'SuperAdmin\', \'app:admin:restore\'), (\'System Developer\', \'app:admin:restore\'), (\'Privilege Level: Full\', \'app:admin:restore\');"'
+    )
+    run_sudo(host, user, pw, sql_cmd)
+
     # 5. Verify local daemon status on host
     rc, out, err = run_sudo(host, user, pw, "systemctl is-active bahmni-backup.service")
     print(f"[*] Service active state: {out.strip()}")

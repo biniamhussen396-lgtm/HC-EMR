@@ -1,8 +1,8 @@
 'use strict';
 
 angular.module('admin')
-    .controller('BackupRestoreController', ['$scope', '$http', '$interval', '$timeout', 'messagingService',
-        function ($scope, $http, $interval, $timeout, messagingService) {
+    .controller('BackupRestoreController', ['$scope', '$rootScope', '$http', '$interval', '$timeout', 'messagingService',
+        function ($scope, $rootScope, $http, $interval, $timeout, messagingService) {
             $scope.backups = [];
             $scope.status = {
                 status: 'idle',
@@ -13,7 +13,40 @@ angular.module('admin')
             $scope.loading = true;
             $scope.selectedForRestore = null;
             $scope.confirmModalVisible = false;
+            $scope.hasRestorePrivilege = false;
             var pollPromise = null;
+
+            var evaluateRestorePrivilege = function () {
+                var user = $rootScope.currentUser;
+                if (!user) {
+                    $scope.hasRestorePrivilege = false;
+                    return;
+                }
+                var userPrivileges = _.map(user.privileges || [], function (p) {
+                    return (p && p.name) ? p.name : p;
+                });
+                var userRoles = _.map(user.roles || [], function (r) {
+                    return (r && r.name) ? r.name : r;
+                });
+
+                if (userPrivileges.indexOf('app:admin:restore') !== -1 ||
+                    userPrivileges.indexOf('app:admin:backupRestore:restore') !== -1 ||
+                    userRoles.indexOf('SuperAdmin') !== -1 ||
+                    userRoles.indexOf('System Developer') !== -1 ||
+                    userRoles.indexOf('Privilege Level: Full') !== -1 ||
+                    (user.username && (user.username === 'admin' || user.username === 'superman'))) {
+                    $scope.hasRestorePrivilege = true;
+                } else {
+                    $scope.hasRestorePrivilege = false;
+                }
+            };
+
+            evaluateRestorePrivilege();
+            $rootScope.$watch('currentUser', function (user) {
+                if (user) {
+                    evaluateRestorePrivilege();
+                }
+            });
 
             var API_BASE = '/backup-api';
 
@@ -141,6 +174,10 @@ angular.module('admin')
             };
 
             $scope.confirmUploadAndRestore = function () {
+                if (!$scope.hasRestorePrivilege) {
+                    messagingService.showMessage('error', 'Access denied: You do not have permission to restore system backups (app:admin:restore required).');
+                    return;
+                }
                 if (!$scope.selectedUploadFile || $scope.status.status === 'running') return;
                 $scope.restoreFromUpload = true;
                 $scope.selectedForRestore = {
@@ -153,6 +190,10 @@ angular.module('admin')
 
             $scope.startUpload = function (andRestore) {
                 if (!$scope.selectedUploadFile || $scope.isUploading) return;
+                if (andRestore && !$scope.hasRestorePrivilege) {
+                    messagingService.showMessage('error', 'Access denied: You do not have permission to restore system backups (app:admin:restore required).');
+                    return;
+                }
                 var fileObj = $scope.selectedUploadFile.file;
                 $scope.isUploading = true;
                 $scope.uploadProgress = 0;
@@ -212,6 +253,10 @@ angular.module('admin')
             };
 
             $scope.confirmRestore = function (backup) {
+                if (!$scope.hasRestorePrivilege) {
+                    messagingService.showMessage('error', 'Access denied: You do not have permission to restore system backups (app:admin:restore required).');
+                    return;
+                }
                 if ($scope.status.status === 'running') return;
                 $scope.selectedForRestore = backup;
                 $scope.confirmModalVisible = true;
@@ -225,6 +270,10 @@ angular.module('admin')
 
             $scope.executeRestore = function () {
                 if (!$scope.selectedForRestore) return;
+                if (!$scope.hasRestorePrivilege) {
+                    messagingService.showMessage('error', 'Access denied: You do not have permission to restore system backups (app:admin:restore required).');
+                    return;
+                }
                 var backup = $scope.selectedForRestore;
                 $scope.confirmModalVisible = false;
 

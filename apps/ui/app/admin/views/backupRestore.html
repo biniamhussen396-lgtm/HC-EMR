@@ -101,7 +101,7 @@
     </div>
 
     <!-- Upload & Restore from Downloaded File Section -->
-    <div style="background: #fff; border: 1px solid #e0e0e0; border-radius: 8px; padding: 22px; box-shadow: 0 2px 6px rgba(0,0,0,0.04); margin-bottom: 30px;">
+    <div ng-if="hasRestorePrivilege" style="background: #fff; border: 1px solid #e0e0e0; border-radius: 8px; padding: 22px; box-shadow: 0 2px 6px rgba(0,0,0,0.04); margin-bottom: 30px;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
             <div style="display: flex; align-items: center;">
                 <div style="background: #ede9fe; color: #6d28d9; width: 44px; height: 44px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 22px; margin-right: 15px;">
@@ -229,6 +229,7 @@
                             <i class="fa fa-download" style="margin-right: 6px;"></i>Download
                         </a>
                         <button class="btn btn-warning"
+                                ng-if="hasRestorePrivilege"
                                 ng-click="confirmRestore(backup)"
                                 ng-disabled="status.status === 'running'"
                                 style="padding: 6px 14px; font-size: 13px; font-weight: 600; border-radius: 4px; background: #ed8936; color: #fff; border: none; cursor: pointer;">

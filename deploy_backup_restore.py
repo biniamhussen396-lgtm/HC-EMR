@@ -170,12 +170,17 @@ WantedBy=multi-user.target
 
     time.sleep(2)
 
-    # 4b. Ensure OpenMRS app:admin:restore privilege
-    print("[*] Ensuring OpenMRS 'app:admin:restore' privilege ...")
+    # 4b. Ensure OpenMRS app:admin:restore and app:admin:deleteBackup privileges
+    print("[*] Ensuring OpenMRS 'app:admin:restore' and 'app:admin:deleteBackup' privileges ...")
     sql_cmd = (
         'docker exec -i bahmni-standard-openmrsdb-1 mysql -uroot -p"${MYSQL_ROOT_PASSWORD:-adminAdmin!123}" openmrs -e "'
-        'INSERT IGNORE INTO privilege (privilege, description, uuid) VALUES (\'app:admin:restore\', \'Bahmni Admin: Privilege to restore system backups and access restore operations\', UUID()); '
-        'INSERT IGNORE INTO role_privilege (role, privilege) VALUES (\'SuperAdmin\', \'app:admin:restore\'), (\'System Developer\', \'app:admin:restore\'), (\'Privilege Level: Full\', \'app:admin:restore\');"'
+        'INSERT IGNORE INTO privilege (privilege, description, uuid) VALUES '
+        '(\\\'app:admin:restore\\\', \\\'Bahmni Admin: Privilege to restore system backups and access restore operations\\\', UUID()), '
+        '(\\\'app:admin:deleteBackup\\\', \\\'Bahmni Admin: Privilege to delete backup archives\\\', UUID()); '
+        'INSERT IGNORE INTO role_privilege (role, privilege) VALUES '
+        '(\\\'SuperAdmin\\\', \\\'app:admin:restore\\\'), (\\\'SuperAdmin\\\', \\\'app:admin:deleteBackup\\\'), '
+        '(\\\'System Developer\\\', \\\'app:admin:restore\\\'), (\\\'System Developer\\\', \\\'app:admin:deleteBackup\\\'), '
+        '(\\\'Privilege Level: Full\\\', \\\'app:admin:restore\\\'), (\\\'Privilege Level: Full\\\', \\\'app:admin:deleteBackup\\\');"'
     )
     run_sudo(host, user, pw, sql_cmd)
 

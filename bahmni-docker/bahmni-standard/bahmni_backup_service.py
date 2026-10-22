@@ -309,21 +309,25 @@ def ensure_restore_privilege():
     try:
         omrs = get_container("openmrsdb")
         sql = (
-            "INSERT IGNORE INTO privilege (privilege, description, uuid) "
-            "VALUES ('app:admin:restore', 'Bahmni Admin: Privilege to restore system backups and access restore operations', UUID()); "
+            "INSERT IGNORE INTO privilege (privilege, description, uuid) VALUES "
+            "('app:admin:restore', 'Bahmni Admin: Privilege to restore system backups and access restore operations', UUID()), "
+            "('app:admin:deleteBackup', 'Bahmni Admin: Privilege to delete backup archives', UUID()); "
             "INSERT IGNORE INTO role_privilege (role, privilege) VALUES "
             "('SuperAdmin', 'app:admin:restore'), "
+            "('SuperAdmin', 'app:admin:deleteBackup'), "
             "('System Developer', 'app:admin:restore'), "
-            "('Privilege Level: Full', 'app:admin:restore');"
+            "('System Developer', 'app:admin:deleteBackup'), "
+            "('Privilege Level: Full', 'app:admin:restore'), "
+            "('Privilege Level: Full', 'app:admin:deleteBackup');"
         )
         res = subprocess.run(
             f'docker exec -i {omrs} mysql -uroot -p"{MYSQL_PASS}" openmrs -e "{sql}"',
             shell=True, capture_output=True, text=True
         )
         if res.returncode == 0:
-            log("Verified OpenMRS 'app:admin:restore' privilege.")
+            log("Verified OpenMRS 'app:admin:restore' and 'app:admin:deleteBackup' privileges.")
     except Exception as e:
-        log(f"Warning verifying OpenMRS privilege: {e}")
+        log(f"Warning verifying OpenMRS privileges: {e}")
 
 def apply_frontend_patches():
     log("Applying routing, patient search, and null-safety patches to Bahmni-Web...")
@@ -525,6 +529,19 @@ def list_backups():
         })
     return items
 
+def delete_backup(archive_name):
+    safe_name = os.path.basename(archive_name.strip())
+    if not safe_name or not (safe_name.endswith(".tar.gz") or safe_name.endswith(".tgz")):
+        raise ValueError("Invalid backup filename")
+
+    file_path = os.path.join(BACKUP_DIR, safe_name)
+    if not os.path.isfile(file_path):
+        raise FileNotFoundError(f"Backup file not found: {safe_name}")
+
+    os.remove(file_path)
+    log(f"Deleted backup archive: {safe_name}")
+    return safe_name
+
 def run_async(op_type, func, *args):
     with op_lock:
         if current_op["status"] == "running":
@@ -560,7 +577,7 @@ def run_async(op_type, func, *args):
 class BackupAPIHandler(BaseHTTPRequestHandler):
     def _send_cors(self):
         self.send_header("Access-Control-Allow-Origin", "*")
-        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS")
         self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization")
 
     def do_OPTIONS(self):
@@ -771,8 +788,40 @@ class BackupAPIHandler(BaseHTTPRequestHandler):
             status_code = 200 if ok else 409
             self._send_json(status_code, {"success": ok, "message": msg})
 
+        elif path in ("/api/backup/delete", "/backup/delete", "/api/delete", "/delete"):
+            archive_name = payload.get("archive") or query_params.get("archive", [""])[0]
+            if not archive_name:
+                self._send_json(400, {"success": False, "error": "Missing 'archive' in payload"})
+                return
+            try:
+                deleted = delete_backup(archive_name)
+                self._send_json(200, {"success": True, "message": f"Backup '{deleted}' deleted successfully."})
+            except FileNotFoundError:
+                self._send_json(404, {"success": False, "error": f"Backup '{archive_name}' not found."})
+            except Exception as e:
+                self._send_json(500, {"success": False, "error": str(e)})
+
         else:
             self._send_json(404, {"error": "Endpoint not found", "path": path})
+
+    def do_DELETE(self):
+        parsed = urlparse(self.path)
+        path = parsed.path.rstrip("/").replace("/backup-api", "")
+        query_params = parse_qs(parsed.query)
+        archive_name = query_params.get("archive", [""])[0]
+        if not archive_name and (path.startswith("/backup/") or path.startswith("/api/backup/")):
+            archive_name = os.path.basename(path)
+
+        if not archive_name:
+            self._send_json(400, {"success": False, "error": "Missing archive filename"})
+            return
+        try:
+            deleted = delete_backup(archive_name)
+            self._send_json(200, {"success": True, "message": f"Backup '{deleted}' deleted successfully."})
+        except FileNotFoundError:
+            self._send_json(404, {"success": False, "error": f"Backup '{archive_name}' not found."})
+        except Exception as e:
+            self._send_json(500, {"success": False, "error": str(e)})
 
     def _send_json(self, code, data):
         content = json.dumps(data, indent=2).encode("utf-8")

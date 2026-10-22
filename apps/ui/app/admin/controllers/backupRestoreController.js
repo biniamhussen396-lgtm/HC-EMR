@@ -14,12 +14,16 @@ angular.module('admin')
             $scope.selectedForRestore = null;
             $scope.confirmModalVisible = false;
             $scope.hasRestorePrivilege = false;
+            $scope.selectedForDelete = null;
+            $scope.deleteModalVisible = false;
+            $scope.hasDeletePrivilege = false;
             var pollPromise = null;
 
-            var evaluateRestorePrivilege = function () {
+            var evaluatePrivileges = function () {
                 var user = $rootScope.currentUser;
                 if (!user) {
                     $scope.hasRestorePrivilege = false;
+                    $scope.hasDeletePrivilege = false;
                     return;
                 }
                 var userPrivileges = _.map(user.privileges || [], function (p) {
@@ -29,22 +33,33 @@ angular.module('admin')
                     return (r && r.name) ? r.name : r;
                 });
 
-                if (userPrivileges.indexOf('app:admin:restore') !== -1 ||
-                    userPrivileges.indexOf('app:admin:backupRestore:restore') !== -1 ||
-                    userRoles.indexOf('SuperAdmin') !== -1 ||
-                    userRoles.indexOf('System Developer') !== -1 ||
-                    userRoles.indexOf('Privilege Level: Full') !== -1 ||
-                    (user.username && (user.username === 'admin' || user.username === 'superman'))) {
+                var isSuper = userRoles.indexOf('SuperAdmin') !== -1 ||
+                              userRoles.indexOf('System Developer') !== -1 ||
+                              userRoles.indexOf('Privilege Level: Full') !== -1 ||
+                              (user.username && (user.username === 'admin' || user.username === 'superman'));
+
+                if (isSuper ||
+                    userPrivileges.indexOf('app:admin:restore') !== -1 ||
+                    userPrivileges.indexOf('app:admin:backupRestore:restore') !== -1) {
                     $scope.hasRestorePrivilege = true;
                 } else {
                     $scope.hasRestorePrivilege = false;
                 }
+
+                if (isSuper ||
+                    userPrivileges.indexOf('app:admin:deleteBackup') !== -1 ||
+                    userPrivileges.indexOf('app:admin:delete') !== -1 ||
+                    userPrivileges.indexOf('app:admin:backupRestore:delete') !== -1) {
+                    $scope.hasDeletePrivilege = true;
+                } else {
+                    $scope.hasDeletePrivilege = false;
+                }
             };
 
-            evaluateRestorePrivilege();
+            evaluatePrivileges();
             $rootScope.$watch('currentUser', function (user) {
                 if (user) {
-                    evaluateRestorePrivilege();
+                    evaluatePrivileges();
                 }
             });
 
@@ -294,6 +309,45 @@ angular.module('admin')
                     stopPolling();
                     $scope.status.status = 'error';
                     $scope.status.message = (err.data && err.data.error) || (err.data && err.data.message) || 'Failed to start restore';
+                });
+            };
+
+            $scope.confirmDelete = function (backup) {
+                if (!$scope.hasDeletePrivilege) {
+                    messagingService.showMessage('error', 'Access denied: You do not have permission to delete backup archives (app:admin:deleteBackup required).');
+                    return;
+                }
+                if ($scope.status.status === 'running') {
+                    messagingService.showMessage('warning', 'Cannot delete backups while an operation is in progress.');
+                    return;
+                }
+                $scope.selectedForDelete = backup;
+                $scope.deleteModalVisible = true;
+            };
+
+            $scope.cancelDelete = function () {
+                $scope.selectedForDelete = null;
+                $scope.deleteModalVisible = false;
+            };
+
+            $scope.executeDelete = function () {
+                if (!$scope.selectedForDelete) return;
+                if (!$scope.hasDeletePrivilege) {
+                    messagingService.showMessage('error', 'Access denied: You do not have permission to delete backup archives (app:admin:deleteBackup required).');
+                    return;
+                }
+                var backup = $scope.selectedForDelete;
+                $scope.deleteModalVisible = false;
+                $scope.loading = true;
+
+                $http.post(API_BASE + '/backup/delete', {archive: backup.name}).then(function (response) {
+                    $scope.loading = false;
+                    messagingService.showMessage('info', 'Backup archive ' + backup.name + ' deleted successfully.');
+                    $scope.fetchBackups();
+                }, function (err) {
+                    $scope.loading = false;
+                    var errMsg = (err.data && err.data.error) || (err.data && err.data.message) || 'Failed to delete backup archive';
+                    messagingService.showMessage('error', errMsg);
                 });
             };
 

@@ -173,6 +173,384 @@
         </div>
     </div>
 
+    <!-- Auto-Backup & External / Remote Storage Configuration Section -->
+    <div style="background: #fff; border: 1px solid #e0e0e0; border-radius: 8px; padding: 22px; box-shadow: 0 2px 6px rgba(0,0,0,0.04); margin-bottom: 30px;">
+        <!-- Header -->
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; border-bottom: 1px solid #edf2f7; padding-bottom: 14px;">
+            <div style="display: flex; align-items: center;">
+                <div style="background: #eef2ff; color: #4338ca; width: 44px; height: 44px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 22px; margin-right: 15px;">
+                    <i class="fa fa-cogs"></i>
+                </div>
+                <div>
+                    <h3 style="margin: 0; color: #1e1b4b; font-size: 18px; font-weight: 600;">
+                        Auto-Backup &amp; Storage Destinations (Remote PC, External Hard Disk &amp; USB Flash)
+                    </h3>
+                    <span style="font-size: 13px; color: #64748b;">
+                        Configure automated background backups and duplicate archives to offsite remote servers, external hard disks, and USB drives.
+                    </span>
+                </div>
+            </div>
+            <div style="display: flex; gap: 8px;">
+                <span ng-if="autoConfig.auto_backup.enabled" style="background: #ecfdf5; color: #047857; font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 12px; display: inline-flex; align-items: center;">
+                    <i class="fa fa-clock-o" style="margin-right: 5px;"></i>Auto-Schedule: Active
+                </span>
+                <span ng-if="autoConfig.external_drive.enabled" style="background: #eff6ff; color: #1d4ed8; font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 12px; display: inline-flex; align-items: center;">
+                    <i class="fa fa-usb" style="margin-right: 5px;"></i>External USB: On
+                </span>
+                <span ng-if="autoConfig.remote_pc.enabled" style="background: #f5f3ff; color: #6d28d9; font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 12px; display: inline-flex; align-items: center;">
+                    <i class="fa fa-server" style="margin-right: 5px;"></i>Remote PC: On
+                </span>
+            </div>
+        </div>
+
+        <!-- Tab Navigation -->
+        <div style="display: flex; gap: 8px; border-bottom: 2px solid #f1f5f9; margin-bottom: 20px; padding-bottom: 2px;">
+            <button type="button"
+                    ng-click="activeConfigTab = 'schedule'"
+                    style="padding: 10px 18px; font-size: 14px; font-weight: 600; cursor: pointer; border: none; background: none; border-bottom: 3px solid transparent; display: flex; align-items: center; gap: 8px; transition: all 0.2s;"
+                    ng-style="{
+                        'border-bottom-color': activeConfigTab === 'schedule' ? '#4338ca' : 'transparent',
+                        'color': activeConfigTab === 'schedule' ? '#4338ca' : '#64748b'
+                    }">
+                <i class="fa fa-calendar-check-o"></i>1. Auto-Backup Schedule
+            </button>
+            <button type="button"
+                    ng-click="activeConfigTab = 'external'"
+                    style="padding: 10px 18px; font-size: 14px; font-weight: 600; cursor: pointer; border: none; background: none; border-bottom: 3px solid transparent; display: flex; align-items: center; gap: 8px; transition: all 0.2s;"
+                    ng-style="{
+                        'border-bottom-color': activeConfigTab === 'external' ? '#2563eb' : 'transparent',
+                        'color': activeConfigTab === 'external' ? '#2563eb' : '#64748b'
+                    }">
+                <i class="fa fa-hdd-o"></i>2. External Hard Disk / USB Flash
+            </button>
+            <button type="button"
+                    ng-click="activeConfigTab = 'remote'"
+                    style="padding: 10px 18px; font-size: 14px; font-weight: 600; cursor: pointer; border: none; background: none; border-bottom: 3px solid transparent; display: flex; align-items: center; gap: 8px; transition: all 0.2s;"
+                    ng-style="{
+                        'border-bottom-color': activeConfigTab === 'remote' ? '#7c3aed' : 'transparent',
+                        'color': activeConfigTab === 'remote' ? '#7c3aed' : '#64748b'
+                    }">
+                <i class="fa fa-cloud-upload"></i>3. Remote PC / Server (SSH/SFTP)
+            </button>
+        </div>
+
+        <!-- TAB 1: Auto-Backup Schedule -->
+        <div ng-if="activeConfigTab === 'schedule'">
+            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 18px; margin-bottom: 20px;">
+                <label style="display: flex; align-items: center; cursor: pointer; font-size: 15px; font-weight: 600; color: #1e293b;">
+                    <input type="checkbox" ng-model="autoConfig.auto_backup.enabled" style="width: 18px; height: 18px; margin-right: 10px; cursor: pointer; accent-color: #4338ca;">
+                    Enable Automatic Scheduled Backups
+                </label>
+                <div style="font-size: 13px; color: #64748b; margin-top: 4px; margin-left: 28px;">
+                    When enabled, Bahmni Backup Service executes background backups automatically based on the schedule below and enforces retention limits.
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 20px;">
+                <!-- Frequency -->
+                <div>
+                    <label style="display: block; font-size: 13px; font-weight: 600; color: #334155; margin-bottom: 6px;">
+                        <i class="fa fa-refresh" style="margin-right: 5px;"></i>Backup Frequency:
+                    </label>
+                    <select ng-model="autoConfig.auto_backup.frequency"
+                            ng-disabled="!autoConfig.auto_backup.enabled"
+                            style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e0; border-radius: 4px; font-size: 14px; background: #fff;">
+                        <option value="daily">Daily (Every 24 hours)</option>
+                        <option value="every_12h">Every 12 Hours</option>
+                        <option value="every_6h">Every 6 Hours</option>
+                        <option value="hourly">Hourly</option>
+                        <option value="weekly">Weekly</option>
+                    </select>
+                </div>
+
+                <!-- Time of Day -->
+                <div ng-if="autoConfig.auto_backup.frequency === 'daily' || autoConfig.auto_backup.frequency === 'weekly'">
+                    <label style="display: block; font-size: 13px; font-weight: 600; color: #334155; margin-bottom: 6px;">
+                        <i class="fa fa-clock-o" style="margin-right: 5px;"></i>Preferred Time (HH:MM):
+                    </label>
+                    <input type="text"
+                           ng-model="autoConfig.auto_backup.time_of_day"
+                           ng-disabled="!autoConfig.auto_backup.enabled"
+                           placeholder="02:00"
+                           style="width: 100%; padding: 7px 12px; border: 1px solid #cbd5e0; border-radius: 4px; font-size: 14px; background: #fff;">
+                </div>
+
+                <!-- Day of Week (Weekly only) -->
+                <div ng-if="autoConfig.auto_backup.frequency === 'weekly'">
+                    <label style="display: block; font-size: 13px; font-weight: 600; color: #334155; margin-bottom: 6px;">
+                        <i class="fa fa-calendar" style="margin-right: 5px;"></i>Day of the Week:
+                    </label>
+                    <select ng-model="autoConfig.auto_backup.day_of_week"
+                            ng-disabled="!autoConfig.auto_backup.enabled"
+                            style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e0; border-radius: 4px; font-size: 14px; background: #fff;">
+                        <option value="Sunday">Sunday</option>
+                        <option value="Monday">Monday</option>
+                        <option value="Tuesday">Tuesday</option>
+                        <option value="Wednesday">Wednesday</option>
+                        <option value="Thursday">Thursday</option>
+                        <option value="Friday">Friday</option>
+                        <option value="Saturday">Saturday</option>
+                    </select>
+                </div>
+
+                <!-- Backup Type -->
+                <div>
+                    <label style="display: block; font-size: 13px; font-weight: 600; color: #334155; margin-bottom: 6px;">
+                        <i class="fa fa-archive" style="margin-right: 5px;"></i>Auto-Backup Type:
+                    </label>
+                    <select ng-model="autoConfig.auto_backup.backup_type"
+                            ng-disabled="!autoConfig.auto_backup.enabled"
+                            style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e0; border-radius: 4px; font-size: 14px; background: #fff;">
+                        <option value="full">Full System (DB + Volumes + Modules)</option>
+                        <option value="db">Database Only Backup</option>
+                    </select>
+                </div>
+
+                <!-- Retention -->
+                <div>
+                    <label style="display: block; font-size: 13px; font-weight: 600; color: #334155; margin-bottom: 6px;">
+                        <i class="fa fa-database" style="margin-right: 5px;"></i>Keep Local Archives:
+                    </label>
+                    <input type="number"
+                           min="1"
+                           max="100"
+                           ng-model="autoConfig.auto_backup.retention_count"
+                           ng-disabled="!autoConfig.auto_backup.enabled"
+                           style="width: 100%; padding: 7px 12px; border: 1px solid #cbd5e0; border-radius: 4px; font-size: 14px; background: #fff;">
+                </div>
+            </div>
+
+            <!-- Schedule Status Info Box -->
+            <div ng-if="autoConfig.auto_backup.enabled" style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 6px; padding: 14px 18px; margin-bottom: 10px; font-size: 13px; color: #166534; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
+                <div>
+                    <i class="fa fa-calendar-check-o" style="margin-right: 6px;"></i>
+                    <strong>Next Scheduled Backup:</strong> {{autoConfig.auto_backup.next_run || 'Calculated on save'}}
+                </div>
+                <div ng-if="autoConfig.auto_backup.last_run">
+                    <i class="fa fa-check-circle" style="margin-right: 6px;"></i>
+                    <strong>Last Run:</strong> {{autoConfig.auto_backup.last_run}} ({{autoConfig.auto_backup.last_status || 'completed'}})
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 2: External Hard Disk & USB Flash Drive -->
+        <div ng-if="activeConfigTab === 'external'">
+            <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 6px; padding: 18px; margin-bottom: 20px;">
+                <label style="display: flex; align-items: center; cursor: pointer; font-size: 15px; font-weight: 600; color: #1e3a8a;">
+                    <input type="checkbox" ng-model="autoConfig.external_drive.enabled" style="width: 18px; height: 18px; margin-right: 10px; cursor: pointer; accent-color: #2563eb;">
+                    Enable Auto-Copy to External Hard Disk or USB Flash Drive
+                </label>
+                <div style="font-size: 13px; color: #1e40af; margin-top: 4px; margin-left: 28px;">
+                    Whenever a backup is created (either automatically or manually), a copy will automatically be written to the connected external hard drive or USB drive.
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 16px; margin-bottom: 20px;">
+                <!-- Path -->
+                <div>
+                    <label style="display: block; font-size: 13px; font-weight: 600; color: #334155; margin-bottom: 6px;">
+                        <i class="fa fa-folder-open" style="margin-right: 5px;"></i>Drive Mount Path or Directory:
+                    </label>
+                    <input type="text"
+                           ng-model="autoConfig.external_drive.path"
+                           ng-disabled="!autoConfig.external_drive.enabled"
+                           placeholder="e.g. /media/usb, /mnt/external_drive, or D:\BahmniBackups"
+                           style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e0; border-radius: 4px; font-size: 14px; background: #fff; font-family: monospace;">
+                    <div style="font-size: 12px; color: #64748b; margin-top: 4px;">
+                        Mount point of the USB flash drive or external hard disk on your server (e.g. <code>/media/usb</code>, <code>/mnt/usb</code>, or <code>/opt/emr/backups/external</code>).
+                    </div>
+                </div>
+
+                <!-- External Retention -->
+                <div>
+                    <label style="display: block; font-size: 13px; font-weight: 600; color: #334155; margin-bottom: 6px;">
+                        <i class="fa fa-files-o" style="margin-right: 5px;"></i>Keep on External Drive:
+                    </label>
+                    <input type="number"
+                           min="1"
+                           max="100"
+                           ng-model="autoConfig.external_drive.retention_count"
+                           ng-disabled="!autoConfig.external_drive.enabled"
+                           style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e0; border-radius: 4px; font-size: 14px; background: #fff;">
+                    <div style="font-size: 12px; color: #64748b; margin-top: 4px;">
+                        Older backups on the drive exceeding this limit will be automatically cleaned up.
+                    </div>
+                </div>
+            </div>
+
+            <!-- Test External Drive Button & Status -->
+            <div style="display: flex; align-items: center; gap: 14px; margin-bottom: 12px;">
+                <button type="button"
+                        class="btn btn-secondary"
+                        ng-click="testExternalDrive()"
+                        ng-disabled="!autoConfig.external_drive.path || testingExternal"
+                        style="padding: 8px 16px; font-size: 13px; font-weight: 600; border-radius: 4px; border: 1px solid #cbd5e0; background: #fff; cursor: pointer;">
+                    <i class="fa" ng-class="{'fa-spinner fa-spin': testingExternal, 'fa-check': !testingExternal}" style="margin-right: 6px;"></i>
+                    {{testingExternal ? 'Verifying Path...' : 'Test Drive Path & Check Space'}}
+                </button>
+                <div ng-if="externalTestResult"
+                     ng-style="{'color': externalTestResult.success ? '#15803d' : '#b91c1c'}"
+                     style="font-size: 13px; font-weight: 500;">
+                    <i class="fa" ng-class="{'fa-check-circle': externalTestResult.success, 'fa-times-circle': !externalTestResult.success}" style="margin-right: 5px;"></i>
+                    {{externalTestResult.message}}
+                </div>
+            </div>
+
+            <div ng-if="autoConfig.external_drive.last_sync" style="font-size: 12px; color: #64748b; margin-top: 6px;">
+                Last external drive synchronization: <strong>{{autoConfig.external_drive.last_sync}}</strong> (Status: {{autoConfig.external_drive.last_status || 'ok'}})
+            </div>
+        </div>
+
+        <!-- TAB 3: Remote PC / Server (SSH / SFTP) -->
+        <div ng-if="activeConfigTab === 'remote'">
+            <div style="background: #faf5ff; border: 1px solid #e9d5ff; border-radius: 6px; padding: 18px; margin-bottom: 20px;">
+                <label style="display: flex; align-items: center; cursor: pointer; font-size: 15px; font-weight: 600; color: #581c87;">
+                    <input type="checkbox" ng-model="autoConfig.remote_pc.enabled" style="width: 18px; height: 18px; margin-right: 10px; cursor: pointer; accent-color: #7c3aed;">
+                    Enable Auto-Transfer to Remote PC / Server (SSH / SFTP)
+                </label>
+                <div style="font-size: 13px; color: #6b21a8; margin-top: 4px; margin-left: 28px;">
+                    Automatically replicates completed backups over the network or internet to an offsite PC or secondary server for disaster recovery.
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 2fr 1fr 2fr; gap: 14px; margin-bottom: 14px;">
+                <!-- Host -->
+                <div>
+                    <label style="display: block; font-size: 13px; font-weight: 600; color: #334155; margin-bottom: 6px;">
+                        Remote Host / IP Address:
+                    </label>
+                    <input type="text"
+                           ng-model="autoConfig.remote_pc.host"
+                           ng-disabled="!autoConfig.remote_pc.enabled"
+                           placeholder="e.g. 192.168.1.100 or backup.server.lan"
+                           style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e0; border-radius: 4px; font-size: 14px; background: #fff;">
+                </div>
+
+                <!-- Port -->
+                <div>
+                    <label style="display: block; font-size: 13px; font-weight: 600; color: #334155; margin-bottom: 6px;">
+                        SSH Port:
+                    </label>
+                    <input type="number"
+                           ng-model="autoConfig.remote_pc.port"
+                           ng-disabled="!autoConfig.remote_pc.enabled"
+                           placeholder="22"
+                           style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e0; border-radius: 4px; font-size: 14px; background: #fff;">
+                </div>
+
+                <!-- Username -->
+                <div>
+                    <label style="display: block; font-size: 13px; font-weight: 600; color: #334155; margin-bottom: 6px;">
+                        SSH Username:
+                    </label>
+                    <input type="text"
+                           ng-model="autoConfig.remote_pc.username"
+                           ng-disabled="!autoConfig.remote_pc.enabled"
+                           placeholder="e.g. backupuser or ubuntu"
+                           style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e0; border-radius: 4px; font-size: 14px; background: #fff;">
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 2fr 1fr; gap: 14px; margin-bottom: 16px;">
+                <!-- Auth Type -->
+                <div>
+                    <label style="display: block; font-size: 13px; font-weight: 600; color: #334155; margin-bottom: 6px;">
+                        Auth Method:
+                    </label>
+                    <select ng-model="autoConfig.remote_pc.auth_type"
+                            ng-disabled="!autoConfig.remote_pc.enabled"
+                            style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e0; border-radius: 4px; font-size: 14px; background: #fff;">
+                        <option value="password">Password</option>
+                        <option value="key">SSH Private Key</option>
+                    </select>
+                </div>
+
+                <!-- Password or Key Path -->
+                <div ng-if="autoConfig.remote_pc.auth_type === 'password'">
+                    <label style="display: block; font-size: 13px; font-weight: 600; color: #334155; margin-bottom: 6px;">
+                        SSH Password:
+                    </label>
+                    <input type="password"
+                           ng-model="autoConfig.remote_pc.password"
+                           ng-disabled="!autoConfig.remote_pc.enabled"
+                           placeholder="Enter remote user password"
+                           style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e0; border-radius: 4px; font-size: 14px; background: #fff;">
+                </div>
+                <div ng-if="autoConfig.remote_pc.auth_type === 'key'">
+                    <label style="display: block; font-size: 13px; font-weight: 600; color: #334155; margin-bottom: 6px;">
+                        SSH Key Path:
+                    </label>
+                    <input type="text"
+                           ng-model="autoConfig.remote_pc.key_path"
+                           ng-disabled="!autoConfig.remote_pc.enabled"
+                           placeholder="e.g. /opt/emr/config/id_rsa"
+                           style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e0; border-radius: 4px; font-size: 14px; background: #fff; font-family: monospace;">
+                </div>
+
+                <!-- Remote Directory -->
+                <div>
+                    <label style="display: block; font-size: 13px; font-weight: 600; color: #334155; margin-bottom: 6px;">
+                        Remote Directory:
+                    </label>
+                    <input type="text"
+                           ng-model="autoConfig.remote_pc.remote_dir"
+                           ng-disabled="!autoConfig.remote_pc.enabled"
+                           placeholder="e.g. /var/backups/bahmni"
+                           style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e0; border-radius: 4px; font-size: 14px; background: #fff; font-family: monospace;">
+                </div>
+            </div>
+
+            <!-- Test Remote Connection Button & Status -->
+            <div style="display: flex; align-items: center; gap: 14px; margin-bottom: 12px;">
+                <button type="button"
+                        class="btn btn-secondary"
+                        ng-click="testRemotePC()"
+                        ng-disabled="!autoConfig.remote_pc.host || !autoConfig.remote_pc.username || testingRemote"
+                        style="padding: 8px 16px; font-size: 13px; font-weight: 600; border-radius: 4px; border: 1px solid #cbd5e0; background: #fff; cursor: pointer;">
+                    <i class="fa" ng-class="{'fa-spinner fa-spin': testingRemote, 'fa-check': !testingRemote}" style="margin-right: 6px;"></i>
+                    {{testingRemote ? 'Connecting &amp; Testing...' : 'Test Remote Connection'}}
+                </button>
+                <div ng-if="remoteTestResult"
+                     ng-style="{'color': remoteTestResult.success ? '#15803d' : '#b91c1c'}"
+                     style="font-size: 13px; font-weight: 500;">
+                    <i class="fa" ng-class="{'fa-check-circle': remoteTestResult.success, 'fa-times-circle': !remoteTestResult.success}" style="margin-right: 5px;"></i>
+                    {{remoteTestResult.message}}
+                </div>
+            </div>
+
+            <div ng-if="autoConfig.remote_pc.last_sync" style="font-size: 12px; color: #64748b; margin-top: 6px;">
+                Last remote PC sync: <strong>{{autoConfig.remote_pc.last_sync}}</strong> (Status: {{autoConfig.remote_pc.last_status || 'ok'}})
+            </div>
+        </div>
+
+        <!-- Action Footer -->
+        <div style="background: #f8fafc; border-top: 1px solid #e2e8f0; margin: 20px -22px -22px -22px; padding: 14px 22px; border-radius: 0 0 8px 8px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+            <div style="font-size: 12px; color: #64748b;">
+                <i class="fa fa-info-circle" style="color: #4338ca; margin-right: 5px;"></i>
+                Settings are automatically loaded by the background backup daemon and applied on each backup cycle.
+            </div>
+            <div style="display: flex; gap: 10px;">
+                <button type="button"
+                        class="btn btn-secondary"
+                        ng-click="syncAllDestinations()"
+                        ng-disabled="status.status === 'running' || syncingNow || backups.length === 0"
+                        title="Sync the latest backup archive to all enabled destinations (USB &amp; Remote PC)"
+                        style="padding: 9px 18px; font-size: 13px; font-weight: 600; border-radius: 4px; border: 1px solid #cbd5e0; background: #fff; color: #334155; cursor: pointer;">
+                    <i class="fa" ng-class="{'fa-spinner fa-spin': syncingNow, 'fa-exchange': !syncingNow}" style="margin-right: 6px;"></i>
+                    {{syncingNow ? 'Syncing...' : 'Sync Latest to External &amp; Remote Now'}}
+                </button>
+                <button type="button"
+                        class="btn btn-primary"
+                        ng-click="saveConfig()"
+                        ng-disabled="savingConfig"
+                        style="padding: 9px 22px; font-size: 13px; font-weight: 600; border-radius: 4px; border: none; background: #4338ca; color: #fff; cursor: pointer;">
+                    <i class="fa" ng-class="{'fa-spinner fa-spin': savingConfig, 'fa-save': !savingConfig}" style="margin-right: 6px;"></i>
+                    {{savingConfig ? 'Saving Settings...' : 'Save Configuration'}}
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- Backups List Section -->
     <div style="background: #fff; border: 1px solid #e0e0e0; border-radius: 8px; padding: 22px; box-shadow: 0 2px 6px rgba(0,0,0,0.04);">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px;">

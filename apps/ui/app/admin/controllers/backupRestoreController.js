@@ -17,6 +17,39 @@ angular.module('admin')
             $scope.selectedForDelete = null;
             $scope.deleteModalVisible = false;
             $scope.hasDeletePrivilege = false;
+
+            $scope.activeConfigTab = 'schedule';
+            $scope.autoConfig = {
+                auto_backup: {
+                    enabled: false,
+                    frequency: 'daily',
+                    time_of_day: '02:00',
+                    day_of_week: 'Sunday',
+                    backup_type: 'full',
+                    retention_count: 7
+                },
+                external_drive: {
+                    enabled: false,
+                    path: '/media/usb',
+                    retention_count: 7
+                },
+                remote_pc: {
+                    enabled: false,
+                    host: '',
+                    port: 22,
+                    username: '',
+                    auth_type: 'password',
+                    password: '',
+                    remote_dir: '/var/backups/bahmni',
+                    retention_count: 7
+                }
+            };
+            $scope.savingConfig = false;
+            $scope.testingExternal = false;
+            $scope.externalTestResult = null;
+            $scope.testingRemote = false;
+            $scope.remoteTestResult = null;
+            $scope.syncingNow = false;
             var pollPromise = null;
 
             var evaluatePrivileges = function () {
@@ -356,11 +389,76 @@ angular.module('admin')
                 return API_BASE + '/download/' + encodeURIComponent(backup.name);
             };
 
+            $scope.fetchConfig = function () {
+                $http.get(API_BASE + '/backup/config').then(function (res) {
+                    if (res.data) {
+                        $scope.autoConfig = res.data;
+                    }
+                }, function (err) {
+                    // silent fallback
+                });
+            };
+
+            $scope.saveConfig = function () {
+                $scope.savingConfig = true;
+                $http.post(API_BASE + '/backup/config', $scope.autoConfig).then(function (res) {
+                    $scope.savingConfig = false;
+                    if (res.data && res.data.config) {
+                        $scope.autoConfig = res.data.config;
+                    }
+                    messagingService.showMessage('info', 'Auto-backup and storage destinations saved successfully.');
+                }, function (err) {
+                    $scope.savingConfig = false;
+                    var msg = (err.data && err.data.error) || 'Failed to save configuration.';
+                    messagingService.showMessage('error', msg);
+                });
+            };
+
+            $scope.testExternalDrive = function () {
+                $scope.testingExternal = true;
+                $scope.externalTestResult = null;
+                $http.post(API_BASE + '/backup/test-external', { path: $scope.autoConfig.external_drive.path }).then(function (res) {
+                    $scope.testingExternal = false;
+                    $scope.externalTestResult = { success: true, message: res.data.message };
+                }, function (err) {
+                    $scope.testingExternal = false;
+                    var msg = (err.data && err.data.error) || 'External drive path test failed.';
+                    $scope.externalTestResult = { success: false, message: msg };
+                });
+            };
+
+            $scope.testRemotePC = function () {
+                $scope.testingRemote = true;
+                $scope.remoteTestResult = null;
+                $http.post(API_BASE + '/backup/test-remote', $scope.autoConfig.remote_pc).then(function (res) {
+                    $scope.testingRemote = false;
+                    $scope.remoteTestResult = { success: true, message: res.data.message };
+                }, function (err) {
+                    $scope.testingRemote = false;
+                    var msg = (err.data && err.data.error) || 'Remote connection test failed.';
+                    $scope.remoteTestResult = { success: false, message: msg };
+                });
+            };
+
+            $scope.syncAllDestinations = function () {
+                $scope.syncingNow = true;
+                $http.post(API_BASE + '/backup/sync-now', {}).then(function (res) {
+                    $scope.syncingNow = false;
+                    messagingService.showMessage('info', 'Synchronization to External Drive and Remote PC initiated.');
+                    startPolling();
+                }, function (err) {
+                    $scope.syncingNow = false;
+                    var msg = (err.data && err.data.error) || (err.data && err.data.message) || 'Failed to trigger synchronization.';
+                    messagingService.showMessage('error', msg);
+                });
+            };
+
             $scope.$on('$destroy', function () {
                 stopPolling();
             });
 
             // Initial load
             $scope.fetchBackups();
+            $scope.fetchConfig();
         }
     ]);

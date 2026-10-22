@@ -1,5 +1,5 @@
 FROM alpine:latest
-RUN apk add --no-cache python3 docker-cli bash
+RUN apk add --no-cache python3 docker-cli bash openssh-client sshpass rsync curl tar
 WORKDIR /app
 COPY bahmni_backup_service.py /app/bahmni_backup_service.py
 EXPOSE 5055

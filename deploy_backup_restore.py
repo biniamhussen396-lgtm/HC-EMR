@@ -78,6 +78,9 @@ def deploy_to_server(host, user, pw):
     for d in remote_dirs:
         run_sudo(host, user, pw, f"mkdir -p {d} && chown -R {user}:{user} {d} 2>/dev/null || true")
 
+    # Install network and sync utilities (sshpass, rsync, curl)
+    run_sudo(host, user, pw, "apt-get update -y && apt-get install -y openssh-client sshpass rsync curl tar 2>/dev/null || yum install -y openssh-clients sshpass rsync curl tar 2>/dev/null || apk add --no-cache openssh-client sshpass rsync curl tar 2>/dev/null || true")
+
     # 2. Upload and install files
     for local_rel, remote_dest in FILES_TO_DEPLOY:
         local_full = os.path.join(REPO_ROOT, local_rel)

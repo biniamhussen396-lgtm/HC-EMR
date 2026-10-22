@@ -258,6 +258,7 @@ def execute_full_backup():
     shutil.rmtree(staging, ignore_errors=True)
 
     enforce_retention()
+    post_backup_sync(archive_path)
     current_op["progress"] = 100
     size_mb = os.path.getsize(archive_path) / (1024 * 1024)
     current_op["message"] = f"Full backup completed successfully: {os.path.basename(archive_path)} ({size_mb:.1f} MB)"
@@ -299,6 +300,7 @@ def execute_db_backup():
     shutil.rmtree(staging, ignore_errors=True)
 
     enforce_retention()
+    post_backup_sync(archive_path)
     current_op["progress"] = 100
     size_mb = os.path.getsize(archive_path) / (1024 * 1024)
     current_op["message"] = f"Database backup completed successfully: {os.path.basename(archive_path)} ({size_mb:.1f} MB)"
@@ -542,6 +544,408 @@ def delete_backup(archive_name):
     log(f"Deleted backup archive: {safe_name}")
     return safe_name
 
+# ── Auto Backup, External Storage & Remote PC Configuration ─────────────────
+
+AUTO_CONFIG_FILE = os.path.join(BACKUP_DIR, "auto_backup_config.json")
+
+DEFAULT_CONFIG = {
+    "auto_backup": {
+        "enabled": False,
+        "frequency": "daily",         # "hourly", "every_6h", "every_12h", "daily", "weekly"
+        "time_of_day": "02:00",
+        "day_of_week": "Sunday",
+        "backup_type": "full",        # "full" or "db"
+        "retention_count": 7,
+        "last_run": None,
+        "last_status": None,
+        "next_run": None
+    },
+    "external_drive": {
+        "enabled": False,
+        "path": "/media/usb",         # Mount path or external directory
+        "retention_count": 7,
+        "last_sync": None,
+        "last_status": None
+    },
+    "remote_pc": {
+        "enabled": False,
+        "host": "",
+        "port": 22,
+        "username": "",
+        "auth_type": "password",      # "password" or "key"
+        "password": "",
+        "key_path": "",
+        "remote_dir": "/var/backups/bahmni",
+        "retention_count": 7,
+        "last_sync": None,
+        "last_status": None
+    }
+}
+
+def calculate_next_run(auto_cfg):
+    if not auto_cfg.get("enabled"):
+        return None
+    now = datetime.datetime.now()
+    freq = auto_cfg.get("frequency", "daily")
+    time_str = auto_cfg.get("time_of_day", "02:00")
+    try:
+        parts = time_str.split(":")
+        hour, minute = int(parts[0]), int(parts[1])
+    except Exception:
+        hour, minute = 2, 0
+
+    if freq == "hourly":
+        next_dt = now.replace(minute=minute, second=0, microsecond=0)
+        if next_dt <= now:
+            next_dt += datetime.timedelta(hours=1)
+    elif freq == "every_6h":
+        cur_hour = now.hour
+        next_hour = ((cur_hour // 6) + 1) * 6
+        if next_hour >= 24:
+            next_dt = (now + datetime.timedelta(days=1)).replace(hour=next_hour % 24, minute=0, second=0, microsecond=0)
+        else:
+            next_dt = now.replace(hour=next_hour, minute=0, second=0, microsecond=0)
+    elif freq == "every_12h":
+        cur_hour = now.hour
+        next_hour = 12 if cur_hour < 12 else 24
+        if next_hour >= 24:
+            next_dt = (now + datetime.timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+        else:
+            next_dt = now.replace(hour=12, minute=0, second=0, microsecond=0)
+    elif freq == "weekly":
+        day_name = auto_cfg.get("day_of_week", "Sunday").capitalize()
+        days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+        target_day = days.index(day_name) if day_name in days else 6
+        current_day = now.weekday()
+        days_ahead = (target_day - current_day) % 7
+        next_dt = (now + datetime.timedelta(days=days_ahead)).replace(hour=hour, minute=minute, second=0, microsecond=0)
+        if next_dt <= now:
+            next_dt += datetime.timedelta(days=7)
+    else: # daily
+        next_dt = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
+        if next_dt <= now:
+            next_dt += datetime.timedelta(days=1)
+
+    return next_dt.strftime("%Y-%m-%d %H:%M:%S")
+
+def load_auto_config():
+    cfg = json.loads(json.dumps(DEFAULT_CONFIG))
+    if os.path.exists(AUTO_CONFIG_FILE):
+        try:
+            with open(AUTO_CONFIG_FILE, "r") as f:
+                data = json.load(f)
+                for section in ["auto_backup", "external_drive", "remote_pc"]:
+                    if section in data and isinstance(data[section], dict):
+                        cfg[section].update(data[section])
+        except Exception as e:
+            log(f"Warning reading auto backup config {AUTO_CONFIG_FILE}: {e}")
+    cfg["auto_backup"]["next_run"] = calculate_next_run(cfg["auto_backup"])
+    return cfg
+
+def save_auto_config(new_config):
+    cfg = load_auto_config()
+    for section in ["auto_backup", "external_drive", "remote_pc"]:
+        if section in new_config and isinstance(new_config[section], dict):
+            cfg[section].update(new_config[section])
+    cfg["auto_backup"]["next_run"] = calculate_next_run(cfg["auto_backup"])
+    os.makedirs(os.path.dirname(AUTO_CONFIG_FILE), exist_ok=True)
+    with open(AUTO_CONFIG_FILE, "w") as f:
+        json.dump(cfg, f, indent=2)
+    log(f"Saved auto backup configuration to {AUTO_CONFIG_FILE}")
+    return cfg
+
+def sync_to_external_drive(archive_path, ext_cfg=None):
+    if ext_cfg is None:
+        cfg = load_auto_config()
+        ext_cfg = cfg.get("external_drive", {})
+    if not ext_cfg.get("enabled"):
+        return False, "External drive sync is disabled."
+    
+    target_path = ext_cfg.get("path", "").strip()
+    if not target_path:
+        return False, "External drive path not specified."
+    
+    filename = os.path.basename(archive_path)
+    log(f"Copying backup to External Drive / USB: {target_path}...")
+    
+    # Try direct filesystem copy
+    try:
+        os.makedirs(target_path, exist_ok=True)
+        dest_file = os.path.join(target_path, filename)
+        shutil.copy2(archive_path, dest_file)
+        
+        # Enforce retention on external drive
+        retention = int(ext_cfg.get("retention_count", 7))
+        existing = sorted(glob.glob(os.path.join(target_path, "bahmni_*.tar.gz")), key=os.path.getmtime, reverse=True)
+        if len(existing) > retention:
+            for old in existing[retention:]:
+                try:
+                    os.remove(old)
+                    log(f"Pruned external drive backup: {os.path.basename(old)}")
+                except Exception:
+                    pass
+        
+        msg = f"Backup successfully copied to external drive: {dest_file}"
+        log(msg)
+        return True, msg
+    except Exception as e_direct:
+        log(f"Direct external copy failed ({e_direct}). Attempting via Docker host mount...")
+        try:
+            retention = int(ext_cfg.get("retention_count", 7))
+            cmd = (
+                f'docker run --rm -v "{target_path}:/dest" -v "{BACKUP_DIR}:/src" alpine sh -c '
+                f'"cp /src/{filename} /dest/ && '
+                f'(ls -t /dest/bahmni_*.tar.gz 2>/dev/null | tail -n +{retention + 1} | xargs -r rm -f)"'
+            )
+            run_cmd(cmd)
+            msg = f"Backup successfully copied to external drive via host mount: {target_path}/{filename}"
+            log(msg)
+            return True, msg
+        except Exception as e_docker:
+            err = f"Failed copying to external drive: {e_docker}"
+            log(err)
+            return False, err
+
+def test_external_path(target_path):
+    target_path = (target_path or "").strip()
+    if not target_path:
+        return {"success": False, "error": "External drive path cannot be empty."}
+    
+    # Try direct write
+    try:
+        os.makedirs(target_path, exist_ok=True)
+        test_file = os.path.join(target_path, f".bahmni_test_{int(time.time())}.tmp")
+        with open(test_file, "w") as f:
+            f.write("bahmni_write_test")
+        os.remove(test_file)
+        
+        try:
+            usage = shutil.disk_usage(target_path)
+            free_gb = round(usage.free / (1024**3), 2)
+            total_gb = round(usage.total / (1024**3), 2)
+            space_info = f"Free: {free_gb} GB / Total: {total_gb} GB"
+        except Exception:
+            space_info = "Ready"
+            
+        return {
+            "success": True,
+            "message": f"External drive verified. Path is writable. ({space_info})"
+        }
+    except Exception as e_direct:
+        # Fallback via Docker mount
+        try:
+            test_cmd = (
+                f'docker run --rm -v "{target_path}:/dest" alpine sh -c '
+                f'"echo bahmni_test > /dest/.bahmni_test.tmp && rm /dest/.bahmni_test.tmp && df -h /dest | tail -n 1"'
+            )
+            out = run_cmd(test_cmd)
+            parts = out.split()
+            free_space = parts[3] if len(parts) >= 4 else "Available"
+            return {
+                "success": True,
+                "message": f"External drive verified via host mount. Free space: {free_space}"
+            }
+        except Exception as e_docker:
+            return {
+                "success": False,
+                "error": f"Cannot write to path '{target_path}': {str(e_docker) or str(e_direct)}"
+            }
+
+def test_remote_connection(remote_cfg):
+    host = remote_cfg.get("host", "").strip()
+    port = int(remote_cfg.get("port", 22) or 22)
+    user = remote_cfg.get("username", "").strip()
+    auth_type = remote_cfg.get("auth_type", "password")
+    password = remote_cfg.get("password", "")
+    key_path = remote_cfg.get("key_path", "").strip()
+    remote_dir = remote_cfg.get("remote_dir", "/var/backups/bahmni").strip()
+    
+    if not host or not user:
+        return {"success": False, "error": "Remote Host and Username are required."}
+    
+    ssh_opts = "-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=8"
+    
+    if auth_type == "key" and key_path:
+        ssh_cmd = f"ssh -i '{key_path}' {ssh_opts} -p {port} {user}@{host}"
+    else:
+        escaped_pw = password.replace('"', '\\"').replace("'", "'\\''")
+        ssh_cmd = f"sshpass -p '{escaped_pw}' ssh {ssh_opts} -p {port} {user}@{host}"
+    
+    remote_check = f"mkdir -p '{remote_dir}' && df -h '{remote_dir}' | tail -n 1"
+    full_cmd = f"{ssh_cmd} \"{remote_check}\""
+    
+    try:
+        res = subprocess.run(full_cmd, shell=True, text=True, capture_output=True, timeout=12)
+        if res.returncode == 0:
+            out = res.stdout.strip()
+            parts = out.split()
+            free_space = parts[3] if len(parts) >= 4 else "Available"
+            return {
+                "success": True,
+                "message": f"Successfully connected to remote PC ({user}@{host}:{port}). Folder '{remote_dir}' is writable. Free space: {free_space}"
+            }
+        else:
+            err = res.stderr.strip() or f"SSH exited with code {res.returncode}"
+            return {"success": False, "error": f"Remote connection failed: {err}"}
+    except subprocess.TimeoutExpired:
+        return {"success": False, "error": f"Connection timed out trying to reach {host}:{port}"}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+def sync_to_remote_pc(archive_path, remote_cfg=None):
+    if remote_cfg is None:
+        cfg = load_auto_config()
+        remote_cfg = cfg.get("remote_pc", {})
+    if not remote_cfg.get("enabled"):
+        return False, "Remote PC backup is disabled."
+    
+    host = remote_cfg.get("host", "").strip()
+    port = int(remote_cfg.get("port", 22) or 22)
+    user = remote_cfg.get("username", "").strip()
+    auth_type = remote_cfg.get("auth_type", "password")
+    password = remote_cfg.get("password", "")
+    key_path = remote_cfg.get("key_path", "").strip()
+    remote_dir = remote_cfg.get("remote_dir", "/var/backups/bahmni").strip()
+    retention = int(remote_cfg.get("retention_count", 7))
+    filename = os.path.basename(archive_path)
+    
+    if not host or not user:
+        return False, "Remote Host and Username are required."
+    
+    log(f"Transferring {filename} to Remote PC ({user}@{host}:{remote_dir})...")
+    ssh_opts = "-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=15"
+    
+    if auth_type == "key" and key_path:
+        scp_cmd = f"scp -i '{key_path}' {ssh_opts} -P {port} '{archive_path}' '{user}@{host}:{remote_dir}/'"
+        prune_cmd = f"ssh -i '{key_path}' {ssh_opts} -p {port} {user}@{host} \"ls -t '{remote_dir}'/bahmni_*.tar.gz 2>/dev/null | tail -n +{retention + 1} | xargs -r rm -f\""
+    else:
+        escaped_pw = password.replace('"', '\\"').replace("'", "'\\''")
+        scp_cmd = f"sshpass -p '{escaped_pw}' scp {ssh_opts} -P {port} '{archive_path}' '{user}@{host}:{remote_dir}/'"
+        prune_cmd = f"sshpass -p '{escaped_pw}' ssh {ssh_opts} -p {port} {user}@{host} \"ls -t '{remote_dir}'/bahmni_*.tar.gz 2>/dev/null | tail -n +{retention + 1} | xargs -r rm -f\""
+    
+    try:
+        run_cmd(scp_cmd)
+        log(f"Successfully transferred {filename} to remote PC {host}:{remote_dir}")
+        try:
+            run_cmd(prune_cmd, check=False)
+        except Exception:
+            pass
+        return True, f"Transferred to {host}:{remote_dir}/{filename}"
+    except Exception as e:
+        err = f"Failed to transfer backup to remote PC ({host}): {e}"
+        log(err)
+        return False, err
+
+def post_backup_sync(archive_path):
+    cfg = load_auto_config()
+    updated = False
+    
+    # 1. External Drive / USB
+    ext_cfg = cfg.get("external_drive", {})
+    if ext_cfg.get("enabled"):
+        log(f"[SYNC] Triggering copy of backup to External Drive / USB...")
+        ok, msg = sync_to_external_drive(archive_path, ext_cfg)
+        cfg["external_drive"]["last_sync"] = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        cfg["external_drive"]["last_status"] = "success" if ok else f"error: {msg}"
+        updated = True
+        
+    # 2. Remote PC
+    remote_cfg = cfg.get("remote_pc", {})
+    if remote_cfg.get("enabled"):
+        log(f"[SYNC] Triggering transfer of backup to Remote PC ({remote_cfg.get('host')})...")
+        ok, msg = sync_to_remote_pc(archive_path, remote_cfg)
+        cfg["remote_pc"]["last_sync"] = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        cfg["remote_pc"]["last_status"] = "success" if ok else f"error: {msg}"
+        updated = True
+        
+    if updated:
+        save_auto_config(cfg)
+
+def start_scheduler_loop():
+    log("Auto-Backup background scheduler started.")
+    while True:
+        try:
+            time.sleep(30)
+            cfg = load_auto_config()
+            auto_cfg = cfg.get("auto_backup", {})
+            if not auto_cfg.get("enabled"):
+                continue
+
+            now = datetime.datetime.now()
+            freq = auto_cfg.get("frequency", "daily")
+            time_str = auto_cfg.get("time_of_day", "02:00")
+            day_str = auto_cfg.get("day_of_week", "Sunday").capitalize()
+            last_run = auto_cfg.get("last_run")
+            
+            should_run = False
+            today_str = now.strftime("%Y-%m-%d")
+            last_run_date = last_run[:10] if last_run else None
+            
+            try:
+                parts = time_str.split(":")
+                hour, minute = int(parts[0]), int(parts[1])
+            except Exception:
+                hour, minute = 2, 0
+
+            if freq == "daily":
+                if now.hour == hour and now.minute == minute and last_run_date != today_str:
+                    should_run = True
+            elif freq == "weekly":
+                days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+                if days[now.weekday()] == day_str and now.hour == hour and now.minute == minute and last_run_date != today_str:
+                    should_run = True
+            elif freq == "every_12h":
+                if not last_run:
+                    should_run = True
+                else:
+                    try:
+                        last_dt = datetime.datetime.strptime(last_run, "%Y-%m-%d %H:%M:%S")
+                        if now - last_dt >= datetime.timedelta(hours=12):
+                            should_run = True
+                    except Exception:
+                        should_run = True
+            elif freq == "every_6h":
+                if not last_run:
+                    should_run = True
+                else:
+                    try:
+                        last_dt = datetime.datetime.strptime(last_run, "%Y-%m-%d %H:%M:%S")
+                        if now - last_dt >= datetime.timedelta(hours=6):
+                            should_run = True
+                    except Exception:
+                        should_run = True
+            elif freq == "hourly":
+                if not last_run:
+                    should_run = True
+                else:
+                    try:
+                        last_dt = datetime.datetime.strptime(last_run, "%Y-%m-%d %H:%M:%S")
+                        if now - last_dt >= datetime.timedelta(hours=1):
+                            should_run = True
+                    except Exception:
+                        should_run = True
+
+            if should_run:
+                with op_lock:
+                    is_busy = (current_op["status"] == "running")
+                if not is_busy:
+                    b_type = auto_cfg.get("backup_type", "full")
+                    log(f"[SCHEDULER] Triggering scheduled {b_type} backup at {now.strftime('%Y-%m-%d %H:%M:%S')}...")
+                    auto_cfg["last_run"] = now.strftime("%Y-%m-%d %H:%M:%S")
+                    auto_cfg["last_status"] = "in_progress"
+                    save_auto_config(cfg)
+                    
+                    target_func = execute_full_backup if b_type == "full" else execute_db_backup
+                    ok, msg = run_async("auto_backup", target_func)
+                    
+                    cfg = load_auto_config()
+                    cfg["auto_backup"]["last_status"] = "completed" if ok else f"error: {msg}"
+                    save_auto_config(cfg)
+                else:
+                    log("[SCHEDULER] Scheduled backup deferred: Another operation is currently in progress.")
+        except Exception as e:
+            log(f"[SCHEDULER] Error in scheduler loop: {e}")
+
 def run_async(op_type, func, *args):
     with op_lock:
         if current_op["status"] == "running":
@@ -612,6 +1016,8 @@ class BackupAPIHandler(BaseHTTPRequestHandler):
             self._send_json(200, data)
         elif path in ("/api/status", "/status"):
             self._send_json(200, current_op)
+        elif path in ("/api/backup/config", "/backup/config", "/api/config", "/config"):
+            self._send_json(200, load_auto_config())
         else:
             self._send_json(404, {"error": "Endpoint not found", "path": path})
 
@@ -801,6 +1207,36 @@ class BackupAPIHandler(BaseHTTPRequestHandler):
             except Exception as e:
                 self._send_json(500, {"success": False, "error": str(e)})
 
+        elif path in ("/api/backup/config", "/backup/config", "/api/config", "/config"):
+            try:
+                updated_cfg = save_auto_config(payload)
+                self._send_json(200, {"success": True, "message": "Configuration saved successfully.", "config": updated_cfg})
+            except Exception as e:
+                self._send_json(500, {"success": False, "error": str(e)})
+
+        elif path in ("/api/backup/test-external", "/backup/test-external"):
+            target_path = payload.get("path", "")
+            res = test_external_path(target_path)
+            status_code = 200 if res.get("success") else 400
+            self._send_json(status_code, res)
+
+        elif path in ("/api/backup/test-remote", "/backup/test-remote"):
+            res = test_remote_connection(payload)
+            status_code = 200 if res.get("success") else 400
+            self._send_json(status_code, res)
+
+        elif path in ("/api/backup/sync-now", "/backup/sync-now"):
+            def run_sync_all():
+                archives = glob.glob(os.path.join(BACKUP_DIR, "bahmni_*.tar.gz"))
+                archives.sort(key=os.path.getmtime, reverse=True)
+                if not archives:
+                    raise FileNotFoundError("No existing backup archive found to synchronize.")
+                latest_arc = archives[0]
+                post_backup_sync(latest_arc)
+            ok, msg = run_async("sync_destinations", run_sync_all)
+            status_code = 200 if ok else 409
+            self._send_json(status_code, {"success": ok, "message": msg or "Synchronization initiated."})
+
         else:
             self._send_json(404, {"error": "Endpoint not found", "path": path})
 
@@ -838,6 +1274,7 @@ class BackupAPIHandler(BaseHTTPRequestHandler):
 
 def start_server():
     threading.Thread(target=ensure_restore_privilege, daemon=True).start()
+    threading.Thread(target=start_scheduler_loop, daemon=True).start()
     server_address = ("0.0.0.0", PORT)
     httpd = ThreadingHTTPServer(server_address, BackupAPIHandler)
     log(f"Bahmni Backup Service running on http://0.0.0.0:{PORT}...")

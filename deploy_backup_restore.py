@@ -19,6 +19,8 @@ FILES_TO_DEPLOY = [
     ("bahmni-docker/bahmni-standard/bahmni_backup_service.py", "/opt/emr/bahmni-docker/bahmni-standard/bahmni_backup_service.py"),
     ("apps/ui/app/admin/views/backupRestore.html", "/opt/emr/apps/ui/app/admin/views/backupRestore.html"),
     ("apps/ui/app/admin/controllers/backupRestoreController.js", "/opt/emr/apps/ui/app/admin/controllers/backupRestoreController.js"),
+    ("apps/ui/app/admin/views/branding.html", "/opt/emr/apps/ui/app/admin/views/branding.html"),
+    ("apps/ui/app/admin/controllers/brandingController.js", "/opt/emr/apps/ui/app/admin/controllers/brandingController.js"),
     ("apps/ui/app/admin/app.js", "/opt/emr/apps/ui/app/admin/app.js"),
     ("apps/ui/app/admin/index.html", "/opt/emr/apps/ui/app/admin/index.html"),
     ("config/openmrs/apps/admin/extension.json", "/opt/emr/config/openmrs/apps/admin/extension.json"),

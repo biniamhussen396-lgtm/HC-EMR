@@ -1,0 +1,14 @@
+{
+  "facilityName": "Boru Meda General Hospital",
+  "tagline": "General Hospital EMR System",
+  "welcomeMessage": "WELCOME TO BORU MEDA GENERAL HOSPITAL EMR System",
+  "address": "Boru Meda, Dessie, Amhara, Ethiopia",
+  "phone": "+251 33 111 2233",
+  "email": "info@borumedahospital.gov.et",
+  "website": "www.borumedahospital.gov.et",
+  "mainLogoUrl": "/bahmni/images/bahmniLogo.png",
+  "loginLogoUrl": "/bahmni_config/openmrs/apps/home/logo.png",
+  "printLogoUrl": "/bahmni_config/openmrs/apps/registration/registrationCardLayout/images/bahmni-icon.png",
+  "faviconUrl": "/bahmni/favicon.ico",
+  "updatedAt": "2026-10-22T14:17:27.751140"
+}

@@ -1,0 +1,324 @@
+<div class="admin-page-content" style="padding: 20px 30px; max-width: 1200px; margin: 0 auto; font-family: sans-serif;">
+    <!-- Page Header -->
+    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #00796d; padding-bottom: 12px; margin-bottom: 25px;">
+        <div>
+            <h2 style="margin: 0; color: #00796d; font-size: 24px; font-weight: 600;">
+                <i class="fa fa-paint-brush" style="margin-right: 10px;"></i>Hospital Branding &amp; Customization
+            </h2>
+            <p style="margin: 4px 0 0 0; color: #666; font-size: 14px;">
+                Change your hospital/facility name, institutional logos (main navigation header, login screen, print pages), and browser favicon.
+            </p>
+        </div>
+        <div style="display: flex; gap: 10px;">
+            <a href="#/dashboard" class="btn btn-secondary" style="padding: 9px 16px; font-size: 14px; border-radius: 4px; border: 1px solid #ccc; background: #fff; text-decoration: none; color: #333; display: inline-flex; align-items: center;">
+                <i class="fa fa-arrow-left" style="margin-right: 6px;"></i>Admin Dashboard
+            </a>
+            <button class="btn btn-primary" ng-click="saveBranding()" ng-disabled="saving" style="padding: 9px 22px; font-size: 14px; font-weight: 600; border-radius: 4px; border: none; background: #00796d; color: #fff; cursor: pointer; display: inline-flex; align-items: center;">
+                <i class="fa" ng-class="{'fa-spinner fa-spin': saving, 'fa-check': !saving}" style="margin-right: 6px;"></i>
+                {{saving ? 'Saving...' : 'Save Branding Changes'}}
+            </button>
+        </div>
+    </div>
+
+    <!-- Success / Saved Banner -->
+    <div ng-if="savedSuccess" style="background: #edf7ed; border-left: 5px solid #4caf50; padding: 14px 18px; border-radius: 4px; margin-bottom: 20px; color: #1e4620; font-size: 14px; display: flex; align-items: center;">
+        <i class="fa fa-check-circle fa-lg" style="color: #4caf50; margin-right: 10px;"></i>
+        <div>
+            <strong>Branding Updated Successfully!</strong> All hospital names, institutional logos, print headers, and browser icons are now active across Bahmni.
+        </div>
+    </div>
+
+    <!-- Main Grid: Left Form (60%) & Right Live Preview (40%) -->
+    <div style="display: grid; grid-template-columns: 1.15fr 0.85fr; gap: 24px; align-items: start;">
+        
+        <!-- LEFT COLUMN: Settings Form -->
+        <div>
+            <!-- Card 1: Facility Identity -->
+            <div style="background: #fff; border: 1px solid #e0e0e0; border-radius: 8px; padding: 20px; box-shadow: 0 2px 6px rgba(0,0,0,0.04); margin-bottom: 22px;">
+                <div style="display: flex; align-items: center; margin-bottom: 16px; border-bottom: 1px solid #edf2f7; padding-bottom: 10px;">
+                    <i class="fa fa-hospital-o" style="color: #00796d; font-size: 20px; margin-right: 10px;"></i>
+                    <h3 style="margin: 0; color: #2d3748; font-size: 17px; font-weight: 600;">1. Facility Identity &amp; Information</h3>
+                </div>
+
+                <!-- Facility Name -->
+                <div style="margin-bottom: 14px;">
+                    <label style="display: block; font-size: 13px; font-weight: 600; color: #334155; margin-bottom: 5px;">
+                        Facility / Hospital Name <span style="color: #e53e3e;">*</span>
+                    </label>
+                    <input type="text" ng-model="branding.facilityName" placeholder="e.g. Boru Meda General Hospital"
+                           style="width: 100%; padding: 9px 12px; border: 1px solid #cbd5e0; border-radius: 4px; font-size: 15px; font-weight: 600; color: #1e293b; background: #fff;">
+                    <div style="font-size: 12px; color: #64748b; margin-top: 3px;">
+                        Displayed across all top navigation headers, browser window titles, login headers, and printed medical forms.
+                    </div>
+                </div>
+
+                <!-- Tagline -->
+                <div style="margin-bottom: 14px;">
+                    <label style="display: block; font-size: 13px; font-weight: 600; color: #334155; margin-bottom: 5px;">
+                        Facility Tagline / Subtitle
+                    </label>
+                    <input type="text" ng-model="branding.tagline" placeholder="e.g. General Hospital EMR System"
+                           style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e0; border-radius: 4px; font-size: 14px; background: #fff;">
+                </div>
+
+                <!-- Welcome Message on Login -->
+                <div style="margin-bottom: 14px;">
+                    <label style="display: block; font-size: 13px; font-weight: 600; color: #334155; margin-bottom: 5px;">
+                        Welcome Banner Text (Login Screen &amp; Home)
+                    </label>
+                    <input type="text" ng-model="branding.welcomeMessage" placeholder="e.g. WELCOME TO BORU MEDA GENERAL HOSPITAL EMR System"
+                           style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e0; border-radius: 4px; font-size: 14px; background: #fff;">
+                </div>
+
+                <!-- Contact & Location Grid -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px;">
+                    <div>
+                        <label style="display: block; font-size: 13px; font-weight: 600; color: #334155; margin-bottom: 5px;">
+                            Address / City
+                        </label>
+                        <input type="text" ng-model="branding.address" placeholder="e.g. Boru Meda, Dessie, Amhara"
+                               style="width: 100%; padding: 7px 10px; border: 1px solid #cbd5e0; border-radius: 4px; font-size: 13px; background: #fff;">
+                    </div>
+                    <div>
+                        <label style="display: block; font-size: 13px; font-weight: 600; color: #334155; margin-bottom: 5px;">
+                            Phone / Helpline
+                        </label>
+                        <input type="text" ng-model="branding.phone" placeholder="e.g. +251 33 111 2233"
+                               style="width: 100%; padding: 7px 10px; border: 1px solid #cbd5e0; border-radius: 4px; font-size: 13px; background: #fff;">
+                    </div>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                    <div>
+                        <label style="display: block; font-size: 13px; font-weight: 600; color: #334155; margin-bottom: 5px;">
+                            Email Address
+                        </label>
+                        <input type="text" ng-model="branding.email" placeholder="e.g. info@borumedahospital.gov.et"
+                               style="width: 100%; padding: 7px 10px; border: 1px solid #cbd5e0; border-radius: 4px; font-size: 13px; background: #fff;">
+                    </div>
+                    <div>
+                        <label style="display: block; font-size: 13px; font-weight: 600; color: #334155; margin-bottom: 5px;">
+                            Website
+                        </label>
+                        <input type="text" ng-model="branding.website" placeholder="e.g. www.borumedahospital.gov.et"
+                               style="width: 100%; padding: 7px 10px; border: 1px solid #cbd5e0; border-radius: 4px; font-size: 13px; background: #fff;">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Card 2: Logos & Graphics -->
+            <div style="background: #fff; border: 1px solid #e0e0e0; border-radius: 8px; padding: 20px; box-shadow: 0 2px 6px rgba(0,0,0,0.04); margin-bottom: 22px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; border-bottom: 1px solid #edf2f7; padding-bottom: 10px;">
+                    <div style="display: flex; align-items: center;">
+                        <i class="fa fa-picture-o" style="color: #00796d; font-size: 20px; margin-right: 10px;"></i>
+                        <h3 style="margin: 0; color: #2d3748; font-size: 17px; font-weight: 600;">2. Logos &amp; Graphic Assets</h3>
+                    </div>
+                </div>
+
+                <!-- Main Logo -->
+                <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 14px; margin-bottom: 16px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <div style="font-weight: 600; color: #1e293b; font-size: 14px;">Main Navigation Header Logo</div>
+                            <div style="font-size: 12px; color: #64748b; margin-top: 2px;">Used in top navigation headers across Clinical, Registration, Orders, and Home.</div>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 12px;">
+                            <div style="background: #e2e8f0; border-radius: 4px; padding: 4px 8px; display: inline-flex; align-items: center; justify-content: center; min-width: 90px; height: 42px;">
+                                <img ng-src="{{previews.mainLogo}}" style="max-height: 36px; max-width: 110px; object-fit: contain;">
+                            </div>
+                            <input type="file" id="mainLogoFile" accept="image/png,image/jpeg,image/svg+xml" onchange="angular.element(this).scope().onMainLogoSelected(this)" style="display: none;">
+                            <button type="button" onclick="document.getElementById('mainLogoFile').click()" style="padding: 7px 12px; font-size: 12px; font-weight: 600; border-radius: 4px; border: 1px solid #cbd5e0; background: #fff; cursor: pointer;">
+                                <i class="fa fa-upload" style="margin-right: 5px;"></i>Upload Logo
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Sync All Checkbox -->
+                    <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #e2e8f0;">
+                        <label style="display: flex; align-items: center; cursor: pointer; font-size: 13px; font-weight: 500; color: #334155;">
+                            <input type="checkbox" ng-model="applyMainLogoToAll" style="margin-right: 8px; width: 16px; height: 16px; accent-color: #00796d;">
+                            <strong>Synchronize Main Logo across all pages:</strong> Automatically use this logo for the Login Page and Print Documents.
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Login Page Logo (if custom) -->
+                <div ng-if="!applyMainLogoToAll" style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 14px; margin-bottom: 16px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <div style="font-weight: 600; color: #1e293b; font-size: 14px;">Login Screen Logo</div>
+                            <div style="font-size: 12px; color: #64748b; margin-top: 2px;">Custom logo displayed on the initial user login card.</div>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 12px;">
+                            <div style="background: #e2e8f0; border-radius: 4px; padding: 4px 8px; display: inline-flex; align-items: center; justify-content: center; min-width: 90px; height: 42px;">
+                                <img ng-src="{{previews.loginLogo}}" style="max-height: 36px; max-width: 110px; object-fit: contain;">
+                            </div>
+                            <input type="file" id="loginLogoFile" accept="image/png,image/jpeg,image/svg+xml" onchange="angular.element(this).scope().onLoginLogoSelected(this)" style="display: none;">
+                            <button type="button" onclick="document.getElementById('loginLogoFile').click()" style="padding: 7px 12px; font-size: 12px; font-weight: 600; border-radius: 4px; border: 1px solid #cbd5e0; background: #fff; cursor: pointer;">
+                                <i class="fa fa-upload" style="margin-right: 5px;"></i>Upload
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Print Documents Logo (if custom) -->
+                <div ng-if="!applyMainLogoToAll" style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 14px; margin-bottom: 16px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <div style="font-weight: 600; color: #1e293b; font-size: 14px;">Print Documents Logo</div>
+                            <div style="font-size: 12px; color: #64748b; margin-top: 2px;">Displayed on registration cards, prescriptions, lab results, and patient charts.</div>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 12px;">
+                            <div style="background: #e2e8f0; border-radius: 4px; padding: 4px 8px; display: inline-flex; align-items: center; justify-content: center; min-width: 90px; height: 42px;">
+                                <img ng-src="{{previews.printLogo}}" style="max-height: 36px; max-width: 110px; object-fit: contain;">
+                            </div>
+                            <input type="file" id="printLogoFile" accept="image/png,image/jpeg,image/svg+xml" onchange="angular.element(this).scope().onPrintLogoSelected(this)" style="display: none;">
+                            <button type="button" onclick="document.getElementById('printLogoFile').click()" style="padding: 7px 12px; font-size: 12px; font-weight: 600; border-radius: 4px; border: 1px solid #cbd5e0; background: #fff; cursor: pointer;">
+                                <i class="fa fa-upload" style="margin-right: 5px;"></i>Upload
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Favicon -->
+                <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 14px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <div style="font-weight: 600; color: #1e293b; font-size: 14px;">Browser Tab Favicon</div>
+                            <div style="font-size: 12px; color: #64748b; margin-top: 2px;">Icon displayed on web browser tabs and bookmarks (<code>.ico</code> or <code>.png</code>).</div>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 12px;">
+                            <div style="background: #e2e8f0; border-radius: 4px; padding: 4px 8px; display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 42px;">
+                                <img ng-src="{{previews.favicon}}" style="width: 24px; height: 24px; object-fit: contain;">
+                            </div>
+                            <input type="file" id="faviconFile" accept=".ico,image/x-icon,image/png" onchange="angular.element(this).scope().onFaviconSelected(this)" style="display: none;">
+                            <button type="button" onclick="document.getElementById('faviconFile').click()" style="padding: 7px 12px; font-size: 12px; font-weight: 600; border-radius: 4px; border: 1px solid #cbd5e0; background: #fff; cursor: pointer;">
+                                <i class="fa fa-upload" style="margin-right: 5px;"></i>Upload Favicon
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- RIGHT COLUMN: Live Interactive Mockup Previews -->
+        <div style="position: sticky; top: 20px;">
+            <div style="background: #fff; border: 1px solid #e0e0e0; border-radius: 8px; padding: 18px; box-shadow: 0 4px 12px rgba(0,0,0,0.06);">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; border-bottom: 1px solid #edf2f7; padding-bottom: 10px;">
+                    <div style="font-weight: 600; color: #1e293b; font-size: 15px; display: flex; align-items: center;">
+                        <i class="fa fa-eye" style="color: #00796d; margin-right: 8px;"></i>Live Preview
+                    </div>
+                    <span style="font-size: 11px; background: #e0f2f1; color: #00796d; padding: 2px 8px; border-radius: 10px; font-weight: 600;">Instant Mockup</span>
+                </div>
+
+                <!-- Preview Switcher Tabs -->
+                <div style="display: flex; gap: 4px; background: #f1f5f9; padding: 3px; border-radius: 6px; margin-bottom: 16px;">
+                    <button type="button" ng-click="activePreview = 'login'" style="flex: 1; padding: 6px 10px; font-size: 12px; font-weight: 600; border-radius: 4px; border: none; cursor: pointer; transition: all 0.2s;"
+                            ng-style="{'background': activePreview === 'login' ? '#fff' : 'transparent', 'color': activePreview === 'login' ? '#00796d' : '#64748b', 'box-shadow': activePreview === 'login' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none'}">
+                        Login Screen
+                    </button>
+                    <button type="button" ng-click="activePreview = 'header'" style="flex: 1; padding: 6px 10px; font-size: 12px; font-weight: 600; border-radius: 4px; border: none; cursor: pointer; transition: all 0.2s;"
+                            ng-style="{'background': activePreview === 'header' ? '#fff' : 'transparent', 'color': activePreview === 'header' ? '#00796d' : '#64748b', 'box-shadow': activePreview === 'header' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none'}">
+                        Main Header
+                    </button>
+                    <button type="button" ng-click="activePreview = 'print'" style="flex: 1; padding: 6px 10px; font-size: 12px; font-weight: 600; border-radius: 4px; border: none; cursor: pointer; transition: all 0.2s;"
+                            ng-style="{'background': activePreview === 'print' ? '#fff' : 'transparent', 'color': activePreview === 'print' ? '#00796d' : '#64748b', 'box-shadow': activePreview === 'print' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none'}">
+                        Print Template
+                    </button>
+                </div>
+
+                <!-- PREVIEW 1: Login Screen Mockup -->
+                <div ng-if="activePreview === 'login'" style="border: 1px solid #cbd5e0; border-radius: 6px; overflow: hidden; background: #f8fafc;">
+                    <div style="background: #e2e8f0; padding: 6px 12px; font-size: 11px; color: #475569; display: flex; align-items: center; justify-content: space-between;">
+                        <span style="display: flex; align-items: center; gap: 6px;">
+                            <img ng-src="{{previews.favicon}}" style="width: 14px; height: 14px;">
+                            {{branding.facilityName}} - Login
+                        </span>
+                        <span><i class="fa fa-lock"></i> SSL Secured</span>
+                    </div>
+                    <div style="padding: 24px 20px; text-align: center;">
+                        <div style="margin-bottom: 12px;">
+                            <img ng-src="{{previews.loginLogo || previews.mainLogo}}" style="max-height: 48px; max-width: 160px; object-fit: contain;">
+                        </div>
+                        <div style="font-size: 14px; font-weight: 700; color: #00796d; margin-bottom: 4px;">
+                            {{branding.facilityName}}
+                        </div>
+                        <div style="font-size: 11px; color: #64748b; margin-bottom: 16px;">
+                            {{branding.tagline || 'Electronic Medical Record System'}}
+                        </div>
+                        <!-- Dummy form fields -->
+                        <div style="background: #fff; border: 1px solid #e2e8f0; border-radius: 4px; padding: 12px; max-width: 240px; margin: 0 auto; text-align: left;">
+                            <div style="font-size: 11px; color: #64748b; margin-bottom: 3px;">Username</div>
+                            <div style="background: #f1f5f9; height: 24px; border-radius: 3px; margin-bottom: 8px;"></div>
+                            <div style="font-size: 11px; color: #64748b; margin-bottom: 3px;">Password</div>
+                            <div style="background: #f1f5f9; height: 24px; border-radius: 3px; margin-bottom: 12px;"></div>
+                            <div style="background: #00796d; color: #fff; text-align: center; padding: 6px; border-radius: 3px; font-size: 11px; font-weight: 600;">LOGIN</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- PREVIEW 2: Main Header Mockup -->
+                <div ng-if="activePreview === 'header'" style="border: 1px solid #cbd5e0; border-radius: 6px; overflow: hidden;">
+                    <div style="background: #00796d; padding: 10px 14px; color: #fff; display: flex; align-items: center; justify-content: space-between;">
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <div style="background: rgba(255,255,255,0.15); padding: 4px 8px; border-radius: 4px; display: inline-flex; align-items: center;">
+                                <img ng-src="{{previews.mainLogo}}" style="max-height: 28px; max-width: 90px; object-fit: contain;">
+                            </div>
+                            <span style="font-weight: 700; font-size: 14px; letter-spacing: 0.5px;">{{branding.facilityName}}</span>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 10px; font-size: 13px;">
+                            <i class="fa fa-bell"></i>
+                            <i class="fa fa-user-circle"></i>
+                            <span style="font-size: 11px; background: rgba(0,0,0,0.2); padding: 3px 8px; border-radius: 3px;">Admin</span>
+                        </div>
+                    </div>
+                    <div style="background: #f8fafc; padding: 20px; text-align: center; color: #64748b; font-size: 12px;">
+                        Bahmni Clinical &amp; Hospital Modules Navigation Bar
+                    </div>
+                </div>
+
+                <!-- PREVIEW 3: Print Template Mockup -->
+                <div ng-if="activePreview === 'print'" style="border: 1px solid #cbd5e0; border-radius: 6px; background: #fff; padding: 16px;">
+                    <div style="border-bottom: 2px solid #333; padding-bottom: 10px; display: flex; align-items: center; gap: 12px;">
+                        <div>
+                            <img ng-src="{{previews.printLogo || previews.mainLogo}}" style="max-height: 40px; max-width: 80px; object-fit: contain;">
+                        </div>
+                        <div style="flex: 1;">
+                            <div style="font-size: 15px; font-weight: 800; text-transform: uppercase; color: #111; letter-spacing: 0.5px;">
+                                {{branding.facilityName}}
+                            </div>
+                            <div style="font-size: 11px; color: #444; margin-top: 1px;">
+                                {{branding.address}} | Tel: {{branding.phone}}
+                            </div>
+                            <div style="font-size: 10px; color: #666;">
+                                Email: {{branding.email}} | Web: {{branding.website}}
+                            </div>
+                        </div>
+                    </div>
+                    <div style="padding: 14px 0 6px 0; font-size: 11px; color: #555;">
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                            <span><strong>Patient Name:</strong> John Doe</span>
+                            <span><strong>MRN:</strong> GAN200192</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between;">
+                            <span><strong>Age / Gender:</strong> 34 Y / Male</span>
+                            <span><strong>Date:</strong> 2026-10-22</span>
+                        </div>
+                    </div>
+                    <div style="border-top: 1px dashed #cbd5e0; padding-top: 8px; font-size: 10px; color: #888; text-align: center;">
+                        Sample Clinical Summary / Patient Card Header Layout
+                    </div>
+                </div>
+
+                <!-- Save Button in Preview Card -->
+                <div style="margin-top: 18px;">
+                    <button type="button" class="btn btn-primary" ng-click="saveBranding()" ng-disabled="saving"
+                            style="width: 100%; padding: 11px; font-size: 14px; font-weight: 600; border-radius: 4px; border: none; background: #00796d; color: #fff; cursor: pointer;">
+                        <i class="fa" ng-class="{'fa-spinner fa-spin': saving, 'fa-check': !saving}" style="margin-right: 6px;"></i>
+                        {{saving ? 'Saving Branding...' : 'Apply & Save Branding'}}
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

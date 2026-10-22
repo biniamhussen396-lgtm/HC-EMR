@@ -70,5 +70,17 @@
         "icon": "fa-database",
         "order": 6,
         "requiredPrivilege": "app:admin"
+    },
+    "branding":{
+        "id": "bahmni.admin.branding",
+        "extensionPointId": "org.bahmni.admin.dashboard",
+        "type": "link",
+        "extensionParams": {
+        },
+        "label": "Branding",
+        "url": "#/branding",
+        "icon": "fa-paint-brush",
+        "order": 7,
+        "requiredPrivilege": "app:admin"
     }
 }

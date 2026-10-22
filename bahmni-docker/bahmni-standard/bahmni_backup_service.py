@@ -9,6 +9,7 @@ Supports:
 """
 
 import argparse
+import base64
 import datetime
 import glob
 import json
@@ -33,6 +34,11 @@ CONFIG_DIR = os.environ.get("CONFIG_DIR") or (
     os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "config"))
     if os.name == "nt" or not os.path.exists("/opt/emr/config")
     else "/opt/emr/config"
+)
+APP_DIR = os.environ.get("APP_DIR") or (
+    os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "apps", "ui", "app"))
+    if os.name == "nt" or not os.path.exists("/opt/emr/app")
+    else "/opt/emr/app"
 )
 VOL_BASE = os.environ.get("VOL_BASE", "/var/lib/docker/volumes")
 RETENTION_LIMIT = int(os.environ.get("RETENTION_LIMIT", 10))
@@ -976,6 +982,275 @@ def run_async(op_type, func, *args):
     thread.start()
     return True, "Operation started successfully."
 
+# ── Branding Customization Service ───────────────────────────────────────────
+
+def write_file_safe(file_path, content, is_binary=False):
+    try:
+        os.makedirs(os.path.dirname(file_path), exist_ok=True)
+        mode = "wb" if is_binary else "w"
+        kwargs = {} if is_binary else {"encoding": "utf-8"}
+        with open(file_path, mode, **kwargs) as f:
+            f.write(content)
+        log(f"Wrote file: {file_path}")
+        return True
+    except Exception as e:
+        log(f"Error writing {file_path}: {e}")
+        return False
+
+def sync_file_to_bahmni_web(local_source, container_dest):
+    try:
+        bweb = get_container("bahmni-web")
+        dest_dir = os.path.dirname(container_dest).replace("\\", "/")
+        subprocess.run(f'docker exec {bweb} mkdir -p "{dest_dir}"', shell=True, capture_output=True)
+        res = subprocess.run(f'docker cp "{local_source}" "{bweb}:{container_dest}"', shell=True, capture_output=True, text=True)
+        if res.returncode == 0:
+            log(f"Synced {os.path.basename(local_source)} -> {bweb}:{container_dest}")
+            return True
+        elif "read-only" not in (res.stderr or "").lower():
+            log(f"Warning syncing to container {bweb}:{container_dest}: {res.stderr}")
+    except Exception as e:
+        log(f"Exception syncing file to container: {e}")
+    return False
+
+def decode_base64_data(data_str):
+    if not data_str:
+        return None
+    try:
+        if "," in data_str:
+            data_str = data_str.split(",", 1)[1]
+        return base64.b64decode(data_str.strip())
+    except Exception as e:
+        log(f"Error decoding base64 data: {e}")
+        return None
+
+def load_branding_config():
+    branding_file = os.path.join(CONFIG_DIR, "openmrs", "apps", "branding.json")
+    whitelabel_file = os.path.join(CONFIG_DIR, "openmrs", "apps", "home", "whiteLabel.json")
+    reg_i18n_file = os.path.join(CONFIG_DIR, "openmrs", "i18n", "registration", "locale_en.json")
+    
+    data = {
+        "facilityName": "Boru Meda General Hospital",
+        "tagline": "General Hospital EMR System",
+        "welcomeMessage": "WELCOME TO BORU MEDA GENERAL HOSPITAL EMR System",
+        "address": "Boru Meda, Dessie, Amhara, Ethiopia",
+        "phone": "+251 33 111 2233",
+        "email": "info@borumedahospital.gov.et",
+        "website": "www.borumedahospital.gov.et",
+        "mainLogoUrl": "/bahmni/images/bahmniLogo.png",
+        "loginLogoUrl": "/bahmni_config/openmrs/apps/home/logo.png",
+        "printLogoUrl": "/bahmni_config/openmrs/apps/registration/registrationCardLayout/images/bahmni-icon.png",
+        "faviconUrl": "/bahmni/favicon.ico"
+    }
+
+    if os.path.isfile(branding_file):
+        try:
+            with open(branding_file, "r", encoding="utf-8") as f:
+                saved = json.load(f)
+                data.update(saved)
+        except Exception as e:
+            log(f"Warning reading branding.json: {e}")
+    else:
+        if os.path.isfile(whitelabel_file):
+            try:
+                with open(whitelabel_file, "r", encoding="utf-8") as f:
+                    wl = json.load(f)
+                    header = wl.get("homePage", {}).get("header_text", "")
+                    clean_header = re.sub(r'<[^>]+>', ' ', header).strip()
+                    if clean_header:
+                        data["welcomeMessage"] = clean_header
+                        m = re.search(r'WELCOME\s+TO\s+(.+)', clean_header, re.IGNORECASE)
+                        if m:
+                            data["facilityName"] = m.group(1).replace("EMR System", "").strip()
+                    title = wl.get("homePage", {}).get("title_text", "")
+                    if title and title.strip():
+                        data["tagline"] = title.strip()
+            except Exception:
+                pass
+        if os.path.isfile(reg_i18n_file):
+            try:
+                with open(reg_i18n_file, "r", encoding="utf-8") as f:
+                    loc = json.load(f)
+                    if loc.get("REGISTRATION_INSTITUTE_NAME_TEXT_KEY"):
+                        data["facilityName"] = loc["REGISTRATION_INSTITUTE_NAME_TEXT_KEY"]
+                    if loc.get("REGISTRATION_INSTITUTE_ADDRESS"):
+                        data["address"] = loc["REGISTRATION_INSTITUTE_ADDRESS"]
+            except Exception:
+                pass
+
+    ts = int(time.time())
+    data["mainLogoUrlWithCache"] = f"{data['mainLogoUrl']}?t={ts}"
+    data["loginLogoUrlWithCache"] = f"{data['loginLogoUrl']}?t={ts}"
+    data["printLogoUrlWithCache"] = f"{data['printLogoUrl']}?t={ts}"
+    data["faviconUrlWithCache"] = f"{data['faviconUrl']}?t={ts}"
+    return data
+
+def save_branding_config(payload):
+    facility_name = (payload.get("facilityName") or "Boru Meda General Hospital").strip()
+    tagline = (payload.get("tagline") or "").strip()
+    welcome_message = (payload.get("welcomeMessage") or f"WELCOME TO {facility_name.upper()} EMR System").strip()
+    address = (payload.get("address") or "").strip()
+    phone = (payload.get("phone") or "").strip()
+    email = (payload.get("email") or "").strip()
+    website = (payload.get("website") or "").strip()
+    apply_all = bool(payload.get("applyMainLogoToAll", False))
+
+    log(f"Saving branding: facility='{facility_name}', tagline='{tagline}', apply_all={apply_all}")
+
+    main_b64 = payload.get("mainLogoBase64")
+    login_b64 = payload.get("loginLogoBase64")
+    print_b64 = payload.get("printLogoBase64")
+    fav_b64 = payload.get("faviconBase64")
+
+    if apply_all and main_b64:
+        if not login_b64:
+            login_b64 = main_b64
+        if not print_b64:
+            print_b64 = main_b64
+
+    # Save Main Logo
+    if main_b64:
+        main_bytes = decode_base64_data(main_b64)
+        if main_bytes:
+            for fname in ("bahmniLogo.png", "bahmniLogoFull.png", "bahmniLogo.jpg"):
+                local_f = os.path.join(APP_DIR, "images", fname)
+                write_file_safe(local_f, main_bytes, is_binary=True)
+                sync_file_to_bahmni_web(local_f, f"/usr/local/apache2/htdocs/bahmni/images/{fname}")
+
+    # Save Login Logo
+    if login_b64:
+        login_bytes = decode_base64_data(login_b64)
+        if login_bytes:
+            local_f = os.path.join(CONFIG_DIR, "openmrs", "apps", "home", "logo.png")
+            write_file_safe(local_f, login_bytes, is_binary=True)
+            sync_file_to_bahmni_web(local_f, "/usr/local/apache2/htdocs/bahmni_config/openmrs/apps/home/logo.png")
+
+    # Save Print Logo
+    if print_b64:
+        print_bytes = decode_base64_data(print_b64)
+        if print_bytes:
+            local_f = os.path.join(CONFIG_DIR, "openmrs", "apps", "registration", "registrationCardLayout", "images", "bahmni-icon.png")
+            write_file_safe(local_f, print_bytes, is_binary=True)
+            sync_file_to_bahmni_web(local_f, "/usr/local/apache2/htdocs/bahmni_config/openmrs/apps/registration/registrationCardLayout/images/bahmni-icon.png")
+
+    # Save Favicon
+    if fav_b64:
+        fav_bytes = decode_base64_data(fav_b64)
+        if fav_bytes:
+            local_f = os.path.join(APP_DIR, "favicon.ico")
+            write_file_safe(local_f, fav_bytes, is_binary=True)
+            sync_file_to_bahmni_web(local_f, "/usr/local/apache2/htdocs/bahmni/favicon.ico")
+
+    # Update whiteLabel.json
+    whitelabel_file = os.path.join(CONFIG_DIR, "openmrs", "apps", "home", "whiteLabel.json")
+    if os.path.isfile(whitelabel_file):
+        try:
+            with open(whitelabel_file, "r", encoding="utf-8") as f:
+                wl = json.load(f)
+            wl.setdefault("homePage", {})
+            wl["homePage"]["header_text"] = f"<b>{welcome_message}</b>"
+            wl["homePage"]["title_text"] = tagline
+            wl["homePage"]["logo"] = "/bahmni_config/openmrs/apps/home/logo.png"
+            wl.setdefault("loginPage", {})
+            wl["loginPage"]["logo"] = "/bahmni_config/openmrs/apps/home/logo.png"
+            write_file_safe(whitelabel_file, json.dumps(wl, indent=2))
+            sync_file_to_bahmni_web(whitelabel_file, "/usr/local/apache2/htdocs/bahmni_config/openmrs/apps/home/whiteLabel.json")
+        except Exception as e:
+            log(f"Error updating whiteLabel.json: {e}")
+
+    # Update locale_en.json
+    reg_i18n_file = os.path.join(CONFIG_DIR, "openmrs", "i18n", "registration", "locale_en.json")
+    if os.path.isfile(reg_i18n_file):
+        try:
+            with open(reg_i18n_file, "r", encoding="utf-8") as f:
+                loc = json.load(f)
+            loc["REGISTRATION_INSTITUTE_NAME_TEXT_KEY"] = facility_name
+            if address:
+                loc["REGISTRATION_INSTITUTE_ADDRESS"] = address
+            write_file_safe(reg_i18n_file, json.dumps(loc, indent=2))
+            sync_file_to_bahmni_web(reg_i18n_file, "/usr/local/apache2/htdocs/bahmni_config/openmrs/i18n/registration/locale_en.json")
+        except Exception as e:
+            log(f"Error updating registration locale_en.json: {e}")
+
+    # Update clinical dashboard.json & visit.json
+    for json_name in ("dashboard.json", "visit.json"):
+        cfg_path = os.path.join(CONFIG_DIR, "openmrs", "apps", "clinical", json_name)
+        if os.path.isfile(cfg_path):
+            try:
+                with open(cfg_path, "r", encoding="utf-8") as f:
+                    cfg_obj = json.load(f)
+                def update_printing_titles(obj):
+                    if isinstance(obj, dict):
+                        for k, v in obj.items():
+                            if k == "printing" and isinstance(v, dict) and "title" in v:
+                                v["title"] = facility_name.upper()
+                            else:
+                                update_printing_titles(v)
+                    elif isinstance(obj, list):
+                        for item in obj:
+                            update_printing_titles(item)
+                update_printing_titles(cfg_obj)
+                write_file_safe(cfg_path, json.dumps(cfg_obj, indent=4))
+                sync_file_to_bahmni_web(cfg_path, f"/usr/local/apache2/htdocs/bahmni_config/openmrs/apps/clinical/{json_name}")
+            except Exception as e:
+                log(f"Error updating {json_name} print titles: {e}")
+
+    # Update OpenMRS MySQL database
+    try:
+        omrs = get_container("openmrsdb")
+        sql_name = facility_name.replace("'", "''").replace("\\", "\\\\")
+        header_lines = [f"<b>{sql_name}</b>"]
+        if address:
+            header_lines.append(address.replace("'", "''").replace("\\", "\\\\"))
+        phone_esc = phone.replace("'", "''")
+        email_esc = email.replace("'", "''")
+        web_esc = website.replace("'", "''")
+        contacts = []
+        if phone:
+            contacts.append(f"Tel: {phone_esc}")
+        if email:
+            contacts.append(f"Email: {email_esc}")
+        if website:
+            contacts.append(f"Web: {web_esc}")
+        if contacts:
+            header_lines.append(" | ".join(contacts))
+        print_header_html = "<br/>".join(header_lines)
+
+        sql_stmts = (
+            f"UPDATE location SET name = '{sql_name}' WHERE location_id IN (2, 253); "
+            f"UPDATE global_property SET property_value = '{phone_esc}' WHERE property = 'clinic.helpDeskNumber'; "
+            f"DELETE FROM location_attribute WHERE location_id = 2 AND attribute_type_id = 1; "
+            f"INSERT INTO location_attribute (location_id, attribute_type_id, value_reference, uuid, creator, date_created) "
+            f"VALUES (2, 1, '{print_header_html}', UUID(), 1, NOW()); "
+            f"DELETE FROM location_attribute WHERE location_id = 253 AND attribute_type_id = 1; "
+            f"INSERT INTO location_attribute (location_id, attribute_type_id, value_reference, uuid, creator, date_created) "
+            f"SELECT 253, 1, '{print_header_html}', UUID(), 1, NOW() FROM location WHERE location_id = 253; "
+        )
+        run_cmd(f'docker exec -i {omrs} mysql -uroot -p"{MYSQL_PASS}" openmrs -e "{sql_stmts}"', check=False)
+        log("Successfully updated OpenMRS locations, Print Header attribute, and clinic helpdesk number.")
+    except Exception as e:
+        log(f"Warning updating OpenMRS database: {e}")
+
+    # Save branding.json
+    branding_file = os.path.join(CONFIG_DIR, "openmrs", "apps", "branding.json")
+    saved_meta = {
+        "facilityName": facility_name,
+        "tagline": tagline,
+        "welcomeMessage": welcome_message,
+        "address": address,
+        "phone": phone,
+        "email": email,
+        "website": website,
+        "mainLogoUrl": "/bahmni/images/bahmniLogo.png",
+        "loginLogoUrl": "/bahmni_config/openmrs/apps/home/logo.png",
+        "printLogoUrl": "/bahmni_config/openmrs/apps/registration/registrationCardLayout/images/bahmni-icon.png",
+        "faviconUrl": "/bahmni/favicon.ico",
+        "updatedAt": datetime.datetime.now().isoformat()
+    }
+    write_file_safe(branding_file, json.dumps(saved_meta, indent=2))
+    sync_file_to_bahmni_web(branding_file, "/usr/local/apache2/htdocs/bahmni_config/openmrs/apps/branding.json")
+
+    return load_branding_config()
+
 # ── HTTP Server Request Handler ──────────────────────────────────────────────
 
 class BackupAPIHandler(BaseHTTPRequestHandler):
@@ -1018,6 +1293,8 @@ class BackupAPIHandler(BaseHTTPRequestHandler):
             self._send_json(200, current_op)
         elif path in ("/api/backup/config", "/backup/config", "/api/config", "/config"):
             self._send_json(200, load_auto_config())
+        elif path in ("/api/branding", "/branding"):
+            self._send_json(200, load_branding_config())
         else:
             self._send_json(404, {"error": "Endpoint not found", "path": path})
 
@@ -1236,6 +1513,14 @@ class BackupAPIHandler(BaseHTTPRequestHandler):
             ok, msg = run_async("sync_destinations", run_sync_all)
             status_code = 200 if ok else 409
             self._send_json(status_code, {"success": ok, "message": msg or "Synchronization initiated."})
+
+        elif path in ("/api/branding", "/branding"):
+            try:
+                updated_branding = save_branding_config(payload)
+                self._send_json(200, {"success": True, "message": "Branding updated successfully.", "branding": updated_branding})
+            except Exception as e:
+                log(f"Error saving branding: {e}")
+                self._send_json(500, {"success": False, "error": str(e)})
 
         else:
             self._send_json(404, {"error": "Endpoint not found", "path": path})

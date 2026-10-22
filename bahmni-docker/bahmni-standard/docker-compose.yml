@@ -748,11 +748,13 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
       - ./bahmni_backup_service.py:/app/bahmni_backup_service.py
       - ../../backups:/opt/emr/backups
-      - ../../config:/opt/emr/config:ro
+      - ../../config:/opt/emr/config:rw
+      - ../../apps/ui/app:/opt/emr/app:rw
     environment:
       TZ: ${TZ}
       BACKUP_DIR: /opt/emr/backups
       CONFIG_DIR: /opt/emr/config
+      APP_DIR: /opt/emr/app
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-adminAdmin!123}
     logging: *log-config
     restart: ${RESTART_POLICY}

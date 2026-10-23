@@ -29,8 +29,8 @@ angular
                 },
                 views: {
                     'content': {
-                        templateUrl: '../common/patient-search/views/patientsList.html',
-                        controller: 'PatientsListController'
+                        templateUrl: 'views/orderSearch.html',
+                        controller: 'OrderSearchController'
                     },
                     'additional-header': {
                         templateUrl: 'views/additionalHeader.html'

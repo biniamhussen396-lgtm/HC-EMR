@@ -1,0 +1,449 @@
+<style>
+    .order-search-container {
+        padding: 16px 24px;
+        background: #f7fafc;
+        min-height: calc(100vh - 80px);
+        font-family: inherit;
+    }
+
+    /* Primary Tabs (New Orders vs Backlog Orders) */
+    .order-primary-tabs {
+        display: flex;
+        gap: 12px;
+        border-bottom: 2px solid #557A7B;
+        margin-bottom: 18px;
+    }
+
+    .order-primary-tab {
+        padding: 12px 26px;
+        font-size: 15px;
+        font-weight: 700;
+        border: none;
+        border-radius: 8px 8px 0 0;
+        cursor: pointer;
+        background: #e2e8f0;
+        color: #4a5568;
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        transition: all 0.2s ease-in-out;
+    }
+
+    .order-primary-tab:hover {
+        background: #cbd5e1;
+        color: #1e293b;
+    }
+
+    .order-primary-tab.active {
+        background: #557A7B;
+        color: #ffffff;
+        box-shadow: 0 -2px 6px rgba(0, 0, 0, 0.12);
+    }
+
+    .order-tab-badge {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 12px;
+        font-size: 12px;
+        font-weight: bold;
+    }
+
+    .order-primary-tab.active .order-tab-badge {
+        background: #ffffff;
+        color: #557A7B;
+    }
+
+    .order-primary-tab:not(.active) .order-tab-badge {
+        background: #cbd5e1;
+        color: #334155;
+    }
+
+    /* Filter Toolbar Box */
+    .order-filter-panel {
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        padding: 16px 20px;
+        margin-bottom: 20px;
+        box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
+    }
+
+    /* Order Type Pills */
+    .order-type-pills {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin-bottom: 16px;
+        padding-bottom: 14px;
+        border-bottom: 1px dashed #e2e8f0;
+    }
+
+    .order-type-pill {
+        padding: 6px 14px;
+        border-radius: 20px;
+        border: 1px solid #cbd5e1;
+        background: #f8fafc;
+        color: #475569;
+        font-size: 13px;
+        font-weight: 600;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        transition: all 0.15s ease;
+    }
+
+    .order-type-pill:hover {
+        background: #e2e8f0;
+    }
+
+    .order-type-pill.active {
+        background: #557A7B;
+        border-color: #557A7B;
+        color: #ffffff;
+    }
+
+    /* Input Controls Row */
+    .order-inputs-row {
+        display: flex;
+        gap: 16px;
+        flex-wrap: wrap;
+        align-items: center;
+    }
+
+    .filter-input-group {
+        display: inline-flex;
+        align-items: center;
+        position: relative;
+        flex: 1;
+        min-width: 220px;
+    }
+
+    .filter-input-group i.input-icon {
+        position: absolute;
+        left: 12px;
+        color: #94a3b8;
+        font-size: 14px;
+    }
+
+    .filter-input-group input {
+        width: 100%;
+        padding: 8px 12px 8px 34px;
+        border: 1px solid #cbd5e1;
+        border-radius: 6px;
+        font-size: 13px;
+        outline: none;
+        transition: border-color 0.2s;
+    }
+
+    .filter-input-group input:focus {
+        border-color: #557A7B;
+        box-shadow: 0 0 0 2px rgba(85, 122, 123, 0.18);
+    }
+
+    .btn-clear-filters {
+        padding: 8px 16px;
+        border: 1px solid #cbd5e1;
+        background: #ffffff;
+        color: #64748b;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 13px;
+        font-weight: 600;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .btn-clear-filters:hover {
+        background: #f1f5f9;
+        color: #0f172a;
+    }
+
+    .btn-refresh {
+        padding: 8px 14px;
+        border: 1px solid #cbd5e1;
+        background: #ffffff;
+        color: #557A7B;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 13px;
+    }
+
+    .btn-refresh:hover {
+        background: #f1f5f9;
+    }
+
+    /* Orders Table */
+    .order-table-wrapper {
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        overflow: hidden;
+        box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
+    }
+
+    .order-list-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 13px;
+    }
+
+    .order-list-table thead tr {
+        background: #557A7B;
+        color: #ffffff;
+        text-align: left;
+    }
+
+    .order-list-table th {
+        padding: 12px 16px;
+        font-weight: 700;
+        letter-spacing: 0.3px;
+    }
+
+    .order-list-table tbody tr {
+        border-bottom: 1px solid #e2e8f0;
+        cursor: pointer;
+        transition: background-color 0.15s ease;
+    }
+
+    .order-list-table tbody tr:hover {
+        background-color: #f8fafc;
+    }
+
+    .order-list-table td {
+        padding: 12px 16px;
+        color: #334155;
+        vertical-align: middle;
+    }
+
+    /* Order Type Badges */
+    .badge-order-type {
+        display: inline-block;
+        padding: 3px 10px;
+        border-radius: 12px;
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+    }
+
+    .badge-radiology {
+        background: #e0f2fe;
+        color: #0369a1;
+    }
+
+    .badge-procedure {
+        background: #fef3c7;
+        color: #b45309;
+    }
+
+    .badge-ophtha {
+        background: #ede9fe;
+        color: #6d28d9;
+    }
+
+    .badge-pathology {
+        background: #fce7f3;
+        color: #be185d;
+    }
+
+    .badge-default {
+        background: #f1f5f9;
+        color: #475569;
+    }
+
+    /* Action Button */
+    .btn-enter-result {
+        background: #557A7B;
+        color: #ffffff;
+        border: none;
+        padding: 6px 14px;
+        border-radius: 4px;
+        font-size: 12px;
+        font-weight: 600;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        transition: background 0.2s ease;
+    }
+
+    .btn-enter-result:hover {
+        background: #3e5a5b;
+    }
+
+    /* Empty state */
+    .order-empty-state {
+        padding: 48px 24px;
+        text-align: center;
+        color: #64748b;
+    }
+
+    .order-empty-state i {
+        font-size: 40px;
+        margin-bottom: 12px;
+        color: #cbd5e1;
+    }
+</style>
+
+<div class="order-search-container">
+    <!-- Top-Level Tabs: New Orders vs Backlog Orders -->
+    <div class="order-primary-tabs">
+        <button type="button"
+                class="order-primary-tab"
+                ng-class="{'active': activeTab === 'new'}"
+                ng-click="switchTab('new')">
+            <i class="fa fa-bolt"></i>
+            <span>New Orders</span>
+            <span class="order-tab-badge">({{newOrders.length}})</span>
+        </button>
+
+        <button type="button"
+                class="order-primary-tab"
+                ng-class="{'active': activeTab === 'backlog'}"
+                ng-click="switchTab('backlog')">
+            <i class="fa fa-history"></i>
+            <span>Backlog Orders</span>
+            <span class="order-tab-badge">({{backlogOrders.length}})</span>
+        </button>
+    </div>
+
+    <!-- Filter Toolbar Panel -->
+    <div class="order-filter-panel">
+        <!-- Order Type Filter Pills -->
+        <div class="order-type-pills">
+            <span style="font-weight: 700; color: #475569; margin-right: 6px; align-self: center; font-size: 13px;">
+                <i class="fa fa-filter"></i> Order Type:
+            </span>
+            <button type="button"
+                    class="order-type-pill"
+                    ng-class="{'active': selectedOrderType === type.value}"
+                    ng-repeat="type in orderTypes"
+                    ng-click="setOrderType(type.value)">
+                <i class="fa {{type.icon}}"></i> {{type.label}}
+            </button>
+        </div>
+
+        <!-- Filter Inputs: Name, MRN, Date (for Backlog) -->
+        <div class="order-inputs-row">
+            <!-- Filter by Name -->
+            <div class="filter-input-group">
+                <i class="fa fa-user input-icon"></i>
+                <input type="text"
+                       ng-model="filters.name"
+                       placeholder="Filter by Patient Name..."
+                       title="Type patient given or family name"/>
+            </div>
+
+            <!-- Filter by MRN / Identifier -->
+            <div class="filter-input-group">
+                <i class="fa fa-id-card input-icon"></i>
+                <input type="text"
+                       ng-model="filters.identifier"
+                       placeholder="Filter by MRN / Identifier..."
+                       title="Type patient identifier / MRN"/>
+            </div>
+
+            <!-- Filter by Date (Backlog Only) -->
+            <div class="filter-input-group" ng-if="activeTab === 'backlog'" style="flex: 1.2;">
+                <i class="fa fa-calendar input-icon"></i>
+                <input type="date"
+                       ng-model="filters.date"
+                       placeholder="Filter by Date (YYYY-MM-DD)..."
+                       title="Select order date"/>
+                <div style="display: flex; gap: 4px; margin-left: 8px;">
+                    <button type="button" class="btn btn-xs btn-default" ng-click="setDatePreset('all')" title="All Dates" style="font-size: 11px; padding: 4px 8px;">All</button>
+                    <button type="button" class="btn btn-xs btn-default" ng-click="setDatePreset('yesterday')" title="Yesterday" style="font-size: 11px; padding: 4px 8px;">Yesterday</button>
+                </div>
+            </div>
+
+            <!-- Clear & Refresh -->
+            <div style="display: inline-flex; gap: 8px;">
+                <button type="button" class="btn-clear-filters" ng-if="hasActiveFilters()" ng-click="clearFilters()">
+                    <i class="fa fa-times"></i> Clear Filters
+                </button>
+                <button type="button" class="btn-refresh" ng-click="refresh()" title="Refresh Orders List">
+                    <i class="fa fa-refresh" ng-class="{'fa-spin': loading}"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Results Table -->
+    <div class="order-table-wrapper">
+        <table class="order-list-table">
+            <thead>
+                <tr>
+                    <th style="width: 22%;">Patient Name</th>
+                    <th style="width: 14%;">MRN (Identifier)</th>
+                    <th style="width: 15%;">Order Type</th>
+                    <th style="width: 18%;">Test / Procedure</th>
+                    <th style="width: 12%;">Accession No</th>
+                    <th style="width: 14%;">Date</th>
+                    <th style="width: 10%;">Result Status</th>
+                    <th style="width: 15%; text-align: right;">Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr ng-repeat="order in filtered = getFilteredOrders()" ng-click="goToFulfillment(order)">
+                    <td>
+                        <span style="font-weight: 700; color: #1e293b;">{{order.name}}</span>
+                        <i class="fa fa-bed" ng-if="order.hasBeenAdmitted === 'true'" title="Admitted Patient" style="color: #0284c7; margin-left: 6px;"></i>
+                    </td>
+                    <td>
+                        <span style="font-family: monospace; font-size: 13px; font-weight: 600; color: #475569;">{{order.identifier}}</span>
+                    </td>
+                    <td>
+                        <span class="badge-order-type" ng-class="getOrderTypeBadgeClass(order.orderType)">
+                            {{order.orderType.replace(' Order', '')}}
+                        </span>
+                    </td>
+                    <td>
+                        <span style="font-weight: 600; color: #334155;">{{order.orderName}}</span>
+                    </td>
+                    <td>
+                        <span style="color: #64748b; font-size: 12px;">{{order.orderNumber}}</span>
+                    </td>
+                    <td>
+                        <span style="color: #475569; font-size: 12px;">{{order.orderDateFormatted}}</span>
+                    </td>
+                    <td>
+                        <span ng-if="order.isFulfilled === 'true'" style="color: #16a34a; font-weight: 600; font-size: 12px;">
+                            <i class="fa fa-check-circle"></i> Fulfilled
+                        </span>
+                        <span ng-if="order.isFulfilled !== 'true'" style="color: #ea580c; font-weight: 600; font-size: 12px;">
+                            <i class="fa fa-clock-o"></i> Pending
+                        </span>
+                    </td>
+                    <td style="text-align: right;">
+                        <button type="button" class="btn-enter-result" ng-click="$event.stopPropagation(); goToFulfillment(order)">
+                            <i class="fa fa-edit"></i> Enter Result
+                        </button>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+
+        <!-- Empty Results Message -->
+        <div class="order-empty-state" ng-if="!loading && (!filtered || filtered.length === 0)">
+            <i class="fa fa-inbox"></i>
+            <h4 style="margin: 0 0 6px 0; color: #475569;">No orders found</h4>
+            <p style="margin: 0; font-size: 13px;" ng-if="hasActiveFilters()">
+                No orders match your active filter criteria. <a href="" ng-click="clearFilters()">Clear filters</a> to see all orders.
+            </p>
+            <p style="margin: 0; font-size: 13px;" ng-if="!hasActiveFilters() && activeTab === 'new'">
+                There are currently no new diagnostic orders from active visits.
+            </p>
+            <p style="margin: 0; font-size: 13px;" ng-if="!hasActiveFilters() && activeTab === 'backlog'">
+                There are currently no backlog orders.
+            </p>
+        </div>
+
+        <!-- Loading State -->
+        <div class="order-empty-state" ng-if="loading">
+            <i class="fa fa-spinner fa-spin" style="color: #557A7B;"></i>
+            <h4 style="margin: 0; color: #475569;">Loading orders...</h4>
+        </div>
+    </div>
+</div>

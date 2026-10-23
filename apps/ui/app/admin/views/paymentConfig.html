@@ -1,0 +1,284 @@
+<div class="payment-config-page" style="padding: 24px; max-width: 1200px; margin: 0 auto; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #2c3e50;">
+
+    <!-- Header Section -->
+    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #e2e8f0; padding-bottom: 16px; margin-bottom: 24px;">
+        <div>
+            <h2 style="margin: 0; font-size: 24px; color: #1a365d; display: flex; align-items: center; gap: 10px;">
+                <i class="fa fa-credit-card" style="color: #3182ce;"></i> Payment &amp; Odoo Billing Configuration
+            </h2>
+            <p style="margin: 6px 0 0 0; color: #718096; font-size: 14px;">
+                Configure registration billing, order fulfillment payment rules, and emergency bypass if Odoo stops.
+            </p>
+        </div>
+        <div style="display: flex; gap: 12px; align-items: center;">
+            <a href="#/dashboard" class="btn" style="background: #edf2f7; color: #4a5568; border: 1px solid #cbd5e0; padding: 8px 16px; border-radius: 6px; text-decoration: none; font-weight: 500; font-size: 13px; display: inline-flex; align-items: center; gap: 6px;">
+                <i class="fa fa-arrow-left"></i> Admin Dashboard
+            </a>
+            <button type="button" class="btn btn-primary" ng-click="saveConfig()" ng-disabled="saving || loading" style="background: #2b6cb0; color: #fff; border: none; padding: 9px 20px; border-radius: 6px; font-weight: 600; font-size: 14px; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                <i class="fa fa-spin fa-spinner" ng-if="saving"></i>
+                <i class="fa fa-check" ng-if="!saving"></i>
+                {{ saving ? 'Saving Changes...' : 'Save Configuration' }}
+            </button>
+        </div>
+    </div>
+
+    <!-- Loading Spinner -->
+    <div ng-if="loading" style="text-align: center; padding: 60px 0; color: #718096;">
+        <i class="fa fa-spinner fa-spin fa-3x" style="color: #3182ce; margin-bottom: 12px;"></i>
+        <div style="font-size: 16px;">Loading current payment rules and testing Odoo connection...</div>
+    </div>
+
+    <div ng-if="!loading">
+
+        <!-- Odoo Status Banner -->
+        <div style="background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 18px 24px; margin-bottom: 24px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
+            <div style="display: flex; align-items: center; gap: 16px;">
+                <div style="width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 22px; background: {{ odooStatus.online ? '#e6fffa' : '#fff5f5' }}; color: {{ odooStatus.online ? '#319795' : '#e53e3e' }}; border: 1px solid {{ odooStatus.online ? '#b2f5ea' : '#fed7d7' }};">
+                    <i class="fa {{ odooStatus.online ? 'fa-check-circle' : 'fa-exclamation-triangle' }}"></i>
+                </div>
+                <div>
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <span style="font-size: 16px; font-weight: 600; color: #2d3748;">Odoo ERP Billing Service Status:</span>
+                        <span style="display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 12px; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; background: {{ odooStatus.online ? '#c6f6d5' : '#fed7d7' }}; color: {{ odooStatus.online ? '#22543d' : '#9b2c2c' }};">
+                            <span style="width: 8px; height: 8px; border-radius: 50%; background: {{ odooStatus.online ? '#38a169' : '#e53e3e' }}; display: inline-block;"></span>
+                            {{ odooStatus.online ? 'Online / Connected' : 'Offline / Stopped' }}
+                        </span>
+                    </div>
+                    <div style="font-size: 13px; color: #718096; margin-top: 4px;">
+                        {{ odooStatus.message }} <span ng-if="odooStatus.checked_at" style="color: #a0aec0;">(checked {{ odooStatus.checked_at }})</span>
+                    </div>
+                </div>
+            </div>
+            <div>
+                <button type="button" class="btn" ng-click="refreshOdooStatus()" ng-disabled="checkingOdoo" style="background: #edf2f7; color: #2d3748; border: 1px solid #cbd5e0; padding: 7px 14px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;">
+                    <i class="fa fa-refresh {{ checkingOdoo ? 'fa-spin' : '' }}"></i> Test Connection
+                </button>
+            </div>
+        </div>
+
+        <!-- Emergency Alert if Odoo is Offline -->
+        <div ng-if="!odooStatus.online" style="background: #fffaf0; border-left: 4px solid #dd6b20; border-radius: 6px; padding: 14px 18px; margin-bottom: 24px; display: flex; justify-content: space-between; align-items: center; gap: 16px;">
+            <div style="display: flex; gap: 12px; align-items: flex-start;">
+                <i class="fa fa-bell" style="color: #dd6b20; font-size: 18px; margin-top: 2px;"></i>
+                <div>
+                    <strong style="color: #c05621; font-size: 14px;">Odoo Service is currently unavailable or stopped!</strong>
+                    <div style="color: #7b341e; font-size: 13px; margin-top: 2px;">
+                        Hospital staff and order fulfillment might be blocked by invoice requirements. Switch to <strong>"Pass Payment (Emergency Mode)"</strong> below so patient registrations and order result entries can proceed smoothly.
+                    </div>
+                </div>
+            </div>
+            <button type="button" ng-click="setModeEmergencyBypass()" style="background: #dd6b20; color: #fff; border: none; padding: 8px 14px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap;">
+                <i class="fa fa-bolt"></i> Enable Pass Payment Now
+            </button>
+        </div>
+
+        <!-- Master Mode Quick Presets -->
+        <div style="background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 22px; margin-bottom: 24px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+            <div style="font-size: 16px; font-weight: 700; color: #2d3748; margin-bottom: 4px;">
+                <i class="fa fa-sliders" style="color: #4a5568;"></i> Master Mode Selection
+            </div>
+            <div style="font-size: 13px; color: #718096; margin-bottom: 16px;">
+                Select a standard operational mode or customize individual app policies below.
+            </div>
+
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 18px;">
+
+                <!-- Normal Mode Card -->
+                <div ng-click="setModeNormal()" style="border: 2px solid {{ isAllEnforced() ? '#3182ce' : '#e2e8f0' }}; background: {{ isAllEnforced() ? '#ebf8ff' : '#f7fafc' }}; border-radius: 8px; padding: 18px; cursor: pointer; transition: all 0.2s ease; position: relative;">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px;">
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <div style="width: 32px; height: 32px; border-radius: 8px; background: #3182ce; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 14px;">
+                                <i class="fa fa-shield"></i>
+                            </div>
+                            <span style="font-size: 16px; font-weight: 700; color: #2b6cb0;">Normal Mode: Enforce Odoo</span>
+                        </div>
+                        <input type="radio" ng-checked="isAllEnforced()" style="transform: scale(1.3); cursor: pointer;">
+                    </div>
+                    <p style="margin: 0; font-size: 13px; color: #4a5568; line-height: 1.5;">
+                        Full billing checks active. Registration invoices are generated in Odoo, and orders/consultations strictly require confirmed payment before fulfillment.
+                    </p>
+                    <div style="margin-top: 12px; display: flex; gap: 8px;">
+                        <span style="background: #bee3f8; color: #2b6cb0; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 4px;">Billing Required</span>
+                        <span style="background: #bee3f8; color: #2b6cb0; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 4px;">Strict Odoo Sync</span>
+                    </div>
+                </div>
+
+                <!-- Emergency Bypass Card -->
+                <div ng-click="setModeEmergencyBypass()" style="border: 2px solid {{ isAllBypassed() ? '#dd6b20' : '#e2e8f0' }}; background: {{ isAllBypassed() ? '#fffaf0' : '#f7fafc' }}; border-radius: 8px; padding: 18px; cursor: pointer; transition: all 0.2s ease; position: relative;">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px;">
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <div style="width: 32px; height: 32px; border-radius: 8px; background: #dd6b20; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 14px;">
+                                <i class="fa fa-bolt"></i>
+                            </div>
+                            <span style="font-size: 16px; font-weight: 700; color: #c05621;">Pass Payment (Emergency Bypass)</span>
+                        </div>
+                        <input type="radio" ng-checked="isAllBypassed()" style="transform: scale(1.3); cursor: pointer;">
+                    </div>
+                    <p style="margin: 0; font-size: 13px; color: #4a5568; line-height: 1.5;">
+                        Use when Odoo is stopped, offline, or under maintenance. Registration fee billing is skipped and all order fulfillment forms open immediately without payment block.
+                    </p>
+                    <div style="margin-top: 12px; display: flex; gap: 8px;">
+                        <span style="background: #feebc8; color: #c05621; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 4px;">Zero Blockage</span>
+                        <span style="background: #feebc8; color: #c05621; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 4px;">Odoo Stop Tolerant</span>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- Granular Configurations Grid -->
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); gap: 24px; margin-bottom: 24px;">
+
+            <!-- 1. Registration Payment Module -->
+            <div style="background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 22px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); display: flex; flex-direction: column; justify-content: space-between;">
+                <div>
+                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
+                        <div style="width: 34px; height: 34px; border-radius: 8px; background: #ebf8ff; color: #3182ce; display: flex; align-items: center; justify-content: center; font-size: 16px;">
+                            <i class="fa fa-user-plus"></i>
+                        </div>
+                        <div>
+                            <div style="font-size: 16px; font-weight: 700; color: #2d3748;">Patient Registration Payment</div>
+                            <div style="font-size: 12px; color: #718096;">Registration fee billing and Odoo invoice generation</div>
+                        </div>
+                    </div>
+
+                    <div style="background: #f7fafc; border: 1px solid #edf2f7; border-radius: 8px; padding: 14px; margin-bottom: 16px;">
+                        <label style="display: flex; align-items: flex-start; gap: 12px; cursor: pointer;">
+                            <input type="checkbox" ng-model="config.registration.disable_billing" style="width: 20px; height: 20px; margin-top: 2px; cursor: pointer;">
+                            <div>
+                                <span style="font-weight: 600; font-size: 14px; color: #2d3748;">
+                                    Pass Payment (Bypass Odoo Registration Billing)
+                                </span>
+                                <div style="font-size: 12px; color: #718096; margin-top: 4px; line-height: 1.4;">
+                                    When checked, patient registration completes instantly without generating an Odoo registration invoice. Ideal when Odoo is stopped or for free registration periods.
+                                </div>
+                            </div>
+                        </label>
+                    </div>
+
+                    <div style="margin-bottom: 16px;">
+                        <label style="display: block; font-size: 13px; font-weight: 600; color: #4a5568; margin-bottom: 6px;">
+                            Registration Fee Validity Window (Days):
+                        </label>
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <input type="number" ng-model="config.registration.payment_window" min="1" max="365" style="width: 100px; padding: 8px 12px; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 14px; font-weight: 600; color: #2d3748;">
+                            <span style="font-size: 13px; color: #718096;">days (patient does not pay again within this window)</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="border-top: 1px solid #edf2f7; padding-top: 12px; display: flex; justify-content: space-between; align-items: center;">
+                    <span style="font-size: 12px; color: #718096;">Effective Policy:</span>
+                    <span style="font-size: 12px; font-weight: 700; padding: 3px 8px; border-radius: 4px; background: {{ config.registration.disable_billing ? '#feebc8' : '#c6f6d5' }}; color: {{ config.registration.disable_billing ? '#c05621' : '#22543d' }};">
+                        {{ config.registration.disable_billing ? 'PASSED (BYPASS ODOO)' : 'ENFORCED (CHECK ODOO)' }}
+                    </span>
+                </div>
+            </div>
+
+            <!-- 2. Orders Fulfillment Payment Module -->
+            <div style="background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 22px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); display: flex; flex-direction: column; justify-content: space-between;">
+                <div>
+                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
+                        <div style="width: 34px; height: 34px; border-radius: 8px; background: #faf5ff; color: #805ad5; display: flex; align-items: center; justify-content: center; font-size: 16px;">
+                            <i class="fa fa-flask"></i>
+                        </div>
+                        <div>
+                            <div style="font-size: 16px; font-weight: 700; color: #2d3748;">Order Fulfillment Payment</div>
+                            <div style="font-size: 12px; color: #718096;">Radiology, Procedure, Eye, Pathology fulfillment checks</div>
+                        </div>
+                    </div>
+
+                    <div style="background: #f7fafc; border: 1px solid #edf2f7; border-radius: 8px; padding: 14px; margin-bottom: 16px;">
+                        <label style="display: flex; align-items: flex-start; gap: 12px; cursor: pointer;">
+                            <input type="checkbox" ng-model="config.orders.disable_checking" style="width: 20px; height: 20px; margin-top: 2px; cursor: pointer;">
+                            <div>
+                                <span style="font-weight: 600; font-size: 14px; color: #2d3748;">
+                                    Pass Payment (Bypass Odoo Order Payment Check)
+                                </span>
+                                <div style="font-size: 12px; color: #718096; margin-top: 4px; line-height: 1.4;">
+                                    When checked, laboratory, radiology, and procedure technicians can open orders and enter findings/results immediately without requiring Odoo invoice confirmation.
+                                </div>
+                            </div>
+                        </label>
+                    </div>
+
+                    <div style="font-size: 12px; color: #718096; line-height: 1.5; margin-bottom: 16px;">
+                        <i class="fa fa-info-circle" style="color: #3182ce;"></i>
+                        <strong>Impact:</strong> If Odoo service is stopped or down, enabling this option prevents order fulfillment rows from being locked under <em>"Not Paid"</em>.
+                    </div>
+                </div>
+
+                <div style="border-top: 1px solid #edf2f7; padding-top: 12px; display: flex; justify-content: space-between; align-items: center;">
+                    <span style="font-size: 12px; color: #718096;">Effective Policy:</span>
+                    <span style="font-size: 12px; font-weight: 700; padding: 3px 8px; border-radius: 4px; background: {{ config.orders.disable_checking ? '#feebc8' : '#c6f6d5' }}; color: {{ config.orders.disable_checking ? '#c05621' : '#22543d' }};">
+                        {{ config.orders.disable_checking ? 'PASSED (BYPASS ODOO)' : 'ENFORCED (CHECK ODOO)' }}
+                    </span>
+                </div>
+            </div>
+
+            <!-- 3. Clinical Consultation Payment Module -->
+            <div style="background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 22px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); display: flex; flex-direction: column; justify-content: space-between;">
+                <div>
+                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
+                        <div style="width: 34px; height: 34px; border-radius: 8px; background: #e6fffa; color: #319795; display: flex; align-items: center; justify-content: center; font-size: 16px;">
+                            <i class="fa fa-stethoscope"></i>
+                        </div>
+                        <div>
+                            <div style="font-size: 16px; font-weight: 700; color: #2d3748;">Clinical Consultation Payment</div>
+                            <div style="font-size: 12px; color: #718096;">Doctor consultation button &amp; patient dashboard status</div>
+                        </div>
+                    </div>
+
+                    <div style="background: #f7fafc; border: 1px solid #edf2f7; border-radius: 8px; padding: 14px; margin-bottom: 16px;">
+                        <label style="display: flex; align-items: flex-start; gap: 12px; cursor: pointer;">
+                            <input type="checkbox" ng-model="config.clinical.disable_checking" style="width: 20px; height: 20px; margin-top: 2px; cursor: pointer;">
+                            <div>
+                                <span style="font-weight: 600; font-size: 14px; color: #2d3748;">
+                                    Pass Payment (Bypass Clinical Consultation Payment Check)
+                                </span>
+                                <div style="font-size: 12px; color: #718096; margin-top: 4px; line-height: 1.4;">
+                                    When checked, doctors can open consultations and patient files directly. The consultation button and patient profile status will show as Paid.
+                                </div>
+                            </div>
+                        </label>
+                    </div>
+
+                    <div style="font-size: 12px; color: #718096; line-height: 1.5; margin-bottom: 16px;">
+                        <i class="fa fa-info-circle" style="color: #3182ce;"></i>
+                        <strong>Impact:</strong> Ensures physicians can consult and document care even during billing network downtime or emergency room admissions.
+                    </div>
+                </div>
+
+                <div style="border-top: 1px solid #edf2f7; padding-top: 12px; display: flex; justify-content: space-between; align-items: center;">
+                    <span style="font-size: 12px; color: #718096;">Effective Policy:</span>
+                    <span style="font-size: 12px; font-weight: 700; padding: 3px 8px; border-radius: 4px; background: {{ config.clinical.disable_checking ? '#feebc8' : '#c6f6d5' }}; color: {{ config.clinical.disable_checking ? '#c05621' : '#22543d' }};">
+                        {{ config.clinical.disable_checking ? 'PASSED (BYPASS ODOO)' : 'ENFORCED (CHECK ODOO)' }}
+                    </span>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Action / Save Card -->
+        <div style="background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 20px 24px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
+            <div>
+                <span style="font-weight: 700; font-size: 15px; color: #2d3748;">Ready to apply settings?</span>
+                <div style="font-size: 13px; color: #718096; margin-top: 3px;">
+                    Changes take effect immediately across all client workstations without restarting Bahmni or disturbing clinical activities.
+                </div>
+            </div>
+            <div style="display: flex; gap: 12px; align-items: center;">
+                <span ng-if="savedSuccess" style="color: #38a169; font-weight: 600; font-size: 14px; display: inline-flex; align-items: center; gap: 6px;">
+                    <i class="fa fa-check-circle"></i> Successfully Saved &amp; Applied!
+                </span>
+                <button type="button" class="btn btn-primary" ng-click="saveConfig()" ng-disabled="saving || loading" style="background: #2b6cb0; color: #fff; border: none; padding: 10px 24px; border-radius: 6px; font-weight: 600; font-size: 14px; cursor: pointer; display: inline-flex; align-items: center; gap: 8px;">
+                    <i class="fa fa-spin fa-spinner" ng-if="saving"></i>
+                    <i class="fa fa-save" ng-if="!saving"></i>
+                    {{ saving ? 'Saving Changes...' : 'Save Configuration' }}
+                </button>
+            </div>
+        </div>
+
+    </div>
+
+</div>

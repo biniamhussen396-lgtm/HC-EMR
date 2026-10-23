@@ -82,5 +82,17 @@
         "icon": "fa-paint-brush",
         "order": 7,
         "requiredPrivilege": "app:admin"
+    },
+    "paymentConfig":{
+        "id": "bahmni.admin.paymentConfig",
+        "extensionPointId": "org.bahmni.admin.dashboard",
+        "type": "link",
+        "extensionParams": {
+        },
+        "label": "Payment Config",
+        "url": "#/paymentConfig",
+        "icon": "fa-credit-card",
+        "order": 8,
+        "requiredPrivilege": "app:admin"
     }
 }

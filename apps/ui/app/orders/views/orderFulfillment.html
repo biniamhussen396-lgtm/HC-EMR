@@ -57,6 +57,7 @@
                     </span>
                     <span ng-if="order.paymentStatus">
                         <i style="color: green;">Paid</i>
+                        <span ng-if="order.paymentBypassed" style="color: #666; font-size: 11px; display: block;">(Bypassed)</span>
                     </span>
                 </td>
             </tr>

@@ -40,7 +40,8 @@ angular.module('bahmni.clinical')
                         $scope.patient.paymentStatus = false;
                     });
                 } else {
-                    $scope.buttonShow = true;
+                    .buttonShow = true;
+                    .patient.paymentStatus = true;
                 }
             };
 

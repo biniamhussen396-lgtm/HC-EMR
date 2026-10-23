@@ -1254,6 +1254,183 @@ def save_branding_config(payload):
 
     return load_branding_config()
 
+# ── Payment & Odoo Billing Configuration ─────────────────────────────────────
+
+def check_odoo_status():
+    """
+    Checks whether Odoo ERP billing service is active and responding.
+    """
+    import urllib.request
+    urls_to_try = [
+        "http://127.0.0.1:8069/web/login",
+        "http://odoo:8069/web/login",
+        "http://172.18.0.1:8069/web/login"
+    ]
+    for url in urls_to_try:
+        try:
+            req = urllib.request.Request(url, headers={"User-Agent": "BahmniPaymentCheck/1.0"})
+            with urllib.request.urlopen(req, timeout=2.0) as resp:
+                if resp.status in (200, 301, 302, 303):
+                    return {
+                        "online": True,
+                        "status_code": resp.status,
+                        "message": "Odoo billing service is online and responding",
+                        "checked_url": url,
+                        "checked_at": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    }
+        except Exception:
+            continue
+
+    # Fallback docker container check
+    try:
+        res = subprocess.run(["docker", "ps", "--filter", "name=odoo", "--format", "{{.Status}}"], capture_output=True, text=True, timeout=3)
+        if res.returncode == 0 and "Up" in res.stdout:
+            return {
+                "online": True,
+                "status_code": 200,
+                "message": f"Odoo container is running ({res.stdout.strip()})",
+                "checked_url": "docker:odoo",
+                "checked_at": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            }
+    except Exception:
+        pass
+
+    return {
+        "online": False,
+        "status_code": 0,
+        "message": "Odoo billing service is offline, stopped, or unreachable",
+        "checked_url": urls_to_try[0],
+        "checked_at": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    }
+
+def load_payment_config():
+    reg_file = os.path.join(CONFIG_DIR, "openmrs", "apps", "registration", "app.json")
+    orders_file = os.path.join(CONFIG_DIR, "openmrs", "apps", "orders", "app.json")
+    clinical_file = os.path.join(CONFIG_DIR, "openmrs", "apps", "clinical", "app.json")
+
+    config = {
+        "odoo": check_odoo_status(),
+        "registration": {
+            "disable_billing": False,
+            "payment_window": 30
+        },
+        "orders": {
+            "disable_checking": False
+        },
+        "clinical": {
+            "disable_checking": False
+        }
+    }
+
+    if os.path.isfile(reg_file):
+        try:
+            with open(reg_file, "r", encoding="utf-8") as f:
+                d = json.load(f)
+                p_cfg = d.get("config", {}).get("paymentConfig", {}) or d.get("paymentConfig", {})
+                config["registration"]["disable_billing"] = bool(p_cfg.get("disable billing", False))
+                config["registration"]["payment_window"] = int(p_cfg.get("payment window", 30))
+        except Exception as e:
+            log(f"Warning reading registration app.json: {e}")
+
+    if os.path.isfile(orders_file):
+        try:
+            with open(orders_file, "r", encoding="utf-8") as f:
+                d = json.load(f)
+                p_cfg = d.get("config", {}).get("paymentConfig", {}) or d.get("paymentConfig", {})
+                config["orders"]["disable_checking"] = bool(p_cfg.get("disable checking", False))
+        except Exception as e:
+            log(f"Warning reading orders app.json: {e}")
+
+    if os.path.isfile(clinical_file):
+        try:
+            with open(clinical_file, "r", encoding="utf-8") as f:
+                d = json.load(f)
+                p_cfg = d.get("config", {}).get("paymentConfig", {}) or d.get("paymentConfig", {})
+                config["clinical"]["disable_checking"] = bool(p_cfg.get("disable checking", False))
+        except Exception as e:
+            log(f"Warning reading clinical app.json: {e}")
+
+    is_bypass = config["orders"]["disable_checking"] and config["registration"]["disable_billing"]
+    config["mode"] = "emergency_bypass" if is_bypass else "enforce_odoo"
+    return config
+
+def save_payment_config(payload):
+    reg_file = os.path.join(CONFIG_DIR, "openmrs", "apps", "registration", "app.json")
+    orders_file = os.path.join(CONFIG_DIR, "openmrs", "apps", "orders", "app.json")
+    clinical_file = os.path.join(CONFIG_DIR, "openmrs", "apps", "clinical", "app.json")
+
+    reg_payload = payload.get("registration", {})
+    orders_payload = payload.get("orders", {})
+    clinical_payload = payload.get("clinical", {})
+
+    log(f"Saving payment config: registration={reg_payload}, orders={orders_payload}, clinical={clinical_payload}")
+
+    # 1. Update Registration app.json
+    if os.path.isfile(reg_file):
+        try:
+            with open(reg_file, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            if "config" not in data or not isinstance(data["config"], dict):
+                data["config"] = {}
+            if "paymentConfig" not in data["config"] or not isinstance(data["config"]["paymentConfig"], dict):
+                data["config"]["paymentConfig"] = {}
+            
+            if "disable_billing" in reg_payload:
+                data["config"]["paymentConfig"]["disable billing"] = bool(reg_payload["disable_billing"])
+            if "payment_window" in reg_payload:
+                data["config"]["paymentConfig"]["payment window"] = int(reg_payload["payment_window"])
+            
+            write_file_safe(reg_file, json.dumps(data, indent=4))
+            sync_file_to_bahmni_web(reg_file, "/usr/local/apache2/htdocs/bahmni_config/openmrs/apps/registration/app.json")
+            log("Updated registration paymentConfig successfully.")
+        except Exception as e:
+            log(f"Error updating registration app.json: {e}")
+            raise
+
+    # 2. Update Orders app.json
+    if os.path.isfile(orders_file):
+        try:
+            with open(orders_file, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            if "config" not in data or not isinstance(data["config"], dict):
+                data["config"] = {}
+            if "paymentConfig" not in data["config"] or not isinstance(data["config"]["paymentConfig"], dict):
+                data["config"]["paymentConfig"] = {}
+            
+            if "disable_checking" in orders_payload:
+                data["config"]["paymentConfig"]["disable checking"] = bool(orders_payload["disable_checking"])
+            
+            write_file_safe(orders_file, json.dumps(data, indent=4))
+            sync_file_to_bahmni_web(orders_file, "/usr/local/apache2/htdocs/bahmni_config/openmrs/apps/orders/app.json")
+            log("Updated orders paymentConfig successfully.")
+        except Exception as e:
+            log(f"Error updating orders app.json: {e}")
+            raise
+
+    # 3. Update Clinical app.json
+    if os.path.isfile(clinical_file):
+        try:
+            with open(clinical_file, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            if "config" not in data or not isinstance(data["config"], dict):
+                data["config"] = {}
+            if "paymentConfig" not in data["config"] or not isinstance(data["config"]["paymentConfig"], dict):
+                data["config"]["paymentConfig"] = {}
+            
+            if "disable_checking" in clinical_payload:
+                data["config"]["paymentConfig"]["disable checking"] = bool(clinical_payload["disable_checking"])
+            elif "disable_checking" in orders_payload:
+                data["config"]["paymentConfig"]["disable checking"] = bool(orders_payload["disable_checking"])
+            
+            write_file_safe(clinical_file, json.dumps(data, indent=4))
+            sync_file_to_bahmni_web(clinical_file, "/usr/local/apache2/htdocs/bahmni_config/openmrs/apps/clinical/app.json")
+            log("Updated clinical paymentConfig successfully.")
+        except Exception as e:
+            log(f"Error updating clinical app.json: {e}")
+            raise
+
+    return load_payment_config()
+
 # ── HTTP Server Request Handler ──────────────────────────────────────────────
 
 class BackupAPIHandler(BaseHTTPRequestHandler):
@@ -1298,6 +1475,8 @@ class BackupAPIHandler(BaseHTTPRequestHandler):
             self._send_json(200, load_auto_config())
         elif path in ("/api/branding", "/branding"):
             self._send_json(200, load_branding_config())
+        elif path in ("/api/payment-config", "/payment-config"):
+            self._send_json(200, load_payment_config())
         else:
             self._send_json(404, {"error": "Endpoint not found", "path": path})
 
@@ -1523,6 +1702,14 @@ class BackupAPIHandler(BaseHTTPRequestHandler):
                 self._send_json(200, {"success": True, "message": "Branding updated successfully.", "branding": updated_branding})
             except Exception as e:
                 log(f"Error saving branding: {e}")
+                self._send_json(500, {"success": False, "error": str(e)})
+
+        elif path in ("/api/payment-config", "/payment-config"):
+            try:
+                updated_cfg = save_payment_config(payload)
+                self._send_json(200, {"success": True, "message": "Payment configuration updated successfully.", "config": updated_cfg})
+            except Exception as e:
+                log(f"Error saving payment configuration: {e}")
                 self._send_json(500, {"success": False, "error": str(e)})
 
         else:

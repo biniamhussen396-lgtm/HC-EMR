@@ -16,7 +16,8 @@ angular.module('bahmni.orders').controller('OrderFulfillmentController', ['userS
                 if (order.bahmniObservations[0] && order.bahmniObservations[0].groupMembers[0].groupMembers[2].uniqueId == uniqueId) order.bahmniObservations[0].groupMembers[0].groupMembers[0].value = (order.bahmniObservations[0].groupMembers[0].groupMembers[1].readOnly || "")
             })
         })
-        var payment_config = appService.getAppDescriptor().getConfigValue("paymentConfig");
+        var payment_config = appService.getAppDescriptor().getConfigValue("paymentConfig") || {};
+        $scope.isPaymentBypassed = !!payment_config["disable checking"];
         var ordersSerialNumberBuilding = appService.getAppDescriptor().getConfigValue("ordersSerialNumberBuilding");
         $scope.formName = $stateParams.orderType + Bahmni.Common.Constants.fulfillmentFormSuffix;
         $scope.fulfillmentConfig = orderFulfillmentConfig;
@@ -112,13 +113,13 @@ angular.module('bahmni.orders').controller('OrderFulfillmentController', ['userS
         };
 
         var getOrderPaymentStatus = function (order) {
+            if (payment_config && payment_config["disable checking"]) {
+                order.paymentStatus = true;
+                order.paymentBypassed = true;
+                return;
+            }
             paymentStatusService.getPaymentStatus(order.orderUuid).then(function (response) {
-                if (!payment_config["disable checking"]) {
-                    order.paymentStatus = (response.data && response.data.status === "PAID") || response.data === true;
-                }
-                else {
-                    order.paymentStatus = true;
-                }
+                order.paymentStatus = (response.data && response.data.status === "PAID") || response.data === true;
             }).catch(function () {
                 paymentStatusService.getPaymentStatus(patientContext.patient.identifier).then(function (res) {
                     order.paymentStatus = (res.data && res.data.status === "PAID") || res.data === true;

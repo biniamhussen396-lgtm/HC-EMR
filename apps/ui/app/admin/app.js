@@ -76,6 +76,13 @@ angular.module('admin')
                 data: {
                     backLinks: [{label: "Home", state: "admin.dashboard", icon: "fa-home"}]
                 }
+            }).state('admin.paymentConfig', {
+                url: '/paymentConfig',
+                templateUrl: 'views/paymentConfig.html',
+                controller: 'PaymentConfigController',
+                data: {
+                    backLinks: [{label: "Home", state: "admin.dashboard", icon: "fa-home"}]
+                }
             });
             $httpProvider.defaults.headers.common['Disable-WWW-Authenticate'] = true;
             $bahmniTranslateProvider.init({app: 'admin', shouldMerge: true});

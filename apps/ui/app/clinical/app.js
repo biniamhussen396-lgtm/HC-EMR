@@ -308,7 +308,7 @@ angular.module('consultation')
                 },
                 views: {
                     'consultation-content': {
-                        templateUrl: 'consultation/views/orders.html',
+                        templateUrl: 'consultation/views/orders.html?v=20261023c',
                         controller: 'OrderController'
                     }
                 },

@@ -37,6 +37,11 @@ angular.module('httpErrorInterceptor', [])
             function error (response) {
                 var data = response.data;
                 var unexpectedError = "There was an unexpected issue on the server. Please try again";
+
+                if (response.config && (response.config.ignoreErrors || (response.config.url && response.config.url.indexOf('/openelis/') !== -1))) {
+                    return $q.reject(response);
+                }
+
                 if (response.status === 500) {
                     var errorMessage = data.error && data.error.message ? getServerError(data.error.message) : unexpectedError;
                     showError(errorMessage);
@@ -63,6 +68,7 @@ angular.module('httpErrorInterceptor', [])
                         !_.includes(response.config.url, "inactiveTests") &&
                         !_.includes(response.config.url, "LabLocationList") &&
                         !_.includes(response.config.url, "labLocationList") &&
+                        !_.includes(response.config.url, "openelis") &&
                         !_.includes(response.config.url, "backup-api")) {
                         showError("The requested information does not exist");
                     }

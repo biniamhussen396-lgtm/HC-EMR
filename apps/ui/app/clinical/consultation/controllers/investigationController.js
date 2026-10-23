@@ -13,8 +13,8 @@ angular.module('bahmni.clinical')
 
         $scope.fetchLabLocations = function () {
             var url = '/openelis/pages/location/labLocationList.jsp';
-            $http.get(url).catch(function () {
-                return $http.get('/openelis/LabLocationList.do');
+            $http.get(url, { ignoreErrors: true }).catch(function () {
+                return $http.get('/openelis/LabLocationList.do', { ignoreErrors: true });
             }).then(function (response) {
                 $scope.labLocations = (response && response.data && response.data.locations) || [];
                 var savedId = localStorage.getItem('selectedLabLocationId');

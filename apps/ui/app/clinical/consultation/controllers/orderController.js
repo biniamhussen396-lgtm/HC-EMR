@@ -16,7 +16,7 @@ angular.module('bahmni.clinical')
             $scope.openelisInactiveTests = {};
 
             var fetchInactiveTests = function () {
-                return $http.get('/openelis/pages/test/inactiveTests.jsp').then(function (response) {
+                return $http.get('/openelis/pages/test/inactiveTests.jsp', { ignoreErrors: true }).then(function (response) {
                     if (response.data && typeof response.data === 'object') {
                         $scope.openelisInactiveTests = response.data;
                         try {
@@ -52,8 +52,8 @@ angular.module('bahmni.clinical')
 
             var fetchLabLocations = function () {
                 var url = '/openelis/pages/location/labLocationList.jsp';
-                return $http.get(url).catch(function () {
-                    return $http.get('/openelis/LabLocationList.do');
+                return $http.get(url, { ignoreErrors: true }).catch(function () {
+                    return $http.get('/openelis/LabLocationList.do', { ignoreErrors: true });
                 }).then(function (response) {
                     if (response && response.data && response.data.locations) {
                         $scope.labLocations = response.data.locations;

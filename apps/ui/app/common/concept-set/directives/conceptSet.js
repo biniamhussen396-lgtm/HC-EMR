@@ -357,10 +357,15 @@ angular.module('bahmni.common.conceptSet')
                                             $scope.rootObservation.conceptSetName = $scope.conceptSetName;
                                             focusFirstObs();
                                             updateObservationsOnRootScope();
-                                            var groupMembers = getObservationsOfCurrentTemplate()[0].groupMembers;
+                                            var currentTemplateObs = getObservationsOfCurrentTemplate();
+                                            var groupMembers = (currentTemplateObs && currentTemplateObs.length > 0 && currentTemplateObs[0].groupMembers)
+                                                ? currentTemplateObs[0].groupMembers
+                                                : ($scope.rootObservation.groupMembers || []);
                                             var defaults = getDefaults();
                                             addDummyImage();
-                                            setDefaultsForGroupMembers(groupMembers, defaults);
+                                            if (groupMembers && defaults) {
+                                                setDefaultsForGroupMembers(groupMembers, defaults);
+                                            }
                                             var observationsOfCurrentTemplate = getObservationsOfCurrentTemplate();
                                             updateFormConditions(observationsOfCurrentTemplate, $scope.rootObservation);
                                         } else {

@@ -19,7 +19,9 @@ SELECT DISTINCT
     IFNULL(reason.value_text, '') AS reasonForReferral,
     IFNULL(ambulance.value_text, '') AS needAmbulance,
     IFNULL(escort.value_text, '') AS needEscorting,
-    'Out' AS referralDirection
+    IF(loc.uuid = ${location_uuid}, 'Out', 'In') AS referralDirection,
+    IFNULL(MAX(eloc.name), '') AS location,
+    COALESCE(NULLIF(TRIM(MAX(concat(cu_pn.given_name, ' ', IFNULL(cu_pn.family_name, '')))), ''), NULLIF(TRIM(MAX(concat(prv_pn.given_name, ' ', IFNULL(prv_pn.family_name, '')))), ''), MAX(cu.username), '') AS physicianName
 FROM visit v
 INNER JOIN person_name pn ON v.patient_id = pn.person_id AND pn.voided = 0
 INNER JOIN patient_identifier pi ON v.patient_id = pi.patient_id
@@ -30,6 +32,13 @@ LEFT JOIN person_address pa ON p.person_id = pa.person_id AND pa.preferred = 1
 INNER JOIN encounter e ON v.visit_id = e.visit_id
 INNER JOIN obs disp_o ON e.encounter_id = disp_o.encounter_id AND disp_o.voided = 0
 INNER JOIN concept_name disp_cn ON disp_o.value_coded = disp_cn.concept_id AND disp_cn.concept_name_type = 'FULLY_SPECIFIED' AND disp_cn.voided = 0
+INNER JOIN location loc ON v.location_id = loc.location_id
+LEFT JOIN location eloc ON e.location_id = eloc.location_id
+LEFT JOIN users cu ON e.creator = cu.user_id
+LEFT JOIN person_name cu_pn ON cu.person_id = cu_pn.person_id AND cu_pn.voided = 0
+LEFT JOIN encounter_provider ep ON e.encounter_id = ep.encounter_id AND ep.voided = 0
+LEFT JOIN provider prv ON ep.provider_id = prv.provider_id
+LEFT JOIN person_name prv_pn ON prv.person_id = prv_pn.person_id AND prv_pn.voided = 0
 LEFT JOIN obs refers ON e.encounter_id = refers.encounter_id AND refers.voided = 0 AND refers.concept_id = (SELECT concept_id FROM concept_name WHERE name = 'Refers' AND concept_name_type = 'FULLY_SPECIFIED' AND voided = 0 LIMIT 1)
 LEFT JOIN obs dept ON e.encounter_id = dept.encounter_id AND dept.voided = 0 AND dept.concept_id = (SELECT concept_id FROM concept_name WHERE name = 'Referral department' AND concept_name_type = 'FULLY_SPECIFIED' AND voided = 0 LIMIT 1)
 LEFT JOIN obs diag ON e.encounter_id = diag.encounter_id AND diag.voided = 0 AND diag.concept_id = (SELECT concept_id FROM concept_name WHERE name = 'Non-coded Diagnosis' AND concept_name_type = 'FULLY_SPECIFIED' AND voided = 0 LIMIT 1)
@@ -45,5 +54,5 @@ AND EXISTS (
     JOIN location l ON ltm.location_id = l.location_id
     WHERE l.uuid = ${location_uuid} AND lt.name = 'Refer'
 )
-GROUP BY v.visit_id, pn.given_name, pn.family_name, pi.identifier, p.birthdate, p.gender, pa.state_province, pa.county_district, pa.city_village, pa.address2, p.uuid, v.uuid, v.date_created, v.date_stopped
+GROUP BY v.visit_id, pn.given_name, pn.family_name, pi.identifier, p.birthdate, p.gender, pa.state_province, pa.county_district, pa.city_village, pa.address2, p.uuid, v.uuid, v.date_created, v.date_stopped, loc.uuid
 ORDER BY v.date_created DESC

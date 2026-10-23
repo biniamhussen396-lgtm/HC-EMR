@@ -15,6 +15,8 @@ angular.module('bahmni.ipd')
                 department: '',
                 diagnosis: '',
                 condition: '',
+                location: '',
+                physician: '',
                 status: '',
                 dateFrom: '',
                 dateTo: ''
@@ -99,6 +101,18 @@ angular.module('bahmni.ipd')
                         return r.patientCondition && r.patientCondition.toLowerCase().indexOf(condLower) !== -1;
                     });
                 }
+                if (f.location) {
+                    var locLower = f.location.toLowerCase();
+                    results = results.filter(function (r) {
+                        return r.location && r.location.toLowerCase().indexOf(locLower) !== -1;
+                    });
+                }
+                if (f.physician) {
+                    var phyLower = f.physician.toLowerCase();
+                    results = results.filter(function (r) {
+                        return r.physicianName && r.physicianName.toLowerCase().indexOf(phyLower) !== -1;
+                    });
+                }
                 if (f.status) {
                     results = results.filter(function (r) {
                         return r.status === f.status;
@@ -136,6 +150,8 @@ angular.module('bahmni.ipd')
                     department: '',
                     diagnosis: '',
                     condition: '',
+                    location: '',
+                    physician: '',
                     status: '',
                     dateFrom: '',
                     dateTo: ''
@@ -153,7 +169,13 @@ angular.module('bahmni.ipd')
             };
 
             $scope.openPrintForm = function (referral) {
-                $state.go('referFormPrint', { patientUuid: referral.patientUuid });
+                $state.go('referFormPrint', {
+                    patientUuid: referral.patientUuid,
+                    visitUuid: referral.visitUuid,
+                    providerName: referral.physicianName,
+                    physicianName: referral.physicianName,
+                    location: referral.location
+                });
             };
 
             $scope.openPatientDashboard = function (referral) {

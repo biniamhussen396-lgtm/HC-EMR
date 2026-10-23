@@ -89,6 +89,7 @@
         <span class="field-line wide"> {{referralDepartment}}&nbsp;</span>
         <label>Department</label>
         <span class="field-line"> {{referralDept}}&nbsp;</span>
+        <span ng-if="referralLocation"><label>Location</label><span class="field-line"> {{referralLocation}}&nbsp;</span></span>
     </div>
 
     <div class="row">
@@ -176,12 +177,12 @@
     </div>
 
     <div class="signature-section" style="margin-top:12px;">
-        <div class="sig-block-title">Approved by</div>
+        <div class="sig-block-title">Approved by <span style="font-weight:normal;font-size:11px;color:#333;">(Liaison Officer)</span></div>
         <div class="sig-row">
             <label>Name</label>
-            <span class="sig-line" style="min-width:160px;">&nbsp;</span>
-            <label>Qualification</label>
-            <span class="sig-line" style="min-width:90px;">&nbsp;</span>
+            <span class="sig-line" style="min-width:160px;font-weight:600;"> {{approvedBy}}&nbsp;</span>
+            <label>Title / Role</label>
+            <span class="sig-line" style="min-width:110px;"> {{approvedRole || 'Liaison Officer'}}&nbsp;</span>
             <label>Signature</label>
             <span class="sig-line" style="min-width:90px;">&nbsp;</span>
             <label>Phone No.</label>

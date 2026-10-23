@@ -44,20 +44,27 @@ angular.module('bahmni.ipd')
                 $scope.woreda = $scope.patient.address.cityVillage || '';
                 $scope.kebele = $scope.patient.address.address2 || '';
             }
-            var user = $rootScope.currentUser;
-            var doctorName = '';
-            if (user) {
-                if (user.provider && user.provider.display) {
-                    doctorName = user.provider.display.replace(/\s*-\s*\d+$/, '').trim();
-                }
-                if (!doctorName && user.provider && user.provider.name) {
-                    doctorName = user.provider.name;
-                }
-                if (!doctorName) {
-                    doctorName = user.username;
+            var printUser = $rootScope.currentUser;
+            var printUserName = '';
+            if (printUser) {
+                if (printUser.person && printUser.person.display) {
+                    printUserName = printUser.person.display;
+                } else if (printUser.provider && printUser.provider.display) {
+                    printUserName = printUser.provider.display.replace(/\s*-\s*\d+$/, '').trim();
+                } else if (printUser.provider && printUser.provider.name) {
+                    printUserName = printUser.provider.name;
+                } else if (printUser.display) {
+                    printUserName = printUser.display;
+                } else if (printUser.username) {
+                    printUserName = printUser.username;
                 }
             }
-            $scope.referringDoctor = doctorName;
+            $scope.approvedBy = printUserName;
+            $scope.approvedRole = 'Liaison Officer';
+
+            // Physician full name of user who saved the referral form (Referred by)
+            $scope.referringDoctor = $stateParams.physicianName || $stateParams.providerName || '';
+            $scope.referralLocation = $stateParams.location || '';
             $scope.referredTo = '';
             $scope.referralDepartment = '';
             $scope.patientCondition = '';
@@ -100,46 +107,68 @@ angular.module('bahmni.ipd')
                 return '';
             };
 
-            visitService.search({patient: $stateParams.patientUuid, includeInactive: false, v: 'custom:(uuid)'}).then(function (visitsResponse) {
-                var results = visitsResponse.data.results;
-                if (results && results.length > 0) {
-                    var visitUuid = results[results.length - 1].uuid;
-                    activeVisitUuid = visitUuid;
-                    dispositionService.getDispositionByVisit(visitUuid).then(function (response) {
-                        var dispositions = response.data;
-                        if (dispositions && dispositions.length > 0) {
-                            for (var i = 0; i < dispositions.length; i++) {
-                                if (dispositions[i].code === Bahmni.Common.Constants.referCode) {
-                                    var ref = dispositions[i];
-                                    if (ref.additionalObs) {
-                                        $scope.referredTo = getObsByName(ref.additionalObs, 'Refers');
-                                        $scope.referralDepartment = getObsByName(ref.additionalObs, 'Referral department');
-                                        $scope.patientCondition = getObsByName(ref.additionalObs, 'Patient condition at referral');
-                                        $scope.reasonForReferral = getObsByName(ref.additionalObs, 'Reason for referral (text)');
-                                        $scope.clinicalHistory = getObsByName(ref.additionalObs, 'Relevant clinical history');
-                                        $scope.treatmentProvided = getObsByName(ref.additionalObs, 'Treatment provided');
-                                        $scope.chiefComplaint = getObsByName(ref.additionalObs, 'Chief complaint (text)');
-                                        $scope.historyOfPresentIllness = getObsByName(ref.additionalObs, 'History of present illness');
-                                        $scope.systolicBP = getObsByName(ref.additionalObs, 'Systolic blood pressure');
-                                        $scope.diastolicBP = getObsByName(ref.additionalObs, 'Diastolic blood pressure');
-                                        $scope.pulseRate = getObsByName(ref.additionalObs, 'Pulse');
-                                        $scope.respiratoryRate = getObsByName(ref.additionalObs, 'Respiratory rate');
-                                        $scope.bodyTemperature = getObsByName(ref.additionalObs, 'Temperature');
-                                        $scope.oxygenSaturation = getObsByName(ref.additionalObs, 'Arterial blood oxygen saturation (pulse oximeter)');
-                                        $scope.onOxygen = getObsByName(ref.additionalObs, 'BMH On Oxygen');
-                                        $scope.labResult = getObsByName(ref.additionalObs, 'Lab results (text)');
-                                        $scope.referralDiagnosis = getObsByName(ref.additionalObs, 'Non-coded Diagnosis');
-                                        $scope.needAmbulance = getObsByName(ref.additionalObs, 'Need ambulance');
-                                        $scope.needEscorting = getObsByName(ref.additionalObs, 'Need escorting professionals');
-                                        $scope.referralDept = getObsByName(ref.additionalObs, 'Referral department');
-                                    }
-                                    break;
+            var fetchDisposition = function (visitUuid) {
+                activeVisitUuid = visitUuid;
+                dispositionService.getDispositionByVisit(visitUuid).then(function (response) {
+                    var dispositions = response.data;
+                    if (dispositions && dispositions.length > 0) {
+                        for (var i = 0; i < dispositions.length; i++) {
+                            if (dispositions[i].code === Bahmni.Common.Constants.referCode) {
+                                var ref = dispositions[i];
+                                if (ref.additionalObs) {
+                                    $scope.referredTo = getObsByName(ref.additionalObs, 'Refers');
+                                    $scope.referralDepartment = getObsByName(ref.additionalObs, 'Referral department');
+                                    $scope.patientCondition = getObsByName(ref.additionalObs, 'Patient condition at referral');
+                                    $scope.reasonForReferral = getObsByName(ref.additionalObs, 'Reason for referral (text)');
+                                    $scope.clinicalHistory = getObsByName(ref.additionalObs, 'Relevant clinical history');
+                                    $scope.treatmentProvided = getObsByName(ref.additionalObs, 'Treatment provided');
+                                    $scope.chiefComplaint = getObsByName(ref.additionalObs, 'Chief complaint (text)');
+                                    $scope.historyOfPresentIllness = getObsByName(ref.additionalObs, 'History of present illness');
+                                    $scope.systolicBP = getObsByName(ref.additionalObs, 'Systolic blood pressure');
+                                    $scope.diastolicBP = getObsByName(ref.additionalObs, 'Diastolic blood pressure');
+                                    $scope.pulseRate = getObsByName(ref.additionalObs, 'Pulse');
+                                    $scope.respiratoryRate = getObsByName(ref.additionalObs, 'Respiratory rate');
+                                    $scope.bodyTemperature = getObsByName(ref.additionalObs, 'Temperature');
+                                    $scope.oxygenSaturation = getObsByName(ref.additionalObs, 'Arterial blood oxygen saturation (pulse oximeter)');
+                                    $scope.onOxygen = getObsByName(ref.additionalObs, 'BMH On Oxygen');
+                                    $scope.labResult = getObsByName(ref.additionalObs, 'Lab results (text)');
+                                    $scope.referralDiagnosis = getObsByName(ref.additionalObs, 'Non-coded Diagnosis');
+                                    $scope.needAmbulance = getObsByName(ref.additionalObs, 'Need ambulance');
+                                    $scope.needEscorting = getObsByName(ref.additionalObs, 'Need escorting professionals');
+                                    $scope.referralDept = getObsByName(ref.additionalObs, 'Referral department');
                                 }
+                                if (!$scope.referringDoctor) {
+                                    if (ref.creatorName) {
+                                        $scope.referringDoctor = ref.creatorName;
+                                    } else if (ref.providers && ref.providers.length > 0 && ref.providers[0].name) {
+                                        $scope.referringDoctor = ref.providers[0].name;
+                                    } else if (ref.additionalObs && ref.additionalObs.length > 0) {
+                                        for (var k = 0; k < ref.additionalObs.length; k++) {
+                                            if (ref.additionalObs[k].creator && ref.additionalObs[k].creator.personName) {
+                                                $scope.referringDoctor = ref.additionalObs[k].creator.personName;
+                                                break;
+                                            }
+                                        }
+                                    }
+                                }
+                                break;
                             }
                         }
-                    });
-                }
-            });
+                    }
+                });
+            };
+
+            if ($stateParams.visitUuid) {
+                fetchDisposition($stateParams.visitUuid);
+            } else {
+                visitService.search({patient: $stateParams.patientUuid, includeInactive: true, v: 'custom:(uuid)'}).then(function (visitsResponse) {
+                    var results = visitsResponse.data.results;
+                    if (results && results.length > 0) {
+                        var visitUuid = results[results.length - 1].uuid;
+                        fetchDisposition(visitUuid);
+                    }
+                });
+            }
 
             $scope.printForm = function () {
                 window.print();

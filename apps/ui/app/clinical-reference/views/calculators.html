@@ -42,9 +42,9 @@
         
         <div class="input-form">
             <div class="form-group" ng-repeat="input in selectedCalculator.inputs">
-                <label>{{input.replace('_', ' ')}}</label>
+                <label>{{formatInputLabel(input)}}</label>
                 <input type="number" step="any" ng-model="calculatorInput[input]" 
-                       placeholder="Enter {{input.replace('_', ' ')}}">
+                       placeholder="{{getInputPlaceholder(input)}}">
             </div>
             <button class="btn btn-primary" ng-click="runCalculator()">Calculate</button>
         </div>

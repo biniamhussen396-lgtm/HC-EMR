@@ -1,11 +1,84 @@
 <style>
-.order-list{height:calc(100vh - 110px);max-height:calc(100vh - 110px);overflow:hidden;display:flex;flex-direction:column}
-.order-list > div{display:flex;flex-direction:column;flex:1;min-height:0;height:100%}
-.order-list .clearfix::after{display:none}
-.order-list div[ng-repeat]{display:flex;flex-direction:column;flex:1;min-height:0;height:100%}
-.order-list .order-grid{flex-shrink:0}
-.order-list .dashboard-section{flex:1;min-height:0;height:100%;overflow:hidden;display:flex;flex-direction:column}
-.order-list .dashboard-section-wrapper{flex:1;min-height:0;height:100%;overflow:hidden;display:flex;flex-direction:column}
+.order-list {
+    height: calc(100vh - 105px);
+    max-height: calc(100vh - 105px);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+.order-list > div {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 0;
+    min-height: 0;
+    height: 100%;
+}
+.order-list .clearfix::after {
+    display: none;
+}
+/* Inactive accordion tabs: collapsed to header only */
+.order-list div[ng-repeat] {
+    display: flex;
+    flex-direction: column;
+    flex: 0 0 auto !important;
+    height: auto !important;
+    min-height: auto !important;
+    margin-bottom: 3px;
+}
+/* Active accordion tab: expands to fill all remaining vertical space */
+.order-list div[ng-repeat].active {
+    flex: 1 1 0 !important;
+    min-height: 0 !important;
+    height: 100% !important;
+    overflow: hidden !important;
+}
+.order-list .order-grid {
+    flex-shrink: 0;
+    margin-bottom: 0 !important;
+    border-radius: 4px;
+    overflow: hidden;
+}
+.order-list .order-grid h2.order-title {
+    margin: 0;
+    padding: 8px 14px;
+    font-size: 14px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    background: #486086;
+    color: #fff;
+    user-select: none;
+    transition: background 0.15s ease;
+}
+.order-list .order-grid h2.order-title:hover {
+    background: #3b5070;
+}
+.order-list div[ng-repeat].active .order-grid h2.order-title {
+    background: #3d7474;
+}
+.order-list div[ng-repeat].active .order-grid h2.order-title:hover {
+    background: #336161;
+}
+.order-list .dashboard-section {
+    flex: 1 1 0 !important;
+    min-height: 0 !important;
+    height: 100% !important;
+    overflow: hidden !important;
+    display: flex !important;
+    flex-direction: column !important;
+    margin-top: 0 !important;
+    padding-top: 4px !important;
+}
+.order-list .dashboard-section-wrapper {
+    flex: 1 1 0 !important;
+    min-height: 0 !important;
+    height: 100% !important;
+    overflow: hidden !important;
+    display: flex !important;
+    flex-direction: column !important;
+}
 </style>
 <div class="order-list" alert-on-exit>
     <div ng-class="{'disableOrdersInRetroMode':isRetrospectiveMode()}">

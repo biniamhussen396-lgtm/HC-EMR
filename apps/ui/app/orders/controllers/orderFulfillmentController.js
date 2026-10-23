@@ -1,24 +1,10 @@
 "use strict";
 
 angular.module('bahmni.orders').controller('OrderFulfillmentController', ['userService', '$http', '$scope', '$rootScope', '$stateParams', '$state', '$q', 'patientContext', 'orderService', 'observationsService', 'orderObservationService',
-    'orderTypeService', 'sessionService', 'encounterService', 'spinner', 'messagingService', 'appService', '$anchorScroll', 'orderFulfillmentConfig', 'contextChangeHandler', '$translate', 'paymentStatusService', 'pacsService',
+    'orderTypeService', 'sessionService', 'encounterService', 'spinner', 'messagingService', 'appService', '$anchorScroll', 'orderFulfillmentConfig', 'contextChangeHandler', '$translate', 'paymentStatusService',
     function (userService, $http, $scope, $rootScope, $stateParams, $state, $q, patientContext, orderService, observationsService, orderObservationService,
-        orderTypeService, sessionService, encounterService, spinner, messagingService, appService, $anchorScroll, orderFulfillmentConfig, contextChangeHandler, $translate, paymentStatusService, pacsService) {
+        orderTypeService, sessionService, encounterService, spinner, messagingService, appService, $anchorScroll, orderFulfillmentConfig, contextChangeHandler, $translate, paymentStatusService) {
         $scope.patient = patientContext.patient;
-        $scope.nonLabOrderTabs = [
-            { orderType: 'Radiology Order', label: 'Radiology (PACS)', icon: 'fa-film' },
-            { orderType: 'Procedure Order', label: 'Procedure Orders', icon: 'fa-medkit' },
-            { orderType: 'Pathology Order', label: 'Pathology Orders', icon: 'fa-flask' },
-            { orderType: 'Ophtha Order', label: 'Ophthalmology & Optometry', icon: 'fa-eye' }
-        ];
-
-        $scope.goToOrderType = function (orderType) {
-            $state.go('orderFulfillment', {
-                patientUuid: $scope.patient.uuid,
-                orderType: orderType
-            });
-        };
-
         var currentUser = $rootScope.currentUser || $scope.currentUser || { privileges: [] };
         $scope.patient.docpriv = (currentUser.privileges || []).filter(function (priv) {
             return priv.name == 'Write Radiology note';
@@ -80,11 +66,8 @@ angular.module('bahmni.orders').controller('OrderFulfillmentController', ['userS
                 params: params,
                 withCredentials: true
             }).then(function (response) {
-                // Ensure the response data is in JSON format
-                // console.log(response.data, "response.data");
                 return response.data;
             }).catch(function (error) {
-                // Handle any errors
                 console.error('Error fetching patient admission data:', error);
                 throw error;
             });
@@ -125,41 +108,23 @@ angular.module('bahmni.orders').controller('OrderFulfillmentController', ['userS
                     }
                     getOrderPaymentStatus(order);
                 });
-                correlatePacsStudies();
             });
         };
 
-        var correlatePacsStudies = function () {
-            if ($stateParams.orderType === 'Radiology Order' && pacsService) {
-                pacsService.search(patientContext.patient.identifier).then(function (response) {
-                    var studies = response.data || [];
-                    $scope.orders.forEach(function (order) {
-                        var matchingStudy = studies.find(function (study) {
-                            if (!study.identifier) return false;
-                            var matches = study.identifier.filter(function (id) {
-                                return pacsService.getAccessionNumber(id) === order.orderNumber;
-                            });
-                            return matches && matches.length > 0;
-                        });
-                        if (matchingStudy) {
-                            order.studyInstanceUID = matchingStudy.id;
-                            order.pacsStudyUrl = "/ohif/viewer?StudyInstanceUIDs=" + matchingStudy.id;
-                        }
-                    });
-                }, function () {
-                    // Silently handle if PACS service is unavailable
-                });
-            }
-        };
-
         var getOrderPaymentStatus = function (order) {
-            paymentStatusService.getPaymentStatus(patientContext.patient.identifier).then(function (response) {
+            paymentStatusService.getPaymentStatus(order.orderUuid).then(function (response) {
                 if (!payment_config["disable checking"]) {
-                    order.paymentStatus = response.data && response.data.status === "PAID";
+                    order.paymentStatus = (response.data && response.data.status === "PAID") || response.data === true;
                 }
                 else {
-                    order.paymentStatus = true
+                    order.paymentStatus = true;
                 }
+            }).catch(function () {
+                paymentStatusService.getPaymentStatus(patientContext.patient.identifier).then(function (res) {
+                    order.paymentStatus = (res.data && res.data.status === "PAID") || res.data === true;
+                }).catch(function () {
+                    order.paymentStatus = true;
+                });
             });
         };
 
@@ -219,28 +184,12 @@ angular.module('bahmni.orders').controller('OrderFulfillmentController', ['userS
             return $translate.instant('NO_ORDERS_PRESENT', {orderType: $scope.orderType});
         };
 
-        var getActiveVisitUuid = function () {
-            return $http.get('/openmrs/ws/rest/v1/visit', {
-                params: {
-                    patient: $scope.patient.uuid,
-                    includeInactive: false,
-                    v: "custom:(uuid)"
-                },
-                withCredentials: true
-            }).then(function (response) {
-                var visits = response.data.results;
-                return visits.length > 0 ? visits[0].uuid : null;
-            });
-        };
-
         $scope.$on("event:saveOrderObservations", function () {
             if (!$scope.isFormValid()) {
                 $scope.$parent.$broadcast("event:errorsOnForm");
                 return $q.when({});
             }
-            var savePromise = getActiveVisitUuid().then(function (visitUuid) {
-                return orderObservationService.save($scope.orders, $scope.patient, sessionService.getLoginLocationUuid(), visitUuid);
-            });
+            var savePromise = orderObservationService.save($scope.orders, $scope.patient, sessionService.getLoginLocationUuid());
             spinner.forPromise(savePromise.then(function () {
                 $state.transitionTo($state.current, $state.params, {
                     reload: true,

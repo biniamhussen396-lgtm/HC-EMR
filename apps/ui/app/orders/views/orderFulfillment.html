@@ -1,36 +1,18 @@
 <style>
     #conceptSetTitle {
-        cursor: pointer;
-        transition: background-color 0.3s ease, color 0.3s ease;
+        cursor: pointer; /* Change the cursor to a pointer */
+        transition: background-color 0.3s ease, color 0.3s ease; /* Smooth transition */
     }
 
+    /* On hover, change background and text color */
     #conceptSetTitle:hover {
-        background-color: #f1f5f6;
-        color: green;
-    }
-
-    .orders-tab-btn:hover {
-        opacity: 0.9;
+        background-color: #f1f5f6; /* Slightly lighter shade for hover */
+        color: green; /* Change text color */
     }
 </style>
 <div>
-    <!-- Non-Lab Order App Tabs -->
-    <div class="orders-nav-tabs" style="margin-bottom: 18px; border-bottom: 2px solid #557A7B; display: flex; gap: 8px; flex-wrap: wrap;">
-        <button type="button"
-                class="orders-tab-btn"
-                ng-class="{'active': tab.orderType === orderType}"
-                ng-repeat="tab in nonLabOrderTabs"
-                ng-click="goToOrderType(tab.orderType)"
-                style="padding: 10px 18px; border: none; border-radius: 6px 6px 0 0; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s ease; display: inline-flex; align-items: center; gap: 8px;"
-                ng-style="tab.orderType === orderType ? {'background': '#557A7B', 'color': '#ffffff', 'box-shadow': '0 -2px 5px rgba(0,0,0,0.1)'} : {'background': '#e0e0e0', 'color': '#333333'}">
-            <i class="fa {{tab.icon}}"></i> {{tab.label}}
-        </button>
-    </div>
-
     <div>
-        <span style="color: rgb(92, 2, 2); font-weight: bolder; margin-left: 20%; font-family: 'Times New Roman', Times, serif; font-style: italic;">
-            <i class="fa fa-info-circle"> <strong>Click on the order you are looking for to enter the result or manage PACS / images!</strong></i>
-        </span>
+        <span style="color: rgb(92, 2, 2); font-weight: bolder; margin-left: 25%; font-family: 'Times New Roman', Times, serif; font-style: italic;"><i class="fa fa-info-circle"> <strong>Click on the order you are looking for to enter the result!</strong></i></span>
         <br> <br>
         <table border="1" style="width:100%; border-collapse: collapse; background: #557A7B;">
             <tr style="color: black;">
@@ -40,7 +22,6 @@
                 <th>Provider</th>
                 <th>Date</th>
                 <th>Notes</th>
-                <th ng-if="orderType === 'Radiology Order'">PACS / Images</th>
                 <th>Result Status</th>
                 <th>Payment Status</th>
             </tr>
@@ -67,12 +48,6 @@
                         <span>{{order.commentToFulfiller}}</span>
                     </div>
                 </td>
-                <td ng-if="orderType === 'Radiology Order'" style="text-align: center;">
-                    <a ng-if="order.studyInstanceUID" ng-href="/ohif/viewer?StudyInstanceUIDs={{order.studyInstanceUID}}" target="_blank" class="btn btn-xs" style="color:#fff;background:#0288D1;padding:4px 8px;border-radius:3px;text-decoration:none;display:inline-flex;align-items:center;gap:4px;font-size:12px;">
-                        <i class="fa fa-eye"></i> View Study
-                    </a>
-                    <span ng-if="!order.studyInstanceUID" style="color:#666;font-size:12px;">No Study</span>
-                </td>
                 <td>
                     <span ng-if="order.commentToFulfiller" class="fa fa-file-text-o"></span>
                 </td>
@@ -87,40 +62,10 @@
             </tr>
             <!-- This row will only show when the order.showForm is true -->
             <tr ng-repeat-end ng-if="order.showForm && order.paymentStatus" style="color: black;">
-                <td colspan="{{orderType === 'Radiology Order' ? 9 : 8}}" style="padding: 15px; background: #fafafa;">
-                    <div ng-if="orderType === 'Radiology Order'" style="margin-bottom: 12px;">
-                        <ul style="display: flex; gap: 8px; border-bottom: 2px solid #557A7B; margin-bottom: 12px; padding: 0; list-style: none;">
-                            <li style="margin: 0;">
-                                <a ng-click="order.activeTab = 'form'"
-                                   style="display: inline-block; padding: 8px 16px; border-radius: 4px 4px 0 0; text-decoration: none; cursor: pointer; font-weight: 600;"
-                                   ng-style="(!order.activeTab || order.activeTab === 'form') ? {'background': '#557A7B', 'color': '#fff'} : {'background': '#e8ecec', 'color': '#444'}">
-                                    <i class="fa fa-file-text-o"></i> Result Report Form
-                                </a>
-                            </li>
-                            <li style="margin: 0;">
-                                <a ng-click="order.activeTab = 'dicom'"
-                                   style="display: inline-block; padding: 8px 16px; border-radius: 4px 4px 0 0; text-decoration: none; cursor: pointer; font-weight: 600;"
-                                   ng-style="order.activeTab === 'dicom' ? {'background': '#557A7B', 'color': '#fff'} : {'background': '#e8ecec', 'color': '#444'}">
-                                    <i class="fa fa-upload"></i> Import DICOM / Images
-                                </a>
-                            </li>
-                            <li style="margin: 0;" ng-if="order.studyInstanceUID">
-                                <a ng-href="/ohif/viewer?StudyInstanceUIDs={{order.studyInstanceUID}}" target="_blank"
-                                   style="display: inline-block; padding: 8px 16px; border-radius: 4px 4px 0 0; text-decoration: none; cursor: pointer; font-weight: 600; background: #0288D1; color: #fff;">
-                                    <i class="fa fa-external-link"></i> Open OHIF Viewer
-                                </a>
-                            </li>
-                        </ul>
-                    </div>
-
-                    <div ng-show="!order.activeTab || order.activeTab === 'form'">
-                        <orders-control patient="patient" order-uuid="order.orderUuid" config="config" message="message" show-title="false"></orders-control>
-                        <concept-set patient="patient" ng-if="order.showForm" concept-set-name="formName" observations="order.bahmniObservations" show-title="false" section-id="order.orderUuid"></concept-set>
-                    </div>
-
-                    <div ng-if="orderType === 'Radiology Order'" ng-show="order.activeTab === 'dicom'">
-                        <dicom-upload patient="patient"></dicom-upload>
-                    </div>
+                <td colspan="8">
+                    <orders-control patient="patient" order-uuid="order.orderUuid" config="config" message="message" show-title="false"></orders-control>
+                    <concept-set patient="patient" ng-if="order.showForm" concept-set-name="formName" observations="order.bahmniObservations" show-title="false" section-id="order.orderUuid">
+                    </concept-set>
                 </td>
             </tr>
         </table>        
@@ -128,9 +73,5 @@
     </div>
     <div ng-show="orders && orders.length == 0">
         <div class="placeholder-text">{{getEmptyMessage()}}</div>
-        <!-- For Radiology Orders with no pending orders, still allow DICOM image upload for patient -->
-        <div ng-if="orderType === 'Radiology Order'" style="margin-top: 20px; max-width: 700px; margin-left: auto; margin-right: auto;">
-            <dicom-upload patient="patient"></dicom-upload>
-        </div>
     </div>
 </div>

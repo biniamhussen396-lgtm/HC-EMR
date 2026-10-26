@@ -132,12 +132,30 @@ angular.module('ipd').config(['$stateProvider', '$httpProvider', '$urlRouterProv
                     }
                 }
             }).state('referFormPrint', {
-                url: '/referFormPrint/:patientUuid?visitUuid&providerName&location&physicianName',
+                url: '/referFormPrint/:patientUuid?visitUuid&providerName&location&physicianName&approvedBy&approvedSpecialty&approvalMethod&approvalDateTime&approvalNotes&patientName&identifier&age&sex&woreda&kebele&referredTo&department&diagnosis&patientCondition&reasonForReferral&needAmbulance&needEscorting',
                 params: {
                     visitUuid: null,
                     providerName: null,
                     location: null,
-                    physicianName: null
+                    physicianName: null,
+                    approvedBy: null,
+                    approvedSpecialty: null,
+                    approvalMethod: null,
+                    approvalDateTime: null,
+                    approvalNotes: null,
+                    patientName: null,
+                    identifier: null,
+                    age: null,
+                    sex: null,
+                    woreda: null,
+                    kebele: null,
+                    referredTo: null,
+                    department: null,
+                    diagnosis: null,
+                    patientCondition: null,
+                    reasonForReferral: null,
+                    needAmbulance: null,
+                    needEscorting: null
                 },
                 data: {
                     homeBackLink: homeBackLink,
@@ -145,7 +163,7 @@ angular.module('ipd').config(['$stateProvider', '$httpProvider', '$urlRouterProv
                 },
                 views: {
                     'content': {
-                        templateUrl: 'views/referFormPrint.html?v=2.3',
+                        templateUrl: 'views/referFormPrint.html?v=2.5',
                         controller: 'ReferFormPrintController'
                     },
                     'additional-header': {
@@ -154,10 +172,7 @@ angular.module('ipd').config(['$stateProvider', '$httpProvider', '$urlRouterProv
                     }
                 },
                 resolve: {
-                    initialization: 'initialization',
-                    patientResolution: function ($stateParams, patientInitialization) {
-                        return patientInitialization($stateParams.patientUuid);
-                    }
+                    initialization: 'initialization'
                 }
             }).state('referralManagement', {
                 url: '/referralManagement',
@@ -167,7 +182,7 @@ angular.module('ipd').config(['$stateProvider', '$httpProvider', '$urlRouterProv
                 },
                 views: {
                     'content': {
-                        templateUrl: 'views/referralManagement.html?v=2.3',
+                        templateUrl: 'views/referralManagement.html?v=2.5',
                         controller: 'ReferralManagementController'
                     },
                     'additional-header': {

@@ -1,10 +1,18 @@
 'use strict';
 
 angular.module('bahmni.ipd')
-    .controller('ReferralManagementController', ['$scope', '$http', '$state', '$rootScope', 'spinner', '$bahmniCookieStore',
-        function ($scope, $http, $state, $rootScope, spinner, $bahmniCookieStore) {
+    .controller('ReferralManagementController', ['$scope', '$http', '$state', '$rootScope', 'spinner', '$bahmniCookieStore', '$filter',
+        function ($scope, $http, $state, $rootScope, spinner, $bahmniCookieStore, $filter) {
             $scope.referrals = [];
             $scope.filteredReferrals = [];
+            $scope.paginatedReferrals = [];
+            $scope.pageSize = '10';
+            $scope.pageSizeOptions = ['10', '25', '50', '100', 'All'];
+            $scope.currentPage = 1;
+            $scope.totalPages = 1;
+            $scope.startItem = 0;
+            $scope.endItem = 0;
+            $scope.isPrintingRegister = false;
             $scope.searchParams = {
                 patientName: '',
                 mrn: '',
@@ -17,6 +25,8 @@ angular.module('bahmni.ipd')
                 condition: '',
                 location: '',
                 physician: '',
+                approvedBy: '',
+                approvedSpecialty: '',
                 status: '',
                 dateFrom: '',
                 dateTo: ''
@@ -113,6 +123,21 @@ angular.module('bahmni.ipd')
                         return r.physicianName && r.physicianName.toLowerCase().indexOf(phyLower) !== -1;
                     });
                 }
+                if (f.approvedBy) {
+                    var apprLower = f.approvedBy.toLowerCase().trim();
+                    results = results.filter(function (r) {
+                        if (apprLower === 'pending') {
+                            return !r.approvedBy || r.approvedBy.trim() === '';
+                        }
+                        return r.approvedBy && r.approvedBy.toLowerCase().indexOf(apprLower) !== -1;
+                    });
+                }
+                if (f.approvedSpecialty) {
+                    var specLower = f.approvedSpecialty.toLowerCase().trim();
+                    results = results.filter(function (r) {
+                        return r.approvedSpecialty && r.approvedSpecialty.toLowerCase().indexOf(specLower) !== -1;
+                    });
+                }
                 if (f.status) {
                     results = results.filter(function (r) {
                         return r.status === f.status;
@@ -133,6 +158,68 @@ angular.module('bahmni.ipd')
                 }
 
                 $scope.filteredReferrals = results;
+                $scope.currentPage = 1;
+                $scope.updatePagination();
+            };
+
+            $scope.updatePagination = function () {
+                var sorted = $filter('orderBy')($scope.filteredReferrals, $scope.sortField, $scope.sortReverse);
+                var total = sorted ? sorted.length : 0;
+
+                if ($scope.pageSize === 'All' || $scope.isPrintingRegister) {
+                    $scope.totalPages = 1;
+                    $scope.currentPage = 1;
+                    $scope.paginatedReferrals = sorted || [];
+                    $scope.startItem = total > 0 ? 1 : 0;
+                    $scope.endItem = total;
+                    return;
+                }
+
+                var size = parseInt($scope.pageSize, 10) || 10;
+                $scope.totalPages = Math.ceil(total / size) || 1;
+                if ($scope.currentPage > $scope.totalPages) {
+                    $scope.currentPage = $scope.totalPages;
+                }
+                if ($scope.currentPage < 1) {
+                    $scope.currentPage = 1;
+                }
+
+                var startIdx = ($scope.currentPage - 1) * size;
+                var endIdx = startIdx + size;
+                $scope.paginatedReferrals = (sorted || []).slice(startIdx, endIdx);
+                $scope.startItem = total > 0 ? startIdx + 1 : 0;
+                $scope.endItem = Math.min(startIdx + size, total);
+            };
+
+            $scope.setPage = function (page) {
+                if (page < 1 || page > $scope.totalPages || page === $scope.currentPage) {
+                    return;
+                }
+                $scope.currentPage = page;
+                $scope.updatePagination();
+            };
+
+            $scope.onPageSizeChange = function () {
+                $scope.currentPage = 1;
+                $scope.updatePagination();
+            };
+
+            $scope.getPageNumbers = function () {
+                var pages = [];
+                var total = $scope.totalPages;
+                var current = $scope.currentPage;
+                if (total <= 7) {
+                    for (var i = 1; i <= total; i++) pages.push(i);
+                } else {
+                    pages.push(1);
+                    var start = Math.max(2, current - 1);
+                    var end = Math.min(total - 1, current + 1);
+                    if (start > 2) pages.push('...');
+                    for (var j = start; j <= end; j++) pages.push(j);
+                    if (end < total - 1) pages.push('...');
+                    pages.push(total);
+                }
+                return pages;
             };
 
             $scope.toggleFilters = function () {
@@ -152,6 +239,8 @@ angular.module('bahmni.ipd')
                     condition: '',
                     location: '',
                     physician: '',
+                    approvedBy: '',
+                    approvedSpecialty: '',
                     status: '',
                     dateFrom: '',
                     dateTo: ''
@@ -166,6 +255,7 @@ angular.module('bahmni.ipd')
                     $scope.sortField = field;
                     $scope.sortReverse = false;
                 }
+                $scope.updatePagination();
             };
 
             $scope.openPrintForm = function (referral) {
@@ -174,8 +264,45 @@ angular.module('bahmni.ipd')
                     visitUuid: referral.visitUuid,
                     providerName: referral.physicianName,
                     physicianName: referral.physicianName,
-                    location: referral.location
+                    location: referral.location,
+                    approvedBy: referral.approvedBy,
+                    approvedSpecialty: referral.approvedSpecialty,
+                    approvalMethod: referral.approvalMethod,
+                    approvalDateTime: referral.approvalDateTime,
+                    approvalNotes: referral.approvalNotes,
+                    patientName: referral.name,
+                    identifier: referral.identifier,
+                    age: referral.age,
+                    sex: referral.sex,
+                    woreda: referral.woreda,
+                    kebele: referral.kebele,
+                    referredTo: referral.referredTo,
+                    department: referral.department,
+                    diagnosis: referral.diagnosis,
+                    patientCondition: referral.patientCondition,
+                    reasonForReferral: referral.reasonForReferral,
+                    needAmbulance: referral.needAmbulance,
+                    needEscorting: referral.needEscorting
                 });
+            };
+
+            $scope.printRegister = function () {
+                var prevSize = $scope.pageSize;
+                var prevPage = $scope.currentPage;
+                $scope.isPrintingRegister = true;
+                $scope.pageSize = 'All';
+                $scope.updatePagination();
+                setTimeout(function () {
+                    window.print();
+                    setTimeout(function () {
+                        $scope.$apply(function () {
+                            $scope.isPrintingRegister = false;
+                            $scope.pageSize = prevSize;
+                            $scope.currentPage = prevPage;
+                            $scope.updatePagination();
+                        });
+                    }, 500);
+                }, 100);
             };
 
             $scope.openPatientDashboard = function (referral) {

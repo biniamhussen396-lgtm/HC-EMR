@@ -1,8 +1,123 @@
 'use strict';
 
 angular.module('bahmni.ipd')
-    .controller('ReferralManagementController', ['$scope', '$http', '$state', '$rootScope', 'spinner', '$bahmniCookieStore', '$filter',
-        function ($scope, $http, $state, $rootScope, spinner, $bahmniCookieStore, $filter) {
+    .controller('ReferralManagementController', ['$scope', '$http', '$state', '$rootScope', 'spinner', '$bahmniCookieStore', '$filter', '$injector',
+        function ($scope, $http, $state, $rootScope, spinner, $bahmniCookieStore, $filter, $injector) {
+            var ethiopianService = $injector.has('ethiopianGregorianService') ? $injector.get('ethiopianGregorianService') : null;
+
+            var toEthiopianDate = function (gregDate) {
+                if (!gregDate) return '';
+                if (typeof gregDate === 'string' && /^\d{1,2}\/\d{1,2}\/\d{4}$/.test(gregDate.trim())) {
+                    var p = gregDate.trim().split('/');
+                    var yr = parseInt(p[2], 10);
+                    if (yr >= 1900 && yr <= 2050 && parseInt(p[1], 10) <= 13) {
+                        return gregDate.trim();
+                    }
+                }
+                var d;
+                if (Array.isArray(gregDate)) {
+                    d = new Date(gregDate[0], gregDate[1] - 1, gregDate[2], gregDate[3] || 0, gregDate[4] || 0, gregDate[5] || 0);
+                } else if (gregDate instanceof Date) {
+                    d = gregDate;
+                } else {
+                    d = new Date(gregDate);
+                }
+                if (isNaN(d.getTime())) return typeof gregDate === 'string' ? gregDate : '';
+
+                if (ethiopianService && typeof ethiopianService.gregToEth === 'function') {
+                    try {
+                        var ethStr = ethiopianService.gregToEth((d.getMonth() + 1) + '/' + d.getDate() + '/' + d.getFullYear());
+                        if (ethStr) return ethStr;
+                    } catch (e) {}
+                }
+
+                var gy = d.getFullYear();
+                var gm = d.getMonth() + 1;
+                var gd = d.getDate();
+                var monthDays = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+                var isGregLeap = (gy % 4 === 0 && gy % 100 !== 0) || gy % 400 === 0;
+                if (isGregLeap) monthDays[1] = 29;
+                var ethNewYearDay = isGregLeap ? 12 : 11;
+                var ethYear, daysSinceNewYear;
+                if (gm > 9 || (gm === 9 && gd >= ethNewYearDay)) {
+                    ethYear = gy - 7;
+                    if (gm === 9) {
+                        daysSinceNewYear = gd - ethNewYearDay;
+                    } else {
+                        daysSinceNewYear = 30 - ethNewYearDay;
+                        for (var i = 9; i < gm - 1; i++) {
+                            daysSinceNewYear += monthDays[i];
+                        }
+                        daysSinceNewYear += gd;
+                    }
+                } else {
+                    ethYear = gy - 8;
+                    var prevIsLeap = ((gy - 1) % 4 === 0 && (gy - 1) % 100 !== 0) || (gy - 1) % 400 === 0;
+                    var prevEthNewYearDay = prevIsLeap ? 12 : 11;
+                    daysSinceNewYear = 30 - prevEthNewYearDay + 92;
+                    var dayOfYear = 0;
+                    for (var j = 0; j < gm - 1; j++) {
+                        dayOfYear += monthDays[j];
+                    }
+                    dayOfYear += gd;
+                    daysSinceNewYear += dayOfYear;
+                }
+                var ethMonth = Math.floor(daysSinceNewYear / 30) + 1;
+                var ethDay = (daysSinceNewYear % 30) + 1;
+                if (ethMonth > 13) ethMonth = 13;
+                var ddStr = ('0' + ethDay).slice(-2);
+                var mmStr = ('0' + ethMonth).slice(-2);
+                return ddStr + '/' + mmStr + '/' + ethYear;
+            };
+
+            var toEthiopianDateTime = function (dtInput) {
+                if (!dtInput) return '';
+                var d = new Date(dtInput);
+                if (isNaN(d.getTime())) {
+                    return dtInput;
+                }
+                var ethD = toEthiopianDate(d);
+                var hh = ('0' + d.getHours()).slice(-2);
+                var min = ('0' + d.getMinutes()).slice(-2);
+                return ethD + ' ' + hh + ':' + min;
+            };
+
+            $scope.formatApprovalDateTime = function (dt) {
+                return toEthiopianDateTime(dt);
+            };
+
+            var parseDateValue = function (val) {
+                if (!val) return null;
+                if (val instanceof Date) return isNaN(val.getTime()) ? null : val;
+                if (typeof val === 'string') {
+                    var s = val.trim();
+                    if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(s)) {
+                        if (ethiopianService && typeof ethiopianService.ethToGreg === 'function') {
+                            try {
+                                var g = ethiopianService.ethToGreg(s);
+                                if (g) {
+                                    var pd = new Date(g);
+                                    if (!isNaN(pd.getTime())) return pd;
+                                }
+                            } catch (e) {}
+                        }
+                        var parts = s.split('/');
+                        var ed = parseInt(parts[0], 10), em = parseInt(parts[1], 10), ey = parseInt(parts[2], 10);
+                        if (!isNaN(ed) && !isNaN(em) && !isNaN(ey)) {
+                            var gy = ey + 7;
+                            var isGregLeap = (gy % 4 === 0 && gy % 100 !== 0) || gy % 400 === 0;
+                            var ethNewYear = new Date(gy, 8, isGregLeap ? 12 : 11);
+                            var daysElapsed = (em - 1) * 30 + (ed - 1);
+                            var gd = new Date(ethNewYear.getTime() + daysElapsed * 86400000);
+                            if (!isNaN(gd.getTime())) return gd;
+                        }
+                    }
+                    var direct = new Date(s);
+                    if (!isNaN(direct.getTime())) return direct;
+                }
+                return null;
+            };
+
             $scope.referrals = [];
             $scope.filteredReferrals = [];
             $scope.paginatedReferrals = [];
@@ -28,8 +143,8 @@ angular.module('bahmni.ipd')
                 approvedBy: '',
                 approvedSpecialty: '',
                 status: '',
-                dateFrom: '',
-                dateTo: ''
+                dateFrom: null,
+                dateTo: null
             };
             $scope.showFilters = false;
             $scope.sortField = 'referDate';
@@ -144,17 +259,28 @@ angular.module('bahmni.ipd')
                     });
                 }
                 if (f.dateFrom) {
-                    var from = new Date(f.dateFrom);
-                    results = results.filter(function (r) {
-                        return new Date(r.referDate) >= from;
-                    });
+                    var from = parseDateValue(f.dateFrom);
+                    if (from) {
+                        from.setHours(0, 0, 0, 0);
+                        results = results.filter(function (r) {
+                            var rd = Array.isArray(r.referDate) ?
+                                new Date(r.referDate[0], r.referDate[1] - 1, r.referDate[2]) :
+                                new Date(r.referDate);
+                            return rd >= from;
+                        });
+                    }
                 }
                 if (f.dateTo) {
-                    var to = new Date(f.dateTo);
-                    to.setHours(23, 59, 59, 999);
-                    results = results.filter(function (r) {
-                        return new Date(r.referDate) <= to;
-                    });
+                    var to = parseDateValue(f.dateTo);
+                    if (to) {
+                        to.setHours(23, 59, 59, 999);
+                        results = results.filter(function (r) {
+                            var rd = Array.isArray(r.referDate) ?
+                                new Date(r.referDate[0], r.referDate[1] - 1, r.referDate[2]) :
+                                new Date(r.referDate);
+                            return rd <= to;
+                        });
+                    }
                 }
 
                 $scope.filteredReferrals = results;
@@ -242,9 +368,12 @@ angular.module('bahmni.ipd')
                     approvedBy: '',
                     approvedSpecialty: '',
                     status: '',
-                    dateFrom: '',
-                    dateTo: ''
+                    dateFrom: null,
+                    dateTo: null
                 };
+                if (window.jQuery) {
+                    window.jQuery('.filter-group ethiopian-date-selector input').val('');
+                }
                 $scope.applyFilters();
             };
 
@@ -282,7 +411,8 @@ angular.module('bahmni.ipd')
                     patientCondition: referral.patientCondition,
                     reasonForReferral: referral.reasonForReferral,
                     needAmbulance: referral.needAmbulance,
-                    needEscorting: referral.needEscorting
+                    needEscorting: referral.needEscorting,
+                    referDate: $scope.getServiceDate(referral)
                 });
             };
 
@@ -311,32 +441,12 @@ angular.module('bahmni.ipd')
 
             $scope.getServiceDate = function (ref) {
                 if (!ref || !ref.referDate) return '';
-                var d;
-                if (Array.isArray(ref.referDate)) {
-                    d = new Date(ref.referDate[0], ref.referDate[1] - 1, ref.referDate[2], ref.referDate[3] || 0, ref.referDate[4] || 0, ref.referDate[5] || 0);
-                } else {
-                    d = new Date(ref.referDate);
-                }
-                if (isNaN(d.getTime())) return '';
-                var day = ('0' + d.getDate()).slice(-2);
-                var month = ('0' + (d.getMonth() + 1)).slice(-2);
-                var year = d.getFullYear();
-                return day + '/' + month + '/' + year;
+                return toEthiopianDate(ref.referDate);
             };
 
             $scope.getClosedDate = function (ref) {
                 if (!ref || !ref.closedDate) return '-';
-                var d;
-                if (Array.isArray(ref.closedDate)) {
-                    d = new Date(ref.closedDate[0], ref.closedDate[1] - 1, ref.closedDate[2], ref.closedDate[3] || 0, ref.closedDate[4] || 0, ref.closedDate[5] || 0);
-                } else {
-                    d = new Date(ref.closedDate);
-                }
-                if (isNaN(d.getTime())) return '-';
-                var day = ('0' + d.getDate()).slice(-2);
-                var month = ('0' + (d.getMonth() + 1)).slice(-2);
-                var year = d.getFullYear();
-                return day + '/' + month + '/' + year;
+                return toEthiopianDate(ref.closedDate);
             };
 
             $scope.loadReferrals();

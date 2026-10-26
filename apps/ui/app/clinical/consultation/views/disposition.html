@@ -187,19 +187,92 @@
 
                 <div class="refer-form-section">
                     <div class="refer-form-row">
-                        <div class="refer-form-field">
+                        <div class="refer-form-field" style="min-width: 220px;">
                             <label class="refer-label">{{'Need Ambulance'|translate}}</label>
-                            <div class="refer-radio-inline">
+                            <div class="refer-radio-inline" style="padding-top: 4px;">
                                 <label><input type="radio" name="needAmbulance" ng-model="needAmbulance.value" value="Yes"> Yes</label>
-                                <label><input type="radio" name="needAmbulance" ng-model="needAmbulance.value" value="No"> No</label>
+                                <label style="margin-left: 12px;"><input type="radio" name="needAmbulance" ng-model="needAmbulance.value" value="No"> No</label>
+                            </div>
+                        </div>
+                        <div class="refer-form-field" style="min-width: 220px;">
+                            <label class="refer-label">{{'Need Escorting Professionals'|translate}}</label>
+                            <div class="refer-radio-inline" style="padding-top: 4px;">
+                                <label><input type="radio" name="needEscorting" ng-model="needEscorting.value" value="Yes"> Yes</label>
+                                <label style="margin-left: 12px;"><input type="radio" name="needEscorting" ng-model="needEscorting.value" value="No"> No</label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Senior Physician Approval Section -->
+                <div class="refer-form-section approval-section" style="background: #fbfcfe; border-top: 2px solid #1a5276;">
+                    <div class="refer-form-subheader" style="color: #1a5276; font-size: 13px; font-weight: 700; border-bottom: 1px solid #1a5276; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px;">
+                        <span><i class="fa fa-user-md" style="font-size: 15px; color: #1a5276; margin-right: 6px;"></i>Senior Physician Approval</span>
+                        <span style="font-size: 11px; font-weight: normal; color: #666; font-style: italic;">*To be recorded by referring physician</span>
+                    </div>
+
+                    <div class="refer-form-row">
+                        <div class="refer-form-field refer-form-field-wide">
+                            <label class="refer-label">
+                                Approved By <span style="font-weight: normal; color: #666;">(Senior Physician Full Name)</span>
+                                <span style="color: #c0392b;">*</span>
+                            </label>
+                            <input type="text"
+                                   ng-model="referralApprovedBy.value"
+                                   ng-change="onSeniorPhysicianSelected()"
+                                   class="refer-input"
+                                   list="seniorDoctorsDatalist"
+                                   placeholder="Enter or select Senior Physician Full Name (First + Middle + Last)">
+                            <datalist id="seniorDoctorsDatalist">
+                                <option ng-repeat="doc in seniorPhysiciansList" value="{{doc.fullName}}">{{doc.fullName}} &mdash; {{doc.specialty}}</option>
+                            </datalist>
+                        </div>
+                        <div class="refer-form-field">
+                            <label class="refer-label">
+                                Profession / Specialty <span style="color: #c0392b;">*</span>
+                            </label>
+                            <input type="text"
+                                   ng-model="referralSeniorPhysicianSpecialty.value"
+                                   class="refer-input"
+                                   placeholder="e.g. Consultant Surgeon, Internist, Senior GP">
+                        </div>
+                    </div>
+
+                    <div class="refer-form-row" style="margin-top: 8px;">
+                        <div class="refer-form-field" style="min-width: 240px;">
+                            <label class="refer-label">
+                                Approval Method <span style="color: #c0392b;">*</span>
+                            </label>
+                            <div class="refer-radio-inline" style="padding-top: 4px;">
+                                <label style="margin-right: 15px;">
+                                    <input type="radio" name="approvalMethod" ng-model="referralApprovalMethod.value" value="Telephone Consultation">
+                                    <span style="font-weight: 500;"><i class="fa fa-phone" style="margin-right: 3px; color: #2980b9;"></i> Telephone Consultation</span>
+                                </label>
+                                <label>
+                                    <input type="radio" name="approvalMethod" ng-model="referralApprovalMethod.value" value="Physical Consultation">
+                                    <span style="font-weight: 500;"><i class="fa fa-stethoscope" style="margin-right: 3px; color: #27ae60;"></i> Physical Consultation</span>
+                                </label>
                             </div>
                         </div>
                         <div class="refer-form-field">
-                            <label class="refer-label">{{'Need Escorting Professionals'|translate}}</label>
-                            <div class="refer-radio-inline">
-                                <label><input type="radio" name="needEscorting" ng-model="needEscorting.value" value="Yes"> Yes</label>
-                                <label><input type="radio" name="needEscorting" ng-model="needEscorting.value" value="No"> No</label>
-                            </div>
+                            <label class="refer-label">
+                                Approval Date and Time <span style="color: #c0392b;">*</span>
+                            </label>
+                            <input type="datetime-local"
+                                   ng-model="referralApprovalDateTimeRaw"
+                                   ng-change="updateApprovalDateTimeString()"
+                                   class="refer-input">
+                            <span ng-if="ethiopianApprovalDateDisplay" style="font-size: 11px; color: #1a5276; font-weight: 600; margin-top: 4px; display: block;"><i class="fa fa-calendar"></i> E.C.: {{ethiopianApprovalDateDisplay}}</span>
+                        </div>
+                    </div>
+
+                    <div class="refer-form-row" style="margin-top: 8px;">
+                        <div class="refer-form-field" style="width: 100%;">
+                            <label class="refer-label">Approval Notes (optional)</label>
+                            <textarea ng-model="referralApprovalNotes.value"
+                                      class="refer-textarea"
+                                      placeholder="Enter any instructions, recommendations or notes authorized by the Senior Physician..."
+                                      rows="2"></textarea>
                         </div>
                     </div>
                 </div>

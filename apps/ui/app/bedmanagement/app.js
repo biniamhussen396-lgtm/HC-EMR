@@ -132,7 +132,7 @@ angular.module('ipd').config(['$stateProvider', '$httpProvider', '$urlRouterProv
                     }
                 }
             }).state('referFormPrint', {
-                url: '/referFormPrint/:patientUuid?visitUuid&providerName&location&physicianName&approvedBy&approvedSpecialty&approvalMethod&approvalDateTime&approvalNotes&patientName&identifier&age&sex&woreda&kebele&referredTo&department&diagnosis&patientCondition&reasonForReferral&needAmbulance&needEscorting',
+                url: '/referFormPrint/:patientUuid?visitUuid&providerName&location&physicianName&approvedBy&approvedSpecialty&approvalMethod&approvalDateTime&approvalNotes&patientName&identifier&age&sex&woreda&kebele&referredTo&department&diagnosis&patientCondition&reasonForReferral&needAmbulance&needEscorting&referDate',
                 params: {
                     visitUuid: null,
                     providerName: null,
@@ -155,7 +155,8 @@ angular.module('ipd').config(['$stateProvider', '$httpProvider', '$urlRouterProv
                     patientCondition: null,
                     reasonForReferral: null,
                     needAmbulance: null,
-                    needEscorting: null
+                    needEscorting: null,
+                    referDate: null
                 },
                 data: {
                     homeBackLink: homeBackLink,
@@ -163,7 +164,7 @@ angular.module('ipd').config(['$stateProvider', '$httpProvider', '$urlRouterProv
                 },
                 views: {
                     'content': {
-                        templateUrl: 'views/referFormPrint.html?v=2.5',
+                        templateUrl: 'views/referFormPrint.html?v=2.6',
                         controller: 'ReferFormPrintController'
                     },
                     'additional-header': {
@@ -182,7 +183,7 @@ angular.module('ipd').config(['$stateProvider', '$httpProvider', '$urlRouterProv
                 },
                 views: {
                     'content': {
-                        templateUrl: 'views/referralManagement.html?v=2.5',
+                        templateUrl: 'views/referralManagement.html?v=2.6',
                         controller: 'ReferralManagementController'
                     },
                     'additional-header': {

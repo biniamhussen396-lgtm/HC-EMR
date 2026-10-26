@@ -283,7 +283,7 @@ angular.module('consultation')
                 },
                 views: {
                     'consultation-content': {
-                        templateUrl: 'consultation/views/disposition.html',
+                        templateUrl: 'consultation/views/disposition.html?v=20261026_eth',
                         controller: 'DispositionController'
                     }
                 }

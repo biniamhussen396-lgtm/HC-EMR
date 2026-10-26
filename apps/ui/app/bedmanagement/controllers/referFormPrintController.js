@@ -1,9 +1,90 @@
 'use strict';
 
 angular.module('bahmni.ipd')
-    .controller('ReferFormPrintController', ['$scope', '$rootScope', '$state', '$stateParams', '$http', '$bahmniCookieStore', 'dispositionService', 'visitService', 'patientService',
-        function ($scope, $rootScope, $state, $stateParams, $http, $bahmniCookieStore, dispositionService, visitService, patientService) {
+    .controller('ReferFormPrintController', ['$scope', '$rootScope', '$state', '$stateParams', '$http', '$bahmniCookieStore', 'dispositionService', 'visitService', 'patientService', '$injector',
+        function ($scope, $rootScope, $state, $stateParams, $http, $bahmniCookieStore, dispositionService, visitService, patientService, $injector) {
+            var ethiopianService = $injector.has('ethiopianGregorianService') ? $injector.get('ethiopianGregorianService') : null;
+
+            var toEthiopianDate = function (gregDate) {
+                if (!gregDate) return '';
+                if (typeof gregDate === 'string' && /^\d{1,2}\/\d{1,2}\/\d{4}$/.test(gregDate.trim())) {
+                    var p = gregDate.trim().split('/');
+                    var yr = parseInt(p[2], 10);
+                    if (yr >= 1900 && yr <= 2050 && parseInt(p[1], 10) <= 13) {
+                        return gregDate.trim();
+                    }
+                }
+                var d;
+                if (Array.isArray(gregDate)) {
+                    d = new Date(gregDate[0], gregDate[1] - 1, gregDate[2], gregDate[3] || 0, gregDate[4] || 0, gregDate[5] || 0);
+                } else if (gregDate instanceof Date) {
+                    d = gregDate;
+                } else {
+                    d = new Date(gregDate);
+                }
+                if (isNaN(d.getTime())) return typeof gregDate === 'string' ? gregDate : '';
+
+                if (ethiopianService && typeof ethiopianService.gregToEth === 'function') {
+                    try {
+                        var ethStr = ethiopianService.gregToEth((d.getMonth() + 1) + '/' + d.getDate() + '/' + d.getFullYear());
+                        if (ethStr) return ethStr;
+                    } catch (e) {}
+                }
+
+                var gy = d.getFullYear();
+                var gm = d.getMonth() + 1;
+                var gd = d.getDate();
+                var monthDays = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+                var isGregLeap = (gy % 4 === 0 && gy % 100 !== 0) || gy % 400 === 0;
+                if (isGregLeap) monthDays[1] = 29;
+                var ethNewYearDay = isGregLeap ? 12 : 11;
+                var ethYear, daysSinceNewYear;
+                if (gm > 9 || (gm === 9 && gd >= ethNewYearDay)) {
+                    ethYear = gy - 7;
+                    if (gm === 9) {
+                        daysSinceNewYear = gd - ethNewYearDay;
+                    } else {
+                        daysSinceNewYear = 30 - ethNewYearDay;
+                        for (var i = 9; i < gm - 1; i++) {
+                            daysSinceNewYear += monthDays[i];
+                        }
+                        daysSinceNewYear += gd;
+                    }
+                } else {
+                    ethYear = gy - 8;
+                    var prevIsLeap = ((gy - 1) % 4 === 0 && (gy - 1) % 100 !== 0) || (gy - 1) % 400 === 0;
+                    var prevEthNewYearDay = prevIsLeap ? 12 : 11;
+                    daysSinceNewYear = 30 - prevEthNewYearDay + 92;
+                    var dayOfYear = 0;
+                    for (var j = 0; j < gm - 1; j++) {
+                        dayOfYear += monthDays[j];
+                    }
+                    dayOfYear += gd;
+                    daysSinceNewYear += dayOfYear;
+                }
+                var ethMonth = Math.floor(daysSinceNewYear / 30) + 1;
+                var ethDay = (daysSinceNewYear % 30) + 1;
+                if (ethMonth > 13) ethMonth = 13;
+                var ddStr = ('0' + ethDay).slice(-2);
+                var mmStr = ('0' + ethMonth).slice(-2);
+                return ddStr + '/' + mmStr + '/' + ethYear;
+            };
+
+            var toEthiopianDateTime = function (dtInput) {
+                if (!dtInput) return '';
+                var d = new Date(dtInput);
+                if (isNaN(d.getTime())) {
+                    return dtInput;
+                }
+                var ethD = toEthiopianDate(d);
+                var hh = ('0' + d.getHours()).slice(-2);
+                var min = ('0' + d.getMinutes()).slice(-2);
+                return ethD + ' ' + hh + ':' + min;
+            };
+
             $scope.currentDate = new Date();
+            $scope.ethiopianCurrentDate = toEthiopianDate($scope.currentDate);
+            $scope.ethiopianReferralDate = $stateParams.referDate ? toEthiopianDate($stateParams.referDate) : $scope.ethiopianCurrentDate;
             $scope.patient = $rootScope.patient;
             $scope.patientFullName = '';
             $scope.facilityName = 'Health Facility';
@@ -126,6 +207,7 @@ angular.module('bahmni.ipd')
             $scope.seniorPhysicianSpecialty = $stateParams.approvedSpecialty || '';
             $scope.referralApprovalMethod = $stateParams.approvalMethod || '';
             $scope.referralApprovalDateTime = $stateParams.approvalDateTime || '';
+            $scope.ethiopianApprovalDateTime = $scope.referralApprovalDateTime ? toEthiopianDateTime($scope.referralApprovalDateTime) : '';
             $scope.referralApprovalNotes = $stateParams.approvalNotes || '';
 
             // Referring Doctor (Referred by row)
@@ -216,7 +298,10 @@ angular.module('bahmni.ipd')
                                     var obsMethod = getObsByName(ref.additionalObs, 'Referral Approval Method');
                                     if (obsMethod) $scope.referralApprovalMethod = obsMethod;
                                     var obsDt = getObsByName(ref.additionalObs, 'Referral Approval DateTime');
-                                    if (obsDt) $scope.referralApprovalDateTime = obsDt;
+                                    if (obsDt) {
+                                        $scope.referralApprovalDateTime = obsDt;
+                                        $scope.ethiopianApprovalDateTime = toEthiopianDateTime(obsDt);
+                                    }
                                     var obsNotes = getObsByName(ref.additionalObs, 'Referral Approval Notes');
                                     if (obsNotes) $scope.referralApprovalNotes = obsNotes;
                                 }

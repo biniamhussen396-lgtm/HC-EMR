@@ -18,6 +18,9 @@
     .filter-group label { font-size: 10px; color: #666; font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px; }
     .filter-group input, .filter-group select { padding: 6px 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 12px; font-family: inherit; }
     .filter-group input:focus, .filter-group select:focus { border-color: #1565c0; outline: none; box-shadow: 0 0 0 2px rgba(21,101,192,0.12); }
+    .filter-group ethiopian-date-selector { display: block; width: 100%; }
+    .filter-group ethiopian-date-selector .field-value { width: 100%; }
+    .filter-group ethiopian-date-selector input { width: 100%; box-sizing: border-box; padding: 6px 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 12px; font-family: inherit; }
 
     .referral-stats { display: flex; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
     .stat-card { background: #fff; border-radius: 8px; padding: 10px 18px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); display: flex; align-items: center; gap: 10px; }
@@ -383,12 +386,12 @@
                 </select>
             </div>
             <div class="filter-group">
-                <label>From</label>
-                <input type="date" ng-model="searchParams.dateFrom" ng-change="applyFilters()">
+                <label>From (E.C.)</label>
+                <ethiopian-date-selector date="searchParams.dateFrom" change="applyFilters()"></ethiopian-date-selector>
             </div>
             <div class="filter-group">
-                <label>To</label>
-                <input type="date" ng-model="searchParams.dateTo" ng-change="applyFilters()">
+                <label>To (E.C.)</label>
+                <ethiopian-date-selector date="searchParams.dateTo" change="applyFilters()"></ethiopian-date-selector>
             </div>
             <div class="filter-group" style="flex:0;">
                 <label>&nbsp;</label>
@@ -432,7 +435,7 @@
                     </tr>
                     <tr class="col-header">
                         <th class="col-sn">S/N</th>
-                        <th class="col-date">Service Date<br><span style="font-weight:normal;font-size:9px;">(DD/MM/YY)</span></th>
+                        <th class="col-date">Service Date<br><span style="font-weight:normal;font-size:9px;">(DD/MM/YY E.C.)</span></th>
                         <th class="col-mrn">MRN</th>
                         <th class="col-name">Name of the Patient</th>
                         <th class="col-age">Age</th>
@@ -490,7 +493,7 @@
                         <td class="col-dept">{{ref.department || '-'}}</td>
                         <td class="col-location tooltip-cell" data-full="{{ref.location}}">{{ref.location || '-'}}</td>
                         <td class="col-physician tooltip-cell" data-full="{{ref.physicianName}}">{{ref.physicianName || '-'}}</td>
-                        <td class="col-approvedby tooltip-cell" data-full="{{ref.approvedBy}}">
+                        <td class="col-approvedby tooltip-cell" data-full="{{ref.approvedBy ? (ref.approvedBy + (ref.approvalDateTime ? ' (' + formatApprovalDateTime(ref.approvalDateTime) + ')' : '')) : 'Pending Approval'}}">
                             <span ng-if="ref.approvedBy" style="font-weight:600;color:#1a237e;">{{ref.approvedBy}}</span>
                             <span ng-if="!ref.approvedBy" class="badge-pending"><i class="fa fa-clock-o"></i> Pending</span>
                         </td>

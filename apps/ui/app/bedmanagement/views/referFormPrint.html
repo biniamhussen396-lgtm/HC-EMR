@@ -397,7 +397,7 @@
         <div class="ref-meta">
             <div>Ref. No. <span class="meta-line">&nbsp;</span></div>
             <div>MRN <span class="meta-line" style="font-weight:700;">{{patientIdentifier || patient.identifier || '—'}}</span></div>
-            <div>Date <span class="meta-line">{{currentDate | date:'dd/MM/yyyy'}}</span></div>
+            <div>Date <span class="meta-line">{{ethiopianReferralDate || ethiopianCurrentDate}}</span></div>
         </div>
     </div>
 
@@ -510,7 +510,7 @@
                 <span class="sig-row-title">Senior Physician Approval</span>
                 <span class="sig-row-meta" ng-if="referralApprovalMethod || referralApprovalDateTime">
                     (Method: <strong>{{referralApprovalMethod || '—'}}</strong>
-                    <span ng-if="referralApprovalDateTime">&nbsp;|&nbsp; Date/Time: <strong>{{referralApprovalDateTime}}</strong></span>)
+                    <span ng-if="referralApprovalDateTime">&nbsp;|&nbsp; Date/Time: <strong>{{ethiopianApprovalDateTime || referralApprovalDateTime}}</strong></span>)
                 </span>
             </div>
             <div class="sig-grid">

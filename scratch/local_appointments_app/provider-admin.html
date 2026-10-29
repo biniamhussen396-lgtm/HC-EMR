@@ -1,0 +1,579 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Manage Providers - Appointment Scheduling</title>
+    <link rel="shortcut icon" type="image/x-icon" href="/bahmni/favicon.ico">
+    <link rel="icon" type="image/x-icon" href="/bahmni/favicon.ico">
+    <link rel="shortcut icon" type="image/x-icon" href="favicon.ico">
+    <link rel="icon" type="image/x-icon" href="favicon.ico">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: #f4f6f8; color: #333; }
+        
+        .header {
+            background: #446565;
+            color: #fff;
+            padding: 12px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .header-title { display: flex; align-items: center; gap: 12px; }
+        .header h2 { font-size: 18px; font-weight: 600; }
+        .header-actions { display: flex; gap: 10px; }
+        .header a {
+            color: #fff;
+            text-decoration: none;
+            padding: 6px 14px;
+            border: 1px solid rgba(255,255,255,0.3);
+            border-radius: 4px;
+            font-size: 13px;
+            transition: all 0.2s;
+            background: rgba(255,255,255,0.1);
+        }
+        .header a:hover { background: rgba(255,255,255,0.25); }
+
+        .main-container { max-width: 1200px; margin: 24px auto; padding: 0 16px; }
+
+        .toolbar {
+            background: #fff;
+            border: 1px solid #dcdfe6;
+            border-radius: 6px 6px 0 0;
+            padding: 16px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 12px;
+            border-bottom: 2px solid #eaedf1;
+        }
+
+        .search-box { position: relative; flex: 1; max-width: 400px; }
+        .search-box input {
+            width: 100%;
+            padding: 8px 12px 8px 36px;
+            border: 1px solid #dcdfe6;
+            border-radius: 4px;
+            font-size: 14px;
+            outline: none;
+            transition: border 0.2s;
+        }
+        .search-box input:focus { border-color: #446565; }
+        .search-box svg {
+            position: absolute;
+            left: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            fill: #909399;
+            width: 16px;
+            height: 16px;
+        }
+
+        .filter-tabs { display: flex; gap: 6px; }
+        .filter-btn {
+            background: #f0f2f5;
+            border: 1px solid #dcdfe6;
+            color: #606266;
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .filter-btn:hover { background: #e4e7ed; }
+        .filter-btn.active {
+            background: #446565;
+            color: #fff;
+            border-color: #446565;
+        }
+
+        .table-card {
+            background: #fff;
+            border: 1px solid #dcdfe6;
+            border-top: none;
+            border-radius: 0 0 6px 6px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+        }
+
+        .count-bar {
+            padding: 10px 20px;
+            background: #fafbfc;
+            border-bottom: 1px solid #eaedf1;
+            font-size: 13px;
+            color: #606266;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        table { width: 100%; border-collapse: collapse; }
+        th {
+            background: #f5f7fa;
+            color: #446565;
+            padding: 12px 20px;
+            text-align: left;
+            font-size: 13px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border-bottom: 1px solid #e4e7ed;
+        }
+        td {
+            padding: 12px 20px;
+            border-bottom: 1px solid #ebeef5;
+            font-size: 14px;
+            vertical-align: middle;
+        }
+        tr:hover { background-color: #f8fafc; }
+        tr.saving-row { opacity: 0.6; pointer-events: none; }
+
+        .provider-cell { display: flex; flex-direction: column; gap: 3px; }
+        .provider-name { font-weight: 600; color: #2c3e50; }
+        .provider-id { font-size: 12px; color: #909399; }
+
+        .status-badge {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-left: 14px;
+        }
+        .status-badge.available { background: #e8f8f0; color: #27ae60; }
+        .status-badge.unavailable { background: #f4f4f5; color: #909399; }
+
+        .toggle-wrapper { display: flex; align-items: center; }
+        .toggle { position: relative; display: inline-block; width: 46px; height: 24px; }
+        .toggle input { opacity: 0; width: 0; height: 0; }
+        .toggle .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-color: #dcdfe6;
+            border-radius: 24px;
+            transition: .25s;
+        }
+        .toggle .slider:before {
+            position: absolute;
+            content: "";
+            height: 18px; width: 18px;
+            left: 3px; bottom: 3px;
+            background-color: white;
+            border-radius: 50%;
+            transition: .25s;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+        }
+        .toggle input:checked + .slider { background-color: #27ae60; }
+        .toggle input:checked + .slider:before { transform: translateX(22px); }
+        .toggle input:disabled + .slider { opacity: 0.5; cursor: not-allowed; }
+
+        .loading-state, .error-state, .empty-state {
+            padding: 50px 20px;
+            text-align: center;
+            color: #909399;
+            font-size: 14px;
+        }
+        .error-state { color: #e74c3c; font-weight: 500; }
+
+        /* Toast notifications */
+        #toast {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            z-index: 99999;
+            min-width: 280px;
+            max-width: 450px;
+            padding: 12px 20px;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 500;
+            color: #fff;
+            box-shadow: 0 4px 14px rgba(0,0,0,0.18);
+            transform: translateY(100px);
+            opacity: 0;
+            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+            pointer-events: none;
+        }
+        #toast.show { transform: translateY(0); opacity: 1; }
+        #toast.success { background: #27ae60; border-left: 5px solid #1e8449; }
+        #toast.error { background: #e74c3c; border-left: 5px solid #c0392b; }
+        #toast.info { background: #446565; border-left: 5px solid #2d4545; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="header-title">
+            <h2>Manage Providers for Appointments</h2>
+        </div>
+        <div class="header-actions">
+            <a href="/appointments/#/home/manage/appointments/list">Appointments List</a>
+            <a href="/appointments/speciality-admin.html">Manage Specialities</a>
+            <a href="/appointments/#/home/admin/service">Back to Admin</a>
+        </div>
+    </div>
+
+    <div class="main-container">
+        <div class="toolbar">
+            <div class="search-box">
+                <svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+                <input type="text" id="searchInput" placeholder="Search provider by name or ID..." oninput="onSearchOrFilterChange()">
+            </div>
+            <div class="filter-tabs">
+                <button class="filter-btn active" id="tabAll" onclick="setTab('all')">All (<span id="countAll">0</span>)</button>
+                <button class="filter-btn" id="tabAvailable" onclick="setTab('available')">Available (<span id="countAvailable">0</span>)</button>
+                <button class="filter-btn" id="tabUnavailable" onclick="setTab('unavailable')">Not Available (<span id="countUnavailable">0</span>)</button>
+            </div>
+        </div>
+
+        <div class="table-card">
+            <div class="count-bar" id="countBar">
+                <span id="showingCount">Loading providers...</span>
+                <span id="availSummary"></span>
+            </div>
+
+            <div id="loading" class="loading-state">Loading provider list from OpenMRS...</div>
+            <div id="errorMsg" class="error-state" style="display:none;"></div>
+            
+            <table id="providerTable" style="display:none;">
+                <thead>
+                    <tr>
+                        <th style="width: 60%;">Provider Name</th>
+                        <th style="width: 40%;">Available for Appointments</th>
+                    </tr>
+                </thead>
+                <tbody id="providerBody"></tbody>
+            </table>
+            <div id="emptyMsg" class="empty-state" style="display:none;">No providers match your search or filter.</div>
+        </div>
+    </div>
+
+    <div id="toast"></div>
+
+    <script>
+        var allProviders = [];
+        var activeTab = 'all';
+        var attrTypeUuid = 'e2aaac17-5e07-11ef-8f7c-0242ac120002'; // default fallback
+        var toastTimeout = null;
+
+        function showToast(msg, type) {
+            var t = document.getElementById('toast');
+            t.textContent = msg;
+            t.className = type + ' show';
+            if (toastTimeout) clearTimeout(toastTimeout);
+            toastTimeout = setTimeout(function() {
+                t.className = '';
+            }, 3500);
+        }
+
+        // 1. Fetch Attribute Type UUID dynamically
+        function initAttributeType(callback) {
+            var xhr = new XMLHttpRequest();
+            xhr.open('GET', '/openmrs/ws/rest/v1/providerattributetype');
+            xhr.withCredentials = true;
+            xhr.onload = function() {
+                if (xhr.status === 200) {
+                    try {
+                        var res = JSON.parse(xhr.responseText);
+                        var types = res.results || [];
+                        var found = types.find(function(t) {
+                            return t.display === 'Available for appointments' || (t.name && t.name.indexOf('Available') >= 0);
+                        });
+                        if (found && found.uuid) {
+                            attrTypeUuid = found.uuid;
+                        }
+                    } catch(e) {}
+                }
+                callback();
+            };
+            xhr.onerror = function() { callback(); };
+            xhr.send();
+        }
+
+        // 2. Load Providers
+        function loadProviders() {
+            var xhr = new XMLHttpRequest();
+            xhr.open('GET', '/openmrs/ws/rest/v1/provider?limit=1000&v=custom:(display,person,uuid,identifier,retired,attributes:(uuid,attributeType:(uuid,display),value,voided))');
+            xhr.withCredentials = true;
+            xhr.onload = function() {
+                if (xhr.status === 401) {
+                    showError('You are not currently logged in. <br><br><a href="/bahmni/home/index.html#/login" style="color:#446565;font-weight:600;text-decoration:underline;">Click here to log in to Bahmni</a>, then refresh this page.');
+                    return;
+                }
+                if (xhr.status !== 200) {
+                    showError('Failed to load providers (HTTP ' + xhr.status + ').');
+                    return;
+                }
+                try {
+                    var data = JSON.parse(xhr.responseText);
+                    allProviders = (data.results || []).filter(function(p) { return !p.retired; });
+                    updateCounts();
+                    renderTable();
+                    document.getElementById('loading').style.display = 'none';
+                    document.getElementById('providerTable').style.display = '';
+                } catch(e) {
+                    showError('Error parsing provider data: ' + e.message);
+                }
+            };
+            xhr.onerror = function() {
+                showError('Network error connecting to OpenMRS.');
+            };
+            xhr.send();
+        }
+
+        function showError(msg) {
+            var el = document.getElementById('errorMsg');
+            el.innerHTML = msg;
+            el.style.display = 'block';
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('providerTable').style.display = 'none';
+        }
+
+        function isProviderAvailable(p) {
+            var attrs = p.attributes || [];
+            return attrs.some(function(a) {
+                var isTypeMatch = (a.attributeType && (a.attributeType.uuid === attrTypeUuid || a.attributeType.display === 'Available for appointments'));
+                return isTypeMatch && !a.voided && (a.value === true || a.value === 'true');
+            });
+        }
+
+        function updateCounts() {
+            var total = allProviders.length;
+            var availCount = allProviders.filter(isProviderAvailable).length;
+            var unavailCount = total - availCount;
+
+            document.getElementById('countAll').textContent = total;
+            document.getElementById('countAvailable').textContent = availCount;
+            document.getElementById('countUnavailable').textContent = unavailCount;
+            document.getElementById('availSummary').textContent = availCount + ' of ' + total + ' available for scheduling';
+        }
+
+        function setTab(tab) {
+            activeTab = tab;
+            document.getElementById('tabAll').className = 'filter-btn' + (tab === 'all' ? ' active' : '');
+            document.getElementById('tabAvailable').className = 'filter-btn' + (tab === 'available' ? ' active' : '');
+            document.getElementById('tabUnavailable').className = 'filter-btn' + (tab === 'unavailable' ? ' active' : '');
+            renderTable();
+        }
+
+        function onSearchOrFilterChange() {
+            renderTable();
+        }
+
+        function renderTable() {
+            var q = (document.getElementById('searchInput').value || '').trim().toLowerCase();
+            var filtered = allProviders.filter(function(p) {
+                var avail = isProviderAvailable(p);
+                if (activeTab === 'available' && !avail) return false;
+                if (activeTab === 'unavailable' && avail) return false;
+
+                if (q) {
+                    var personDisplay = (p.person && p.person.display) || '';
+                    var providerDisplay = p.display || '';
+                    var id = p.identifier || '';
+                    var fullText = (personDisplay + ' ' + providerDisplay + ' ' + id).toLowerCase();
+                    if (fullText.indexOf(q) === -1) return false;
+                }
+                return true;
+            });
+
+            var tbody = document.getElementById('providerBody');
+            tbody.innerHTML = '';
+
+            document.getElementById('showingCount').textContent = 'Showing ' + filtered.length + ' of ' + allProviders.length + ' providers';
+
+            if (filtered.length === 0) {
+                document.getElementById('emptyMsg').style.display = 'block';
+                return;
+            } else {
+                document.getElementById('emptyMsg').style.display = 'none';
+            }
+
+            filtered.forEach(function(p) {
+                var avail = isProviderAvailable(p);
+                var displayName = (p.person && p.person.display) || p.display || 'Provider';
+                var idText = p.identifier ? 'ID: ' + p.identifier : '';
+
+                var tr = document.createElement('tr');
+                tr.id = 'row-' + p.uuid;
+
+                // Name cell
+                var tdName = document.createElement('td');
+                var cellDiv = document.createElement('div');
+                cellDiv.className = 'provider-cell';
+                var nameSpan = document.createElement('span');
+                nameSpan.className = 'provider-name';
+                nameSpan.textContent = displayName;
+                cellDiv.appendChild(nameSpan);
+                if (idText) {
+                    var idSpan = document.createElement('span');
+                    idSpan.className = 'provider-id';
+                    idSpan.textContent = idText;
+                    cellDiv.appendChild(idSpan);
+                }
+                tdName.appendChild(cellDiv);
+
+                // Toggle cell
+                var tdToggle = document.createElement('td');
+                var toggleWrap = document.createElement('div');
+                toggleWrap.className = 'toggle-wrapper';
+
+                var label = document.createElement('label');
+                label.className = 'toggle';
+
+                var input = document.createElement('input');
+                input.type = 'checkbox';
+                input.checked = avail;
+                input.id = 'cb-' + p.uuid;
+                input.setAttribute('data-uuid', p.uuid);
+                input.setAttribute('data-name', displayName);
+                input.onchange = function() { handleToggle(p, this); };
+
+                var slider = document.createElement('span');
+                slider.className = 'slider';
+
+                label.appendChild(input);
+                label.appendChild(slider);
+                toggleWrap.appendChild(label);
+
+                var badge = document.createElement('span');
+                badge.className = 'status-badge ' + (avail ? 'available' : 'unavailable');
+                badge.id = 'badge-' + p.uuid;
+                badge.textContent = avail ? 'Available' : 'Not Available';
+                toggleWrap.appendChild(badge);
+
+                tdToggle.appendChild(toggleWrap);
+
+                tr.appendChild(tdName);
+                tr.appendChild(tdToggle);
+                tbody.appendChild(tr);
+            });
+        }
+
+        // 3. Handle Toggle ON/OFF
+        function handleToggle(provider, checkbox) {
+            var wantAvailable = checkbox.checked;
+            var providerUuid = provider.uuid;
+            var displayName = (provider.person && provider.person.display) || provider.display || 'Provider';
+            var tr = document.getElementById('row-' + providerUuid);
+            var badge = document.getElementById('badge-' + providerUuid);
+
+            // Disable during request
+            checkbox.disabled = true;
+            if (tr) tr.classList.add('saving-row');
+
+            if (wantAvailable) {
+                // TURN ON: POST to /openmrs/ws/rest/v1/provider/{uuid}/attribute
+                var xhr = new XMLHttpRequest();
+                xhr.open('POST', '/openmrs/ws/rest/v1/provider/' + providerUuid + '/attribute');
+                xhr.withCredentials = true;
+                xhr.setRequestHeader('Content-Type', 'application/json');
+                xhr.onload = function() {
+                    checkbox.disabled = false;
+                    if (tr) tr.classList.remove('saving-row');
+
+                    if (xhr.status === 200 || xhr.status === 201) {
+                        try {
+                            var created = JSON.parse(xhr.responseText);
+                            if (!provider.attributes) provider.attributes = [];
+                            provider.attributes.push({
+                                uuid: created.uuid,
+                                attributeType: { uuid: attrTypeUuid, display: 'Available for appointments' },
+                                value: true,
+                                voided: false
+                            });
+                        } catch(e) {}
+                        if (badge) {
+                            badge.className = 'status-badge available';
+                            badge.textContent = 'Available';
+                        }
+                        updateCounts();
+                        showToast(displayName + ' is now available for appointments.', 'success');
+                    } else {
+                        checkbox.checked = false;
+                        showToast('Failed to enable: HTTP ' + xhr.status, 'error');
+                    }
+                };
+                xhr.onerror = function() {
+                    checkbox.disabled = false;
+                    checkbox.checked = false;
+                    if (tr) tr.classList.remove('saving-row');
+                    showToast('Network error while saving.', 'error');
+                };
+                xhr.send(JSON.stringify({
+                    attributeType: attrTypeUuid,
+                    value: true
+                }));
+
+            } else {
+                // TURN OFF: DELETE all active attributes for Available for appointments
+                var activeAttrs = (provider.attributes || []).filter(function(a) {
+                    var isTypeMatch = (a.attributeType && (a.attributeType.uuid === attrTypeUuid || a.attributeType.display === 'Available for appointments'));
+                    return isTypeMatch && !a.voided;
+                });
+
+                if (activeAttrs.length === 0) {
+                    checkbox.disabled = false;
+                    if (tr) tr.classList.remove('saving-row');
+                    if (badge) {
+                        badge.className = 'status-badge unavailable';
+                        badge.textContent = 'Not Available';
+                    }
+                    updateCounts();
+                    return;
+                }
+
+                // Delete attributes sequentially
+                var deleteIndex = 0;
+                function deleteNext() {
+                    if (deleteIndex >= activeAttrs.length) {
+                        checkbox.disabled = false;
+                        if (tr) tr.classList.remove('saving-row');
+                        activeAttrs.forEach(function(a) { a.voided = true; });
+                        if (badge) {
+                            badge.className = 'status-badge unavailable';
+                            badge.textContent = 'Not Available';
+                        }
+                        updateCounts();
+                        showToast(displayName + ' is no longer available for appointments.', 'info');
+                        return;
+                    }
+
+                    var targetAttr = activeAttrs[deleteIndex];
+                    var xhr = new XMLHttpRequest();
+                    xhr.open('DELETE', '/openmrs/ws/rest/v1/provider/' + providerUuid + '/attribute/' + targetAttr.uuid);
+                    xhr.withCredentials = true;
+                    xhr.onload = function() {
+                        if (xhr.status === 200 || xhr.status === 204) {
+                            deleteIndex++;
+                            deleteNext();
+                        } else {
+                            checkbox.disabled = false;
+                            checkbox.checked = true;
+                            if (tr) tr.classList.remove('saving-row');
+                            showToast('Failed to disable: HTTP ' + xhr.status, 'error');
+                        }
+                    };
+                    xhr.onerror = function() {
+                        checkbox.disabled = false;
+                        checkbox.checked = true;
+                        if (tr) tr.classList.remove('saving-row');
+                        showToast('Network error while disabling.', 'error');
+                    };
+                    xhr.send();
+                }
+
+                deleteNext();
+            }
+        }
+
+        // Start initialization
+        initAttributeType(function() {
+            loadProviders();
+        });
+    </script>
+</body>
+</html>

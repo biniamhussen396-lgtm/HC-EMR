@@ -249,31 +249,17 @@ angular.module('bahmni.clinical')
                 }
                 var activeTabTestConcepts = _.map(_.flatten(_.map($scope.getOrderTemplate($scope.activeTab.name).setMembers, 'setMembers')), 'uuid');
                 $scope.selectedOrders = _.filter($scope.consultation.orders, function (testOrder) {
-                    var inTab = _.indexOf(activeTabTestConcepts, testOrder.concept.uuid) !== -1;
-                    return inTab && !$scope.isTestUnavailable(testOrder.concept || testOrder);
+                    var ordUuid = testOrder.concept ? testOrder.concept.uuid : testOrder.uuid;
+                    var inTab = _.indexOf(activeTabTestConcepts, ordUuid) !== -1;
+                    var isStockOut = testOrder.isUnavailable ||
+                                     (testOrder.concept && testOrder.concept.isUnavailable) ||
+                                     $scope.isTestUnavailable(testOrder) ||
+                                     $scope.isTestUnavailable(testOrder.concept) ||
+                                     _.some($scope.referralOrders, function (r) {
+                                         return r.uuid === ordUuid || (r.concept && r.concept.uuid === ordUuid);
+                                     });
+                    return inTab && !isStockOut;
                 });
-
-                if ($scope.consultation && $scope.consultation.orders) {
-                    $scope.consultation.orders.forEach(function (order) {
-                        if (order && !order.isDiscontinued && $scope.isTestUnavailable(order.concept || order)) {
-                            var ordUuid = order.concept ? order.concept.uuid : order.uuid;
-                            var exists = _.some($scope.referralOrders, function (r) {
-                                return r.uuid === ordUuid || (r.concept && r.concept.uuid === ordUuid);
-                            });
-                            if (!exists) {
-                                var resolvedName = $scope.getName(order.concept) || extractTestName(order.concept) || (order.concept ? (order.concept.displayName || order.concept.name) : 'Test');
-                                $scope.referralOrders.push({
-                                    uuid: ordUuid,
-                                    name: resolvedName,
-                                    displayName: resolvedName,
-                                    concept: order.concept || order,
-                                    sample: order.concept || order,
-                                    isUnavailable: true
-                                });
-                            }
-                        }
-                    });
-                }
 
                 _.each($scope.selectedOrders, function (order) {
                     order.isUrgent = order.urgency == "STAT" ? true : order.isUrgent;
@@ -547,13 +533,42 @@ angular.module('bahmni.clinical')
                 return {};
             };
 
+            var testConceptMap = null;
+            var getTestByUuid = function (uuid) {
+                if (!uuid) return null;
+                if (!testConceptMap) {
+                    testConceptMap = {};
+                    if ($scope.allOrdersTemplates) {
+                        _.forEach($scope.allOrdersTemplates, function (tmpl) {
+                            if (tmpl && tmpl.setMembers) {
+                                _.forEach(tmpl.setMembers, function (cat) {
+                                    _.forEach(cat.setMembers || [], function (t) {
+                                        if (t && t.uuid) testConceptMap[t.uuid] = t;
+                                    });
+                                });
+                            }
+                        });
+                    }
+                }
+                return testConceptMap[uuid];
+            };
+
             $scope.isTestUnavailable = function (test) {
                 if (!test) return false;
+                if (test.isUnavailable === true || test.isUnavailable === 'true') return true;
+                if (test.concept && (test.concept.isUnavailable === true || test.concept.isUnavailable === 'true')) return true;
                 if (test.retired === true || test.retired === 'true') return true;
                 if (test.active === false || test.active === 'false') return true;
                 if (test.isActive === 'N' || test.isActive === 'n' || test.isActive === false) return true;
                 if (test.isAvailable === false || test.isAvailable === 'false') return true;
                 if (test.status && (test.status.toLowerCase() === 'stockout' || test.status.toLowerCase() === 'inactive' || test.status.toLowerCase() === 'deactive')) return true;
+
+                var testUuid = test.uuid || (test.concept && test.concept.uuid);
+                if (testUuid && $scope.referralOrders && _.some($scope.referralOrders, function (r) {
+                    return r.uuid === testUuid || (r.concept && r.concept.uuid === testUuid);
+                })) {
+                    return true;
+                }
 
                 var testNameStr = extractTestName(test);
                 if (checkNameForUnavailableKeywords(testNameStr)) return true;
@@ -580,8 +595,24 @@ angular.module('bahmni.clinical')
 
                 var stockOutMap = getStockOutMap();
                 if (cleanName && stockOutMap[cleanName]) return true;
-                if (test.uuid && stockOutMap[test.uuid]) return true;
-                if (test.uuid && $scope.openelisInactiveTests && $scope.openelisInactiveTests[test.uuid]) return true;
+                if (testUuid && stockOutMap[testUuid]) return true;
+                if (testUuid && $scope.openelisInactiveTests && $scope.openelisInactiveTests[testUuid]) return true;
+
+                if (testUuid) {
+                    var fullConcept = getTestByUuid(testUuid);
+                    if (fullConcept && fullConcept !== test) {
+                        if (Array.isArray(fullConcept.names)) {
+                            for (var j = 0; j < fullConcept.names.length; j++) {
+                                var fn = fullConcept.names[j];
+                                var fnStr = typeof fn === 'string' ? fn : (fn.name || fn.display || '');
+                                var fnStrTrim = fnStr.trim();
+                                if (fnStrTrim === '$inactive' || fnStrTrim === '$stockout' || checkNameForUnavailableKeywords(fnStrTrim)) {
+                                    return true;
+                                }
+                            }
+                        }
+                    }
+                }
 
                 return false;
             };
@@ -785,35 +816,25 @@ angular.module('bahmni.clinical')
             $scope.toggleOrderSelection = function (test) {
                 $scope.resetSearchString();
                 if ($scope.isTestUnavailable(test)) {
+                    var testUuid = test.uuid || (test.concept && test.concept.uuid);
                     var idx = _.findIndex($scope.referralOrders, function (r) {
-                        return r.uuid === test.uuid || (r.concept && r.concept.uuid === test.uuid);
+                        return r.uuid === testUuid || (r.concept && r.concept.uuid === testUuid);
                     });
                     var resolvedName = $scope.getName(test) || extractTestName(test) || "Test";
                     if (idx === -1) {
                         $scope.referralOrders.push({
-                            uuid: test.uuid,
+                            uuid: testUuid,
                             name: resolvedName,
                             displayName: resolvedName,
                             concept: test,
                             sample: test,
-                            isUnavailable: true
+                            isUnavailable: true,
+                            orderDate: new Date()
                         });
-                        createOrder(test);
-                        var ord = _.find($scope.consultation.orders, function (o) {
-                            return o.concept && o.concept.uuid === test.uuid;
-                        });
-                        if (ord) {
-                            ord.isUnavailable = true;
-                            ord.hasBeenModified = true;
-                            ord.commentToFulfiller = '[Stock-Out: Reagent Unavailable]';
-                            if (ord.concept) {
-                                ord.concept.name = ord.concept.name || resolvedName;
-                                ord.concept.displayName = ord.concept.displayName || resolvedName;
-                            }
-                        }
+                        removeOrder(testUuid);
                     } else {
                         $scope.referralOrders.splice(idx, 1);
-                        removeOrder(test.uuid);
+                        removeOrder(testUuid);
                     }
                     $scope.updateSelectedOrdersForActiveTab();
                     return;

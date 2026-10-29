@@ -4,15 +4,20 @@ angular.module('bahmni.adt')
     .controller('AdtController', ['$scope', '$q', '$http', '$rootScope', 'spinner', 'dispositionService',
         'encounterService', 'bedService', 'appService', 'visitService', '$location', '$window', 'sessionService',
         'messagingService', '$anchorScroll', '$stateParams', 'ngDialog', '$filter', 'auditLogService', '$translate',
-        async function ($scope, $q, $http, $rootScope, spinner, dispositionService, encounterService, bedService,
+        function ($scope, $q, $http, $rootScope, spinner, dispositionService, encounterService, bedService,
             appService, visitService, $location, $window, sessionService, messagingService, $anchorScroll,
             $stateParams, ngDialog, $filter, auditLogService, $translate) {
 
+            var configDefaultVisitType = appService.getAppDescriptor().getConfigValue('defaultVisitType');
+            $scope.defaultVisitTypeName = configDefaultVisitType;
 
             var getPatientAdmission = function (uuid) {
+                if (!uuid) {
+                    return $q.when([]);
+                }
                 var params = {
                     q: "emrapi.getPatientAdmissionWard",
-                    uuid: uuid,
+                    uuid: uuid
                 };
 
                 return $http({
@@ -21,24 +26,23 @@ angular.module('bahmni.adt')
                     params: params,
                     withCredentials: true
                 }).then(function (response) {
-                    // Ensure the response data is in JSON format
-                    return response.data;
+                    return response.data || [];
                 }).catch(function (error) {
-                    // Handle any errors
-                    console.error('Error fetching patient admission data:', error);
-                    throw error;
+                    console.warn('Could not fetch patient admission ward (non-fatal):', error);
+                    return [];
                 });
             };
 
-            // Fetch the data and handle it
-            await getPatientAdmission($stateParams.patientUuid).then(function (data) {
-                if (data && data.length > 0) {
-                    $scope.defaultVisitType = data[0].ward;
-                }
-                var configDefaultVisitType = appService.getAppDescriptor().getConfigValue('defaultVisitType');
-                $scope.defaultVisitTypeName = $scope.defaultVisitType ? $scope.defaultVisitType : configDefaultVisitType;
-                console.log($scope.defaultVisitTypeName, "defaultVisitTypeName");
-            });
+            var patientUuid = $stateParams.patientUuid || ($scope.patient && $scope.patient.uuid);
+            if (patientUuid) {
+                getPatientAdmission(patientUuid).then(function (data) {
+                    if (data && data.length > 0 && data[0].ward) {
+                        $scope.defaultVisitType = data[0].ward;
+                        $scope.defaultVisitTypeName = data[0].ward;
+                        defaultVisitTypeUuid = getVisitTypeUuid($scope.defaultVisitTypeName);
+                    }
+                });
+            }
 
             var actionConfigs = {};
             var encounterConfig = $rootScope.encounterConfig;

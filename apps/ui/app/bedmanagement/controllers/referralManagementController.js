@@ -128,6 +128,41 @@ angular.module('bahmni.ipd')
             $scope.startItem = 0;
             $scope.endItem = 0;
             $scope.isPrintingRegister = false;
+            $scope.isLoading = false;
+            $scope.facilityName = 'Boru Meda General Hospital';
+            $scope.facilityLogo = '/bahmni_config/openmrs/apps/home/logo.png';
+            $scope.ethiopianCurrentDate = toEthiopianDate(new Date());
+
+            // Fetch facility branding dynamically
+            $http.get('/bahmni_config/openmrs/apps/home/whiteLabel.json', { ignoreErrors: true }).then(function (response) {
+                if (response.data && response.data.homePage) {
+                    if (response.data.homePage.logo) {
+                        $scope.facilityLogo = response.data.homePage.logo;
+                    }
+                    if (response.data.homePage.header_text) {
+                        var temp = document.createElement('div');
+                        temp.innerHTML = response.data.homePage.header_text;
+                        var raw = (temp.textContent || temp.innerText || '').trim();
+                        raw = raw.replace(/^WELCOME\s*TO\s*/i, '')
+                                 .replace(/\s*EMR\s*System\s*$/i, '')
+                                 .replace(/\s*EMR\s*$/i, '')
+                                 .trim();
+                        if (raw) {
+                            $scope.facilityName = raw;
+                        }
+                    }
+                }
+                var locCookie = $bahmniCookieStore && $bahmniCookieStore.get(Bahmni.Common.Constants.locationCookieName);
+                if ((!$scope.facilityName || $scope.facilityName === 'Health Facility') && locCookie && locCookie.name) {
+                    $scope.facilityName = locCookie.name;
+                }
+            }).catch(function () {
+                var locCookie = $bahmniCookieStore && $bahmniCookieStore.get(Bahmni.Common.Constants.locationCookieName);
+                if (locCookie && locCookie.name) {
+                    $scope.facilityName = locCookie.name;
+                }
+            });
+
             $scope.searchParams = {
                 patientName: '',
                 mrn: '',
@@ -150,21 +185,31 @@ angular.module('bahmni.ipd')
             $scope.sortField = 'referDate';
             $scope.sortReverse = true;
 
-            var locationUuid = $bahmniCookieStore.get(Bahmni.Common.Constants.locationCookieName).uuid;
+            var locCookie = $bahmniCookieStore && $bahmniCookieStore.get(Bahmni.Common.Constants.locationCookieName);
+            var locationUuid = locCookie ? locCookie.uuid : '';
 
-            $scope.loadReferrals = function () {
+            $scope.loadReferrals = function (forceSpinner) {
+                $scope.isLoading = true;
                 var params = {
                     q: 'emrapi.sqlSearch.referralManagement',
                     v: 'full',
                     location_uuid: locationUuid,
                     provider_uuid: $rootScope.currentProvider ? $rootScope.currentProvider.uuid : ''
                 };
-                spinner.forPromise($http.get(Bahmni.Common.Constants.sqlUrl, {
+                var req = $http.get(Bahmni.Common.Constants.sqlUrl, {
                     params: params
                 }).then(function (response) {
                     $scope.referrals = response.data || [];
+                    $rootScope.cachedReferrals = $scope.referrals;
                     $scope.applyFilters();
-                }));
+                    $scope.isLoading = false;
+                }).catch(function () {
+                    $scope.isLoading = false;
+                });
+
+                if (forceSpinner || (!$scope.referrals || $scope.referrals.length === 0)) {
+                    spinner.forPromise(req);
+                }
             };
 
             $scope.applyFilters = function () {
@@ -435,6 +480,316 @@ angular.module('bahmni.ipd')
                 }, 100);
             };
 
+            $scope.exportToExcel = function () {
+                var records = $scope.filteredReferrals || [];
+                if (!records || records.length === 0) {
+                    alert('No referral records available to export.');
+                    return;
+                }
+
+                var escapeXml = function (val) {
+                    if (val === null || val === undefined) return '';
+                    return String(val)
+                        .replace(/&/g, '&amp;')
+                        .replace(/</g, '&lt;')
+                        .replace(/>/g, '&gt;')
+                        .replace(/"/g, '&quot;')
+                        .replace(/'/g, '&apos;');
+                };
+
+                var facName = $scope.facilityName || 'Boru Meda General Hospital';
+                var curDate = $scope.ethiopianCurrentDate || toEthiopianDate(new Date());
+
+                var xml = '<?xml version="1.0" encoding="UTF-8"?>\r\n' +
+                    '<?mso-application progid="Excel.Sheet"?>\r\n' +
+                    '<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"\r\n' +
+                    ' xmlns:o="urn:schemas-microsoft-com:office:office"\r\n' +
+                    ' xmlns:x="urn:schemas-microsoft-com:office:excel"\r\n' +
+                    ' xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"\r\n' +
+                    ' xmlns:html="http://www.w3.org/TR/REC-html40">\r\n' +
+                    ' <DocumentProperties xmlns="urn:schemas-microsoft-com:office:office">\r\n' +
+                    '  <Title>Patient Referral Register</Title>\r\n' +
+                    '  <Subject>Liaison Patient Referral Register</Subject>\r\n' +
+                    '  <Author>Bahmni EMR</Author>\r\n' +
+                    '  <Company>' + escapeXml(facName) + '</Company>\r\n' +
+                    ' </DocumentProperties>\r\n' +
+                    ' <Styles>\r\n' +
+                    '  <Style ss:ID="Default" ss:Name="Normal">\r\n' +
+                    '   <Alignment ss:Vertical="Center"/>\r\n' +
+                    '   <Borders/>\r\n' +
+                    '   <Font ss:FontName="Calibri" ss:Size="10" ss:Color="#000000"/>\r\n' +
+                    '   <Interior/>\r\n' +
+                    '   <NumberFormat/>\r\n' +
+                    '   <Protection/>\r\n' +
+                    '  </Style>\r\n' +
+                    '  <Style ss:ID="BureauHeader">\r\n' +
+                    '   <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>\r\n' +
+                    '   <Font ss:FontName="Calibri" ss:Size="11" ss:Bold="1" ss:Color="#444444"/>\r\n' +
+                    '  </Style>\r\n' +
+                    '  <Style ss:ID="TitleHeader">\r\n' +
+                    '   <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>\r\n' +
+                    '   <Font ss:FontName="Calibri" ss:Size="14" ss:Bold="1" ss:Color="#1A237E"/>\r\n' +
+                    '   <Interior ss:Color="#E8EAF6" ss:Pattern="Solid"/>\r\n' +
+                    '  </Style>\r\n' +
+                    '  <Style ss:ID="MetaHeader">\r\n' +
+                    '   <Alignment ss:Horizontal="Left" ss:Vertical="Center"/>\r\n' +
+                    '   <Font ss:FontName="Calibri" ss:Size="9" ss:Italic="1" ss:Color="#333333"/>\r\n' +
+                    '  </Style>\r\n' +
+                    '  <Style ss:ID="GroupHeader">\r\n' +
+                    '   <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>\r\n' +
+                    '   <Font ss:FontName="Calibri" ss:Size="10" ss:Bold="1" ss:Color="#0D47A1"/>\r\n' +
+                    '   <Interior ss:Color="#BBDEFB" ss:Pattern="Solid"/>\r\n' +
+                    '   <Borders>\r\n' +
+                    '    <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#1565C0"/>\r\n' +
+                    '    <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#1565C0"/>\r\n' +
+                    '    <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#1565C0"/>\r\n' +
+                    '    <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#1565C0"/>\r\n' +
+                    '   </Borders>\r\n' +
+                    '  </Style>\r\n' +
+                    '  <Style ss:ID="ColHeader">\r\n' +
+                    '   <Alignment ss:Horizontal="Center" ss:Vertical="Center" ss:WrapText="1"/>\r\n' +
+                    '   <Font ss:FontName="Calibri" ss:Size="9" ss:Bold="1" ss:Color="#FFFFFF"/>\r\n' +
+                    '   <Interior ss:Color="#1565C0" ss:Pattern="Solid"/>\r\n' +
+                    '   <Borders>\r\n' +
+                    '    <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#0D47A1"/>\r\n' +
+                    '    <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#0D47A1"/>\r\n' +
+                    '    <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#0D47A1"/>\r\n' +
+                    '    <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#0D47A1"/>\r\n' +
+                    '   </Borders>\r\n' +
+                    '  </Style>\r\n' +
+                    '  <Style ss:ID="ColNumHeader">\r\n' +
+                    '   <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>\r\n' +
+                    '   <Font ss:FontName="Calibri" ss:Size="8" ss:Color="#555555"/>\r\n' +
+                    '   <Interior ss:Color="#F5F5F5" ss:Pattern="Solid"/>\r\n' +
+                    '   <Borders>\r\n' +
+                    '    <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#1565C0"/>\r\n' +
+                    '    <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CCCCCC"/>\r\n' +
+                    '    <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CCCCCC"/>\r\n' +
+                    '    <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CCCCCC"/>\r\n' +
+                    '   </Borders>\r\n' +
+                    '  </Style>\r\n' +
+                    '  <Style ss:ID="CellLeft">\r\n' +
+                    '   <Alignment ss:Horizontal="Left" ss:Vertical="Center" ss:WrapText="1"/>\r\n' +
+                    '   <Font ss:FontName="Calibri" ss:Size="9"/>\r\n' +
+                    '   <Borders>\r\n' +
+                    '    <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E0E0E0"/>\r\n' +
+                    '    <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E0E0E0"/>\r\n' +
+                    '    <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E0E0E0"/>\r\n' +
+                    '    <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E0E0E0"/>\r\n' +
+                    '   </Borders>\r\n' +
+                    '  </Style>\r\n' +
+                    '  <Style ss:ID="CellCenter">\r\n' +
+                    '   <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>\r\n' +
+                    '   <Font ss:FontName="Calibri" ss:Size="9"/>\r\n' +
+                    '   <Borders>\r\n' +
+                    '    <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E0E0E0"/>\r\n' +
+                    '    <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E0E0E0"/>\r\n' +
+                    '    <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E0E0E0"/>\r\n' +
+                    '    <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E0E0E0"/>\r\n' +
+                    '   </Borders>\r\n' +
+                    '  </Style>\r\n' +
+                    '  <Style ss:ID="CellAltLeft">\r\n' +
+                    '   <Alignment ss:Horizontal="Left" ss:Vertical="Center" ss:WrapText="1"/>\r\n' +
+                    '   <Font ss:FontName="Calibri" ss:Size="9"/>\r\n' +
+                    '   <Interior ss:Color="#F9FAFB" ss:Pattern="Solid"/>\r\n' +
+                    '   <Borders>\r\n' +
+                    '    <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E0E0E0"/>\r\n' +
+                    '    <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E0E0E0"/>\r\n' +
+                    '    <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E0E0E0"/>\r\n' +
+                    '    <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E0E0E0"/>\r\n' +
+                    '   </Borders>\r\n' +
+                    '  </Style>\r\n' +
+                    '  <Style ss:ID="CellAltCenter">\r\n' +
+                    '   <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>\r\n' +
+                    '   <Font ss:FontName="Calibri" ss:Size="9"/>\r\n' +
+                    '   <Interior ss:Color="#F9FAFB" ss:Pattern="Solid"/>\r\n' +
+                    '   <Borders>\r\n' +
+                    '    <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E0E0E0"/>\r\n' +
+                    '    <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E0E0E0"/>\r\n' +
+                    '    <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E0E0E0"/>\r\n' +
+                    '    <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E0E0E0"/>\r\n' +
+                    '   </Borders>\r\n' +
+                    '  </Style>\r\n' +
+                    '  <Style ss:ID="StatusOpen">\r\n' +
+                    '   <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>\r\n' +
+                    '   <Font ss:FontName="Calibri" ss:Size="9" ss:Bold="1" ss:Color="#2E7D32"/>\r\n' +
+                    '   <Interior ss:Color="#E8F5E9" ss:Pattern="Solid"/>\r\n' +
+                    '   <Borders>\r\n' +
+                    '    <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#C8E6C9"/>\r\n' +
+                    '    <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#C8E6C9"/>\r\n' +
+                    '    <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#C8E6C9"/>\r\n' +
+                    '    <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#C8E6C9"/>\r\n' +
+                    '   </Borders>\r\n' +
+                    '  </Style>\r\n' +
+                    '  <Style ss:ID="StatusClosed">\r\n' +
+                    '   <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>\r\n' +
+                    '   <Font ss:FontName="Calibri" ss:Size="9" ss:Color="#607D8B"/>\r\n' +
+                    '   <Interior ss:Color="#ECEFF1" ss:Pattern="Solid"/>\r\n' +
+                    '   <Borders>\r\n' +
+                    '    <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CFD8DC"/>\r\n' +
+                    '    <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CFD8DC"/>\r\n' +
+                    '    <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CFD8DC"/>\r\n' +
+                    '    <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CFD8DC"/>\r\n' +
+                    '   </Borders>\r\n' +
+                    '  </Style>\r\n' +
+                    ' </Styles>\r\n' +
+                    ' <Worksheet ss:Name="Referral Register">\r\n' +
+                    '  <Table>\r\n';
+
+                var colWidths = [
+                    35,  // S/N
+                    75,  // Service Date (E.C.)
+                    65,  // MRN
+                    150, // Name
+                    35,  // Age
+                    35,  // Sex
+                    70,  // Region
+                    75,  // Subcity
+                    80,  // Woreda
+                    65,  // Kebele
+                    45,  // Referral In
+                    45,  // Referral Out
+                    130, // Referred To Facility
+                    75,  // Case Type
+                    150, // Diagnosis
+                    90,  // Department
+                    90,  // Location
+                    130, // Physician Referred By
+                    130, // Approved By
+                    95,  // Specialty
+                    95,  // Approval Method
+                    105, // Approval DateTime (E.C.)
+                    140, // Reason for Referral
+                    55,  // Ambulance
+                    55,  // Escort
+                    60   // Status
+                ];
+
+                colWidths.forEach(function (w) {
+                    xml += '   <Column ss:Width="' + w + '"/>\r\n';
+                });
+
+                var totalCols = colWidths.length;
+
+                // Title row 1: Regional bureau
+                xml += '   <Row ss:Height="20">\r\n' +
+                    '    <Cell ss:MergeAcross="' + (totalCols - 1) + '" ss:StyleID="BureauHeader">' +
+                    '<Data ss:Type="String">AMHARA NATIONAL REGIONAL STATE HEALTH BUREAU</Data></Cell>\r\n' +
+                    '   </Row>\r\n';
+
+                // Title row 2: Facility name and Register title
+                xml += '   <Row ss:Height="26">\r\n' +
+                    '    <Cell ss:MergeAcross="' + (totalCols - 1) + '" ss:StyleID="TitleHeader">' +
+                    '<Data ss:Type="String">' + escapeXml(facName.toUpperCase()) + ' - LIAISON PATIENT REFERRAL REGISTER (IN / OUT)</Data></Cell>\r\n' +
+                    '   </Row>\r\n';
+
+                // Metadata row 3
+                xml += '   <Row ss:Height="18">\r\n' +
+                    '    <Cell ss:MergeAcross="' + (totalCols - 1) + '" ss:StyleID="MetaHeader">' +
+                    '<Data ss:Type="String">Date (E.C.): ' + escapeXml(curDate) +
+                    '   |   Total Filtered Records: ' + records.length +
+                    ($scope.searchParams.status ? ('   |   Status: ' + escapeXml($scope.searchParams.status)) : '') +
+                    '</Data></Cell>\r\n' +
+                    '   </Row>\r\n';
+
+                // Blank row
+                xml += '   <Row ss:Height="8"/>\r\n';
+
+                // Group headers (Row 5)
+                xml += '   <Row ss:Height="22">\r\n' +
+                    '    <Cell ss:MergeAcross="5" ss:StyleID="GroupHeader"><Data ss:Type="String">Identification</Data></Cell>\r\n' +
+                    '    <Cell ss:Index="7" ss:MergeAcross="3" ss:StyleID="GroupHeader"><Data ss:Type="String">Address</Data></Cell>\r\n' +
+                    '    <Cell ss:Index="11" ss:MergeAcross="1" ss:StyleID="GroupHeader"><Data ss:Type="String">Type of Referral</Data></Cell>\r\n' +
+                    '    <Cell ss:Index="13" ss:MergeAcross="13" ss:StyleID="GroupHeader"><Data ss:Type="String">Referral Service Details</Data></Cell>\r\n' +
+                    '   </Row>\r\n';
+
+                // Column Headers (Row 6)
+                var headers = [
+                    'S/N', 'Service Date (E.C.)', 'MRN', 'Name of the Patient', 'Age', 'Sex',
+                    'Region', 'Subcity/Zone', 'Woreda', 'Kebele',
+                    'In', 'Out',
+                    'Referred To Facility', 'Type of Case', 'Diagnosis', 'Department', 'Location',
+                    'Physician (Referred by)', 'Approved By', 'Specialty', 'Approval Method',
+                    'Approval Date (E.C.)', 'Reason for Referral', 'Ambulance', 'Escort', 'Status'
+                ];
+
+                xml += '   <Row ss:Height="24">\r\n';
+                headers.forEach(function (h) {
+                    xml += '    <Cell ss:StyleID="ColHeader"><Data ss:Type="String">' + escapeXml(h) + '</Data></Cell>\r\n';
+                });
+                xml += '   </Row>\r\n';
+
+                // Column Numbers (Row 7)
+                xml += '   <Row ss:Height="14">\r\n';
+                headers.forEach(function (h, i) {
+                    xml += '    <Cell ss:StyleID="ColNumHeader"><Data ss:Type="String">(' + (i + 1) + ')</Data></Cell>\r\n';
+                });
+                xml += '   </Row>\r\n';
+
+                // Data Rows
+                records.forEach(function (ref, index) {
+                    var isAlt = (index % 2 === 1);
+                    var styleLeft = isAlt ? 'CellAltLeft' : 'CellLeft';
+                    var styleCenter = isAlt ? 'CellAltCenter' : 'CellCenter';
+
+                    var sDate = $scope.getServiceDate(ref);
+                    var appDate = ref.approvalDateTime ? toEthiopianDateTime(ref.approvalDateTime) : '';
+                    var statusStyle = (ref.status === 'Closed') ? 'StatusClosed' : 'StatusOpen';
+
+                    xml += '   <Row ss:Height="19">\r\n';
+                    xml += '    <Cell ss:StyleID="' + styleCenter + '"><Data ss:Type="Number">' + (index + 1) + '</Data></Cell>\r\n';
+                    xml += '    <Cell ss:StyleID="' + styleCenter + '"><Data ss:Type="String">' + escapeXml(sDate) + '</Data></Cell>\r\n';
+                    xml += '    <Cell ss:StyleID="' + styleCenter + '"><Data ss:Type="String">' + escapeXml(ref.identifier || '') + '</Data></Cell>\r\n';
+                    xml += '    <Cell ss:StyleID="' + styleLeft + '"><Data ss:Type="String">' + escapeXml(ref.name || '') + '</Data></Cell>\r\n';
+                    xml += '    <Cell ss:StyleID="' + styleCenter + '"><Data ss:Type="' + (ref.age !== undefined && ref.age !== null && ref.age !== '' ? 'Number' : 'String') + '">' + (ref.age !== undefined && ref.age !== null ? ref.age : '') + '</Data></Cell>\r\n';
+                    xml += '    <Cell ss:StyleID="' + styleCenter + '"><Data ss:Type="String">' + escapeXml(ref.sex === 'Male' ? 'M' : (ref.sex === 'Female' ? 'F' : (ref.sex || ''))) + '</Data></Cell>\r\n';
+                    xml += '    <Cell ss:StyleID="' + styleLeft + '"><Data ss:Type="String">' + escapeXml(ref.region || '') + '</Data></Cell>\r\n';
+                    xml += '    <Cell ss:StyleID="' + styleLeft + '"><Data ss:Type="String">' + escapeXml(ref.subcity || '') + '</Data></Cell>\r\n';
+                    xml += '    <Cell ss:StyleID="' + styleLeft + '"><Data ss:Type="String">' + escapeXml(ref.woreda || '') + '</Data></Cell>\r\n';
+                    xml += '    <Cell ss:StyleID="' + styleCenter + '"><Data ss:Type="String">' + escapeXml(ref.kebele || '') + '</Data></Cell>\r\n';
+                    xml += '    <Cell ss:StyleID="' + styleCenter + '"><Data ss:Type="String">' + (ref.referralDirection === 'In' ? 'Yes' : '') + '</Data></Cell>\r\n';
+                    xml += '    <Cell ss:StyleID="' + styleCenter + '"><Data ss:Type="String">' + (ref.referralDirection === 'Out' ? 'Yes' : '') + '</Data></Cell>\r\n';
+                    xml += '    <Cell ss:StyleID="' + styleLeft + '"><Data ss:Type="String">' + escapeXml(ref.referredTo || '') + '</Data></Cell>\r\n';
+                    xml += '    <Cell ss:StyleID="' + styleCenter + '"><Data ss:Type="String">' + escapeXml(ref.patientCondition || '') + '</Data></Cell>\r\n';
+                    xml += '    <Cell ss:StyleID="' + styleLeft + '"><Data ss:Type="String">' + escapeXml(ref.diagnosis || '') + '</Data></Cell>\r\n';
+                    xml += '    <Cell ss:StyleID="' + styleLeft + '"><Data ss:Type="String">' + escapeXml(ref.department || '') + '</Data></Cell>\r\n';
+                    xml += '    <Cell ss:StyleID="' + styleLeft + '"><Data ss:Type="String">' + escapeXml(ref.location || '') + '</Data></Cell>\r\n';
+                    xml += '    <Cell ss:StyleID="' + styleLeft + '"><Data ss:Type="String">' + escapeXml(ref.physicianName || '') + '</Data></Cell>\r\n';
+                    xml += '    <Cell ss:StyleID="' + styleLeft + '"><Data ss:Type="String">' + escapeXml(ref.approvedBy || 'Pending') + '</Data></Cell>\r\n';
+                    xml += '    <Cell ss:StyleID="' + styleLeft + '"><Data ss:Type="String">' + escapeXml(ref.approvedSpecialty || '') + '</Data></Cell>\r\n';
+                    xml += '    <Cell ss:StyleID="' + styleCenter + '"><Data ss:Type="String">' + escapeXml(ref.approvalMethod || '') + '</Data></Cell>\r\n';
+                    xml += '    <Cell ss:StyleID="' + styleCenter + '"><Data ss:Type="String">' + escapeXml(appDate) + '</Data></Cell>\r\n';
+                    xml += '    <Cell ss:StyleID="' + styleLeft + '"><Data ss:Type="String">' + escapeXml(ref.reasonForReferral || '') + '</Data></Cell>\r\n';
+                    xml += '    <Cell ss:StyleID="' + styleCenter + '"><Data ss:Type="String">' + (ref.needAmbulance ? 'Yes' : 'No') + '</Data></Cell>\r\n';
+                    xml += '    <Cell ss:StyleID="' + styleCenter + '"><Data ss:Type="String">' + (ref.needEscorting ? 'Yes' : 'No') + '</Data></Cell>\r\n';
+                    xml += '    <Cell ss:StyleID="' + statusStyle + '"><Data ss:Type="String">' + escapeXml(ref.status || 'Open') + '</Data></Cell>\r\n';
+                    xml += '   </Row>\r\n';
+                });
+
+                xml += '  </Table>\r\n' +
+                    ' </Worksheet>\r\n' +
+                    '</Workbook>';
+
+                var dateStr = (curDate || '').replace(/[\/\\]/g, '-');
+                var fileName = 'Referral_Register_' + (dateStr || 'export') + '.xls';
+
+                var blob = new Blob([xml], { type: 'application/vnd.ms-excel;charset=utf-8;' });
+                if (window.navigator && window.navigator.msSaveOrOpenBlob) {
+                    window.navigator.msSaveOrOpenBlob(blob, fileName);
+                } else {
+                    var link = document.createElement('a');
+                    var url = URL.createObjectURL(blob);
+                    link.href = url;
+                    link.download = fileName;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    setTimeout(function () {
+                        URL.revokeObjectURL(url);
+                    }, 1000);
+                }
+            };
+
             $scope.openPatientDashboard = function (referral) {
                 $state.go('bedManagement.patient', { patientUuid: referral.patientUuid });
             };
@@ -448,6 +803,12 @@ angular.module('bahmni.ipd')
                 if (!ref || !ref.closedDate) return '-';
                 return toEthiopianDate(ref.closedDate);
             };
+
+            // Instant render from cache if available
+            if ($rootScope.cachedReferrals && $rootScope.cachedReferrals.length > 0) {
+                $scope.referrals = $rootScope.cachedReferrals;
+                $scope.applyFilters();
+            }
 
             $scope.loadReferrals();
         }

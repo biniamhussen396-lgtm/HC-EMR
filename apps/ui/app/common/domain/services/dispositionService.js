@@ -68,7 +68,8 @@ angular.module('bahmni.common.domain')
             var locale = ($rootScope.currentUser && $rootScope.currentUser.userProperties && $rootScope.currentUser.userProperties.defaultLocale) || 'en';
             return $http.get(Bahmni.Common.Constants.bahmniDispositionByVisitUrl, {
                 params: {visitUuid: visitUuid,
-                    locale: locale}
+                    locale: locale},
+                ignoreErrors: true
             });
         };
 
@@ -79,7 +80,8 @@ angular.module('bahmni.common.domain')
                     patientUuid: patientUuid,
                     numberOfVisits: numberOfVisits,
                     locale: locale
-                }
+                },
+                ignoreErrors: true
             });
         };
 

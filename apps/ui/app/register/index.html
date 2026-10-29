@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en" ng-app="bahmni.register">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Standardized MOH Registers — Bahmni EMR</title>
+    <link rel="shortcut icon" type="image/x-icon" href="../favicon.ico">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+    <link rel="stylesheet" href="../styles/clinical.css">
+    <link rel="stylesheet" href="../micro-frontends-dist/shared.min.css">
+    <link rel="stylesheet" href="styles/register.css">
+</head>
+<body>
+    <div ui-view></div>
+
+    <!-- Core Libraries -->
+    <script src="../components/jquery/jquery.min.js"></script>
+    <script src="../lib/jquery-calendars/js/jquery.plugin.min.js"></script>
+    <script src="../lib/jquery-calendars/js/jquery.calendars.all.min.js"></script>
+    <script src="../lib/jquery-calendars/js/jquery.calendars.ethiopian.min.js"></script>
+    <script src="../lib/jquery-calendars/js/jquery.calendars.ethiopian-am.js"></script>
+
+    <script src="../components/angular/angular.min.js"></script>
+    <script src="../components/angular-ui-router/release/angular-ui-router.min.js"></script>
+    <script src="../components/angular-cookies/angular-cookies.min.js"></script>
+    <script src="../components/moment/moment.js"></script>
+
+    <!-- Register Application Scripts -->
+    <script src="app.js"></script>
+    <script src="services/ethiopianCalendarService.js"></script>
+    <script src="services/registerService.js"></script>
+    <script src="controllers/registerController.js"></script>
+</body>
+</html>

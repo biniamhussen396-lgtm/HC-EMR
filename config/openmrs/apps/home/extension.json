@@ -61,6 +61,17 @@
     "order": 7,
     "requiredPrivilege": "app:adt"
   },
+  "register": {
+    "id": "bahmni.register",
+    "extensionPointId": "org.bahmni.home.dashboard",
+    "type": "link",
+    "label": "Register",
+    "translationKey": "MODULE_LABEL_REGISTER_KEY",
+    "url": "../register/index.html#/dashboard/register",
+    "icon": "fa-book",
+    "order": 5,
+    "requiredPrivilege": "app:register"
+  },
 
   "radiologyDocumentUpload": {
     "id": "bahmni.radiology.document.upload",

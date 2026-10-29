@@ -1,0 +1,130 @@
+<div ng-class=\\"{'app-filter-open': isFilterOpen}\\">\
+    <div ng-if=\\"!searchedPatient\\">\
+        <date-picker view-date=\\"startDate\\" last-valid-date=\\"lastValidDate\\" on-change=\\"getAppointmentsForDate\\"\
+                     show-buttons=\\"false\\"></date-picker>\
+    </div>\
+    <p class=\\"app-patient-search\\">\
+    <a ng-click=\\"goBackToPreviousView()\\" ng-show=\\"searchedPatient\\">{{::'RESET_KEY' | translate}} {{::'PATIENT_LIST_VIEW_SEARCH_HEADER' | translate}}</a>\
+    <patient-search on-search=\\"displaySearchedPatient\\"></patient-search>\
+    </p>\
+    <button ng-show=\\"!hasNoAppointments()\\" ng-click=\\"printPage()\\" class=\\"list-view-print-btn\\"><i class=\\"fa fa-print\\" aria-hidden=\\"true\\"></i></button>\
+    <div class=\\"app-list-view\\">\
+        <p class=\\"no-app-avab-list-view\\" ng-show=\\"hasNoAppointments()\\">{{::'NO_APPOINTMENT_LIST_VIEW' | translate}}</p>\
+        <table ng-show=\\"!hasNoAppointments()\\">\
+            <thead>\
+            <tr>\
+                <th ng-class=\\"{'table-mid-width': info.class}\\" ng-show=\\"::info.enable\\" ng-repeat=\\"info in ::tableInfo\\" ng-click=\\"::info.sortInfo && sortAppointmentsBy(info.sortInfo)\\">\
+                    {{ ::info.heading | translate }}\
+                    <span ng-if=\\"sortColumn == info.sortInfo || info.sortInfo == 'additionalInfo' && sortColumn == 'additionalInformation'\\">\
+                        <i class=\\"fa fa-caret-up\\" ng-show=\\"reverseSort\\"></i>\
+                        <i class=\\"fa fa-caret-down\\" ng-show=\\"!reverseSort\\"></i>\
+                </span>\
+                </th>\
+            </tr>\
+            </thead>\
+            <tbody>\
+            <tr ng-repeat=\\"appointment in filteredAppointments\\" ng-click=\\"select(appointment)\\" ng-style=\\"{'background-color': colorsForListView[appointment.status]}\\" ng-class=\\"{'selected' : isSelected(appointment)}\\">\
+                <td class=\\"table-mid-width\\">\
+                    <a ng-show=\\"shouldShowAppointmentsListPatientLink\\" href=\\"#\\" target=\\"_blank\\" ng-click=\\"$event.stopPropagation()\\" ng-href=\\"{{generateAppointmentsListPatientLink(appointment)}}\\">{{::appointment.patient.identifier}}</a>\
+                    <span ng-hide=\\"shouldShowAppointmentsListPatientLink\\">{{::appointment.patient.identifier}}</span>\
+                </td>\
+                <td class=\\"table-mid-width\\" ng-show=\\"::!enableColumnsForAppointments\\">{{::appointment.dateCreated | bahmniDate}}</td>\
+                <td class=\\"table-mid-width\\">{{::appointment.patient.name | titleCase}}</td>\
+                <td ng-show=\\"::enableColumnsForAppointments\\">{{::appointment.startDateTime | bahmniDate}} {{::info}}</td>\
+                <td ng-show=\\"::enableColumnsForAppointments\\">{{::appointment.startDateTime | bahmniTime}}</td>\
+                <td ng-show=\\"::enableColumnsForAppointments\\">{{::appointment.endDateTime | bahmniTime}}</td>\
+                <td class=\\"table-mid-width\\">\
+                    <ul>\
+                        <li ng-repeat=\\"appProvider in appointment.providers\\">\
+                            <label ng-show=\\"appProvider.response != 'CANCELLED'\\"\
+                                   class=\\"provider-name\\" ng-class=\\"isAppointmentRequestEnabled && appProvider.response\\">\
+                                {{appProvider.name}}\
+                            </label>\
+                        </li>\
+                    </ul>\
+                </td>\
+                <td class=\\"table-mid-width\\" ng-show=\\"::!enableColumnsForAppointments\\">{{::appointment.priority}}</td>\
+                <td class=\\"table-mid-width\\" ng-show=\\"::enableSpecialities\\">{{::appointment.service.speciality.name}}</td>\
+                <td class=\\"table-mid-width\\">{{::appointment.service.name}}</td>\
+                <td class=\\"table-mid-width\\" ng-show=\\"::enableAppointmentNumber\\">{{::appointment.appointmentNumber}}</td>\
+                <td class=\\"table-mid-width\\" ng-show=\\"::enableServiceTypes\\">{{::appointment.serviceType && (appointment.serviceType.name + ' [' + appointment.serviceType.duration + ' min]')}}</td>\
+                <td class=\\"table-mid-width\\" ng-show=\\"::enableAppointmentReasons\\">{{getAppointmentReasons(appointment)}}</td>\
+                <td>{{translateAppointmentStatus(appointment.status)}}</td>\
+                <td ng-show=\\"::enableColumnsForAppointments\\">{{:: isWalkIn(appointment.appointmentKind)}}</td>\
+                <td class=\\"table-mid-width\\">{{::appointment.location.name}}</td>\
+                <td class=\\"table-mid-width\\" ng-show=\\"!disableDatesForWaitListAppointment && getCurrentTabName() === 'awaitingappointments'\\">{{appointment.startDateTime | bahmniDateTime}} - {{appointment.endDateTime | bahmniDateTime}} </td>\
+                <td class=\\"table-mid-width\\">{{display(appointment.additionalInfo)}}</td>\
+                <td>{{::appointment.comments}}</td>\
+            </tr>\
+            </tbody>\
+        </table>\
+    </div>\
+    <div ui-view=\\"content@appointment\\"></div>\
+    <fieldset class=\\"appointment-action-btn-container\\" ng-disabled=\\"!selectedAppointment\\" ng-class=\\"{'disabled': !selectedAppointment}\\">\
+\
+        <button ng-if=\\"isVirtualConsultationEnabled()\\"\
+            show-if-privilege=\\"{{manageAppointmentPrivilege}},{{ownAppointmentPrivilege}}\\" \
+            ng-click=\\"openTeleConsultation()\\" \
+            ng-disabled=\\"!isTeleconsultationAllowed()\\">\
+            {{::'JOIN_TELE_CONSULTATION' |translate}}\
+        </button>\
+\
+        <button class=\\"copy-clip\\" title=\\"{{::'COPY_LINK' | translate}}\\" \
+            ng-if=\\"isVirtualConsultationEnabled()\\"\
+            show-if-privilege=\\"{{manageAppointmentPrivilege}},{{ownAppointmentPrivilege}}\\"\
+            ng-click=\\"copyTeleConsultationMeetingURL()\\" \
+            ng-disabled=\\"!isTeleconsultationAllowed()\\">\
+        </button>\
+\
+        <button show-if-privilege=\\"{{manageAppointmentPrivilege}},{{ownAppointmentPrivilege}}\\" ng-click=\\"editAppointment()\\"\
+        ng-disabled=\\"!isEditAllowed()\\">\
+            {{::'EDIT_APPOINTMENT' |translate}}\
+        </button>\
+        <button ng-if=\\"!isResetAppointmentStatusFeatureEnabled()\\"\
+                show-if-privilege=\\"{{manageAppointmentPrivilege}},{{ownAppointmentPrivilege}}\\"\
+                ng-show=\\"isAllowedAction('CheckedIn')\\"\
+                ng-disabled=\\"!isUndoCheckInAllowed()\\"\
+                ng-click=\\"undoCheckIn()\\">\
+            {{::'UNDO_CHECK_IN_APPOINTMENT' | translate}}\
+        </button>\
+        <button ng-if=\\"isResetAppointmentStatusFeatureEnabled()\\"\
+                show-if-privilege=\\"{{manageAppointmentPrivilege}},{{ownAppointmentPrivilege}}\\"\
+                ng-disabled=\\"!isResetAppointmentStatusAllowed()\\"\
+                ng-click=\\"reset()\\">\
+            {{::'RESET_APPOINTMENT' | translate}}\
+        </button>\
+        <button show-if-privilege=\\"{{manageAppointmentPrivilege}},{{ownAppointmentPrivilege}}\\"\
+                ng-if=\\"isAppointmentRequestEnabled\\"\
+                ng-disabled=\\"!isSelectedAppointmentAwaitingForCurrentProvider(appointment)\\"\
+                ng-click=\\"acceptInviteForCurrentProvider()\\">\
+            {{::'ACCEPT_APPOINTMENT_REQUEST' | translate}}\
+        </button>\
+        <button show-if-privilege=\\"{{manageAppointmentPrivilege}},{{ownAppointmentPrivilege}}\\"\
+                ng-show=\\"isAllowedAction('CheckedIn')\\"\
+                ng-disabled=\\"!isValidActionAndIsUserAllowedToPerformEdit('CheckedIn')\\"\
+                ng-click=\\"checkinAppointment()\\">\
+                {{::'CHECK_IN_APPOINTMENT' | translate}}\
+        </button>\
+        <button show-if-privilege=\\"{{manageAppointmentPrivilege}},{{ownAppointmentPrivilege}}\\"\
+                ng-show=\\"isAllowedAction('Completed')\\"\
+                ng-disabled=\\"!isValidActionAndIsUserAllowedToPerformEdit('Completed')\\"\
+                ng-click=\\"confirmAction('Completed')\\">\
+                {{::'COMPLETE_APPOINTMENT' |translate}}\
+        </button>\
+        <button show-if-privilege=\\"{{manageAppointmentPrivilege}},{{ownAppointmentPrivilege}}\\"\
+                ng-show=\\"isAllowedAction('Missed')\\"\
+                ng-disabled=\\"!isValidActionAndIsUserAllowedToPerformEdit('Missed')\\"\
+                ng-click=\\"confirmAction('Missed')\\">\
+                {{::'MISSED_APPOINTMENT' | translate}}\
+        </button>\
+        <button show-if-privilege=\\"{{manageAppointmentPrivilege}},{{ownAppointmentPrivilege}}\\"\
+                ng-show=\\"isAllowedAction('Cancelled')\\"\
+                ng-disabled=\\"!isValidActionAndIsUserAllowedToPerformEdit('Cancelled')\\"\
+                ng-click=\\"confirmAction('Cancelled')\\">\
+                {{::'CANCEL_APPOINTMENT' | translate}}\
+        </button>\
+    </fieldset>\
+</div>\
+";
+
+//# 

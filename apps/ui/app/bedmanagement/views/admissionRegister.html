@@ -1,0 +1,1493 @@
+<div class="admission-register-container" ng-controller="AdmissionRegisterController">
+    <!-- Header Section (Visible on Screen) -->
+    <div class="register-header-banner no-print">
+        <div class="header-left">
+            <div class="facility-branding">
+                <img ng-src="{{facilityLogo}}" alt="Logo" class="facility-logo" onerror="this.style.display='none'">
+                <div>
+                    <h2 class="facility-title">{{facilityName}}</h2>
+                    <h4 class="register-subtitle">
+                        <i class="fa fa-book"></i> Federal Democratic Republic of Ethiopia - Ministry of Health
+                        <span class="register-tag">Inpatient Admission / Discharge Register</span>
+                    </h4>
+                </div>
+            </div>
+        </div>
+        <div class="header-right">
+            <div class="date-badge">
+                <i class="fa fa-calendar"></i> {{ethiopianCurrentDate}} E.C.
+            </div>
+            <a class="btn-back-ward" ui-sref="bedManagement" title="Go to Ward Bed Grid View">
+                <i class="fa fa-th"></i> Ward Bed View
+            </a>
+        </div>
+    </div>
+
+    <!-- Official MOH Print Header (Only visible in Print / PDF) -->
+    <div class="moh-print-header print-only">
+        <div class="moh-logo-line">
+            <div class="moh-left">
+                <div class="moh-emblem">የኢትዮጵያ ፌዴራላዊ ዴሞክራሲያዊ ሪፐብሊክ የጤና ጥበቃ ሚኒስቴር</div>
+                <div class="moh-emblem-en">MINISTRY OF HEALTH ETHIOPIA</div>
+            </div>
+            <div class="moh-center">
+                <h1 class="moh-title">Admission/ Discharge Register</h1>
+            </div>
+            <div class="moh-right">
+                <div class="moh-facility">Facility: <strong>{{facilityName}}</strong></div>
+                <div class="moh-date">Date: {{ethiopianCurrentDate}} E.C.</div>
+            </div>
+        </div>
+        <div class="moh-ward-line">
+            <span>Name of Ward: <u>&nbsp;{{searchParams.ward || 'All Inpatient Wards'}}&nbsp;</u></span>
+            <span style="float: right;">Status: <u>&nbsp;{{searchParams.status || 'All Inpatient Admissions'}}&nbsp;</u></span>
+        </div>
+    </div>
+
+    <!-- Summary KPI Stat Cards (No Print) -->
+    <div class="register-stat-cards no-print">
+        <div class="stat-card stat-total">
+            <div class="stat-icon"><i class="fa fa-users"></i></div>
+            <div class="stat-content">
+                <div class="stat-number">{{admissions.length}}</div>
+                <div class="stat-label">Total Inpatient Admissions</div>
+            </div>
+        </div>
+        <div class="stat-card stat-admitted">
+            <div class="stat-icon"><i class="fa fa-bed"></i></div>
+            <div class="stat-content">
+                <div class="stat-number">{{(admissions | filter:{status:'Admitted'}).length}}</div>
+                <div class="stat-label">Currently Admitted (Active)</div>
+            </div>
+        </div>
+        <div class="stat-card stat-discharged">
+            <div class="stat-icon"><i class="fa fa-check-circle"></i></div>
+            <div class="stat-content">
+                <div class="stat-number">{{(admissions | filter:{status:'Discharged'}).length}}</div>
+                <div class="stat-label">Discharged Patients</div>
+            </div>
+        </div>
+        <div class="stat-card stat-deaths">
+            <div class="stat-icon"><i class="fa fa-heartbeat"></i></div>
+            <div class="stat-content">
+                <div class="stat-number">{{(admissions | filter:{death_notification:'Yes'}).length}}</div>
+                <div class="stat-label">Deaths in IPD</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filter & Toolbar Bar (No Print) -->
+    <div class="register-toolbar no-print">
+        <div class="toolbar-filters">
+            <!-- Search Input -->
+            <div class="filter-group filter-search">
+                <i class="fa fa-search filter-icon"></i>
+                <input type="text"
+                       ng-model="searchParams.query"
+                       ng-change="applyFilters()"
+                       placeholder="Search Name, MRN, Bed, Diagnosis..."
+                       class="form-control">
+            </div>
+
+            <!-- Status Dropdown -->
+            <div class="filter-group">
+                <select ng-model="searchParams.status" ng-change="applyFilters()" class="form-control">
+                    <option value="">All Statuses (Active &amp; Discharged)</option>
+                    <option value="Admitted">Currently Admitted (Active)</option>
+                    <option value="Discharged">Discharged</option>
+                </select>
+            </div>
+
+            <!-- Ward Dropdown -->
+            <div class="filter-group">
+                <select ng-model="searchParams.ward" ng-change="applyFilters()" class="form-control">
+                    <option value="">All Inpatient Wards</option>
+                    <option ng-repeat="w in wardList" value="{{w}}">{{w}}</option>
+                </select>
+            </div>
+
+            <!-- Date Filter (From) -->
+            <div class="filter-group date-picker-group" title="Admission Date From">
+                <span class="date-label">From:</span>
+                <ethiopian-date-selector date="searchParams.dateFrom" change="applyFilters()"></ethiopian-date-selector>
+            </div>
+
+            <!-- Date Filter (To) -->
+            <div class="filter-group date-picker-group" title="Admission Date To">
+                <span class="date-label">To:</span>
+                <ethiopian-date-selector date="searchParams.dateTo" change="applyFilters()"></ethiopian-date-selector>
+            </div>
+
+            <!-- Reset Button -->
+            <button class="btn btn-secondary btn-reset" ng-click="resetFilters()" title="Reset all filters">
+                <i class="fa fa-refresh"></i> Reset
+            </button>
+        </div>
+
+        <div class="toolbar-actions">
+            <!-- Data Completeness Reference Guide Button -->
+            <button class="btn btn-reference-guide" ng-click="toggleReferenceGuide()" ng-class="{'active': isReferenceOpen}" title="View Data Source, Clinical Form & Concept Reference to follow completeness">
+                <i class="fa fa-book"></i> Completeness Guide
+                <span class="badge-pill">27 Cols</span>
+                <i class="fa" ng-class="{'fa-chevron-up': isReferenceOpen, 'fa-chevron-down': !isReferenceOpen}"></i>
+            </button>
+
+            <!-- Export to Excel Button -->
+            <button class="btn btn-excel" ng-click="exportToExcel()" title="Export official 27-column register to Excel (.xls)">
+                <i class="fa fa-file-excel-o"></i> Export to Excel
+            </button>
+
+            <!-- Print Register Button -->
+            <button class="btn btn-print" ng-click="printRegister()" title="Print A4 Landscape MOH Register">
+                <i class="fa fa-print"></i> Print Register
+            </button>
+
+            <!-- Refresh Button -->
+            <button class="btn btn-refresh" ng-click="loadAdmissions(true)" title="Reload data from server">
+                <i class="fa fa-refresh" ng-class="{'fa-spin': isLoading}"></i> Refresh
+            </button>
+        </div>
+    </div>
+
+    <!-- Expandable Data Source & Concept Reference Guide (No Print) -->
+    <div class="data-source-reference-container no-print" ng-show="isReferenceOpen">
+        <div class="ref-panel-header">
+            <div class="ref-title-wrap">
+                <h4>
+                    <i class="fa fa-info-circle text-primary"></i> Ethiopian MOH Admission/Discharge Register — Data Source &amp; Concept Dictionary
+                </h4>
+                <p class="ref-subtitle">
+                    Follow and audit clinical data completeness: each of the 27 register columns is mapped to its Bahmni observation form, OpenMRS concept, and hospital audit standard.
+                </p>
+            </div>
+            <div class="ref-header-actions">
+                <button class="btn-ref-close" ng-click="toggleReferenceGuide()" title="Close Reference Guide">
+                    <i class="fa fa-times"></i> Close
+                </button>
+            </div>
+        </div>
+
+        <!-- Category Filters & Search -->
+        <div class="ref-filter-bar">
+            <div class="ref-category-pills">
+                <button type="button"
+                        class="pill-btn"
+                        ng-repeat="cat in referenceCategories"
+                        ng-class="{'active': selectedRefCategory === cat}"
+                        ng-click="setRefCategory(cat)">
+                    {{cat}}
+                </button>
+            </div>
+            <div class="ref-search-wrap">
+                <i class="fa fa-search ref-search-icon"></i>
+                <input type="text"
+                       class="form-control ref-search-input"
+                       ng-model="referenceSearchText"
+                       placeholder="Filter by column, form name, concept, or audit rule...">
+            </div>
+        </div>
+
+        <!-- Active Column Highlight Card (if user clicked specific column info icon) -->
+        <div class="active-col-card" ng-if="activeColumnDetail">
+            <div class="active-col-header">
+                <span class="badge badge-col-num">Col {{activeColumnDetail.colNumber}}</span>
+                <strong>{{activeColumnDetail.name}}</strong>
+                <span class="badge badge-cat">{{activeColumnDetail.category}}</span>
+                <span class="badge badge-target">{{activeColumnDetail.completenessTarget}}</span>
+                <button class="btn-card-close" ng-click="closeColumnDetail()"><i class="fa fa-times"></i></button>
+            </div>
+            <div class="active-col-body">
+                <div class="active-col-row">
+                    <span class="lbl"><i class="fa fa-wpforms"></i> Bahmni Form &amp; Tab:</span>
+                    <span class="val font-semibold">{{activeColumnDetail.formName}} ({{activeColumnDetail.tabName}})</span>
+                </div>
+                <div class="active-col-row">
+                    <span class="lbl"><i class="fa fa-stethoscope"></i> OpenMRS Concept:</span>
+                    <span class="val font-mono">{{activeColumnDetail.conceptName}} <small class="text-muted">(Concept ID: {{activeColumnDetail.conceptId}})</small></span>
+                </div>
+                <div class="active-col-row">
+                    <span class="lbl"><i class="fa fa-database"></i> Database Table / Field:</span>
+                    <span class="val font-mono text-muted">{{activeColumnDetail.dbField}}</span>
+                </div>
+                <div class="active-col-row">
+                    <span class="lbl"><i class="fa fa-check-square-o"></i> Audit Rule:</span>
+                    <span class="val">{{activeColumnDetail.auditRule}}</span>
+                </div>
+                <div class="active-col-row">
+                    <span class="lbl"><i class="fa fa-wrench"></i> How to Complete:</span>
+                    <span class="val text-success font-semibold">{{activeColumnDetail.howToComplete}}</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Reference Table -->
+        <div class="table-responsive ref-table-scroll">
+            <table class="table table-bordered table-hover ref-dictionary-table">
+                <thead>
+                    <tr>
+                        <th style="width: 55px;" class="text-center">Col #</th>
+                        <th style="width: 170px;">Column Name &amp; MOH Header</th>
+                        <th style="width: 110px;">Domain</th>
+                        <th style="width: 190px;">Observation Form &amp; Tab</th>
+                        <th style="width: 180px;">OpenMRS Concept &amp; ID</th>
+                        <th style="width: 130px;">Data Type / Field</th>
+                        <th style="width: 140px;">Completeness Standard</th>
+                        <th>Audit Guidance &amp; How to Complete</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr ng-repeat="item in columnReferenceList | filter:filterReferenceList"
+                        ng-class="{'row-highlighted': highlightedColNumber === item.colNumber, 'row-selected': activeColumnDetail.colNumber === item.colNumber}"
+                        ng-click="showColumnInfo(item.colNumber, $event)">
+                        <td class="text-center font-bold">
+                            <span class="ref-col-badge">{{item.colNumber}}</span>
+                        </td>
+                        <td>
+                            <strong class="ref-col-title">{{item.name}}</strong>
+                            <div class="ref-moh-hdr"><small>{{item.mohHeader}}</small></div>
+                        </td>
+                        <td>
+                            <span class="ref-domain-tag tag-{{item.category | lowercase | limitTo:4}}">{{item.category}}</span>
+                        </td>
+                        <td>
+                            <div class="ref-form-name"><i class="fa fa-file-text-o"></i> {{item.formName}}</div>
+                            <small class="text-muted"><i class="fa fa-folder-open-o"></i> {{item.tabName}}</small>
+                        </td>
+                        <td>
+                            <div class="ref-concept-name">{{item.conceptName}}</div>
+                            <small class="concept-id-tag">ID: {{item.conceptId}}</small>
+                        </td>
+                        <td>
+                            <span class="ref-datatype">{{item.dataType}}</span>
+                        </td>
+                        <td>
+                            <span class="badge-target-pill" ng-class="{'mandatory': item.completenessTarget.indexOf('Mandatory') !== -1}">
+                                {{item.completenessTarget}}
+                            </span>
+                        </td>
+                        <td>
+                            <div class="ref-audit-rule">{{item.auditRule}}</div>
+                            <div class="ref-action-tip"><i class="fa fa-arrow-circle-right text-success"></i> <strong>Action:</strong> {{item.howToComplete}}</div>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Active Records Count Sub-Bar (No Print) -->
+    <div class="register-subbar no-print">
+        <span class="count-badge">
+            Showing <strong>{{paginatedAdmissions.length}}</strong> of <strong>{{filteredAdmissions.length}}</strong> records
+            <span ng-if="filteredAdmissions.length !== admissions.length"> (filtered from {{admissions.length}} total)</span>
+        </span>
+        <div class="page-size-selector">
+            <label>Show: </label>
+            <select ng-model="pageSize" ng-change="updatePagination()" class="form-control select-page-size">
+                <option ng-repeat="sz in pageSizeOptions" value="{{sz}}">{{sz}}</option>
+            </select>
+            <span> per page</span>
+        </div>
+    </div>
+
+    <!-- Register Table -->
+    <div class="table-responsive register-table-wrapper">
+        <table class="table table-bordered moh-register-table">
+            <thead>
+                <!-- Top Grouped Header Row -->
+                <tr class="header-group-row">
+                    <th rowspan="2" class="col-sno text-center">
+                        S/No<br><small>(1)</small>
+                        <i class="fa fa-info-circle th-info-icon" ng-click="showColumnInfo(1, $event)" title="Col 1: S/No | System auto-sequence | Completeness: 100% Mandatory"></i>
+                    </th>
+                    <th colspan="5" class="text-center group-identification">Identification</th>
+                    <th colspan="4" class="text-center group-admission">Admission</th>
+                    <th colspan="4" class="text-center group-pitc">Provider initiated testing &amp; counseling (PITC)</th>
+                    <th rowspan="2" class="text-center group-malaria col-malaria">
+                        Travel History to malarious area (√)<br><small>(13)</small>
+                        <i class="fa fa-info-circle th-info-icon" ng-click="showColumnInfo(17, $event)" title="Col 17: Malaria Travel History | Form: Malaria Form (ID: 10) | Concept: Travel History to Malaria Endemic Area"></i>
+                    </th>
+                    <th colspan="4" class="text-center group-tb">TB screening</th>
+                    <th colspan="4" class="text-center group-discharge">Discharge</th>
+                    <th rowspan="2" class="text-center group-death col-death">
+                        Death in IPD<br><small>1. &le;24h 2. &gt;24h<br>(22)</small>
+                        <i class="fa fa-info-circle th-info-icon" ng-click="showColumnInfo(26, $event)" title="Col 26: Death in IPD | Form: Death Note (ID: 2) | Concept: Patient Died (person.dead)"></i>
+                    </th>
+                    <th rowspan="2" class="text-center group-death col-notif">
+                        Death Notif. Given<br><small>(Y/N)<br>(23)</small>
+                        <i class="fa fa-info-circle th-info-icon" ng-click="showColumnInfo(26, $event)" title="Col 26: Death Notification | Form: Death Certificate Form"></i>
+                    </th>
+                    <th colspan="3" class="text-center group-finance">Finance</th>
+                    <th rowspan="2" class="text-center group-remark col-remark">
+                        Ward / Bed &amp; Remark<br><small>(27)</small>
+                        <i class="fa fa-info-circle th-info-icon" ng-click="showColumnInfo(9, $event)" title="Col 9: Ward Bed | Bed Management Grid"></i>
+                    </th>
+                </tr>
+                <!-- Second Column-Specific Header Row -->
+                <tr class="header-cols-row">
+                    <!-- Identification -->
+                    <th class="col-mrn text-center" ng-click="sortBy('mrn')">
+                        MRN <small>(2)</small>
+                        <i class="fa fa-info-circle th-info-icon" ng-click="showColumnInfo(2, $event)" title="Col 2: MRN | Form: Registration Details | Concept: Primary Identifier"></i>
+                    </th>
+                    <th class="col-name" ng-click="sortBy('patient_name')">
+                        Patient Name <small>(3)</small>
+                        <i class="fa fa-info-circle th-info-icon" ng-click="showColumnInfo(3, $event)" title="Col 3: Patient Name | Form: Registration Details | Concept: Person Name"></i>
+                    </th>
+                    <th class="col-age text-center" ng-click="sortBy('age')">
+                        Age <small>(3)</small>
+                        <i class="fa fa-info-circle th-info-icon" ng-click="showColumnInfo(4, $event)" title="Col 4: Age | Form: Registration Details | Concept: Birthdate"></i>
+                    </th>
+                    <th class="col-sex text-center" ng-click="sortBy('sex')">
+                        Sex <small>(4)</small>
+                        <i class="fa fa-info-circle th-info-icon" ng-click="showColumnInfo(5, $event)" title="Col 5: Sex | Form: Registration Details | Concept: Gender"></i>
+                    </th>
+                    <th class="col-address" ng-click="sortBy('woreda')">
+                        Woreda / Sub city <small>(5)</small>
+                        <i class="fa fa-info-circle th-info-icon" ng-click="showColumnInfo(6, $event)" title="Col 6/7: Address | Form: Registration Details > Address Hierarchy"></i>
+                    </th>
+
+                    <!-- Admission -->
+                    <th class="col-date text-center" ng-click="sortBy('admission_date')">
+                        Date of Admission<br><small>(DD/MM/YY) (6)</small>
+                        <i class="fa fa-info-circle th-info-icon" ng-click="showColumnInfo(8, $event)" title="Col 8: Date of Admission | ADT Admit Patient | visit.date_started"></i>
+                    </th>
+                    <th class="col-diag" ng-click="sortBy('admission_diagnosis')">
+                        ESV_ICD11 Diagnosis Name <small>(7)</small>
+                        <i class="fa fa-info-circle th-info-icon" ng-click="showColumnInfo(10, $event)" title="Col 10: Admission Diagnosis | Form: Clinical Consultation > Diagnosis Tab | Concept: Coded Diagnosis (22)"></i>
+                    </th>
+                    <th class="col-icd text-center" ng-click="sortBy('icd11_code')">
+                        Code
+                        <i class="fa fa-info-circle th-info-icon" ng-click="showColumnInfo(11, $event)" title="Col 11: ICD Code | Concept Reference Term"></i>
+                    </th>
+                    <th class="col-rta text-center">
+                        Road Traffic Accident<br><small>1.Ped 2.Moto 3.Veh (8)</small>
+                        <i class="fa fa-info-circle th-info-icon" ng-click="showColumnInfo(12, $event)" title="Col 12: RTA | Form: Emergency / History Form | Concept: Road traffic accident (3325)"></i>
+                    </th>
+
+                    <!-- PITC -->
+                    <th class="col-pitc text-center">
+                        HIV Offered<br><small>(√) (9)</small>
+                        <i class="fa fa-info-circle th-info-icon" ng-click="showColumnInfo(13, $event)" title="Col 13: HIV Offered | Form: PITC Screening | Concept: HIV test offered (63657)"></i>
+                    </th>
+                    <th class="col-pitc text-center">
+                        HIV Performed<br><small>(√) (10)</small>
+                        <i class="fa fa-info-circle th-info-icon" ng-click="showColumnInfo(14, $event)" title="Col 14: HIV Performed | Form: PITC Screening | Concept: HIV test performed (22442)"></i>
+                    </th>
+                    <th class="col-pitc text-center">
+                        Target Pop<br><small>code (11)</small>
+                        <i class="fa fa-info-circle th-info-icon" ng-click="showColumnInfo(15, $event)" title="Col 15: Target Pop Code | Form: PITC Screening Form"></i>
+                    </th>
+                    <th class="col-pitc text-center">
+                        HIV Result<br><small>(P/N) (12)</small>
+                        <i class="fa fa-info-circle th-info-icon" ng-click="showColumnInfo(16, $event)" title="Col 16: HIV Result | Form: PITC Screening / HIV Status | Concept: HIV Status (32992)"></i>
+                    </th>
+
+                    <!-- TB Screening -->
+                    <th class="col-tb text-center">
+                        Screened<br><small>(√) (14)</small>
+                        <i class="fa fa-info-circle th-info-icon" ng-click="showColumnInfo(18, $event)" title="Col 18: TB Screened | Form: TB Screening Form | Concept: Screened for TB (63266)"></i>
+                    </th>
+                    <th class="col-tb text-center">
+                        Result<br><small>(P/N) (15)</small>
+                        <i class="fa fa-info-circle th-info-icon" ng-click="showColumnInfo(19, $event)" title="Col 19: TB Result | Form: TB Screening Form | Concept: TB screening result (63267)"></i>
+                    </th>
+                    <th class="col-tb text-center">
+                        Diag Eval<br><small>code (16)</small>
+                        <i class="fa fa-info-circle th-info-icon" ng-click="showColumnInfo(20, $event)" title="Col 20: Diag Eval Code | Orders Tab > Lab Orders (GeneXpert / X-Ray)"></i>
+                    </th>
+                    <th class="col-tb text-center">
+                        TB Screen Result<br><small>TB/No TB/ND (17)</small>
+                        <i class="fa fa-info-circle th-info-icon" ng-click="showColumnInfo(21, $event)" title="Col 21: TB Diagnostic Result | Form: Lab Results / TB Screening"></i>
+                    </th>
+
+                    <!-- Discharge -->
+                    <th class="col-date text-center" ng-click="sortBy('discharge_date')">
+                        Date of Discharge<br><small>(DD/MM/YY) (18)</small>
+                        <i class="fa fa-info-circle th-info-icon" ng-click="showColumnInfo(22, $event)" title="Col 22: Date of Discharge | ADT Discharge Action | visit.date_stopped"></i>
+                    </th>
+                    <th class="col-los text-center" ng-click="sortBy('length_of_stay')">
+                        LOS<br><small>(days) (19)</small>
+                        <i class="fa fa-info-circle th-info-icon" ng-click="showColumnInfo(23, $event)" title="Col 23: Length of Stay | Calculated stay duration in days"></i>
+                    </th>
+                    <th class="col-condition text-center">
+                        Condition at Discharge<br><small>code * (20)</small>
+                        <i class="fa fa-info-circle th-info-icon" ng-click="showColumnInfo(24, $event)" title="Col 24: Condition at Discharge | Form: Disposition Tab | Concept: Discharge Disposition"></i>
+                    </th>
+                    <th class="col-disdiag">
+                        ESV_ICD11 Diagnosis<br><small>at discharge (21)</small>
+                        <i class="fa fa-info-circle th-info-icon" ng-click="showColumnInfo(25, $event)" title="Col 25: Discharge Diagnosis | Form: Diagnosis Tab | Concept: Coded Diagnosis (22) Confirmed"></i>
+                    </th>
+
+                    <!-- Finance -->
+                    <th class="col-fee text-center">
+                        Amount charged<br><small>(birr) (24)</small>
+                        <i class="fa fa-info-circle th-info-icon" ng-click="showColumnInfo(27, $event)" title="Col 24: Amount Charged | Billing Module"></i>
+                    </th>
+                    <th class="col-fee text-center">
+                        Amount paid<br><small>(birr/free) (25)</small>
+                        <i class="fa fa-info-circle th-info-icon" ng-click="showColumnInfo(27, $event)" title="Col 25: Amount Paid / Payment Scheme | Person Attribute 17 (Payment Method)"></i>
+                    </th>
+                    <th class="col-voucher text-center">
+                        Voucher No<br><small>(26)</small>
+                        <i class="fa fa-info-circle th-info-icon" ng-click="showColumnInfo(27, $event)" title="Col 26: Voucher / Kebele ID No | Person Attribute 15 (Voucher Number)"></i>
+                    </th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr ng-repeat="r in paginatedAdmissions" ng-class="{'row-discharged': r.status === 'Discharged', 'row-active': r.status === 'Admitted'}">
+                    <!-- 1. S/No -->
+                    <td class="text-center font-bold">{{(currentPage - 1) * (pageSize === 'All' ? 0 : pageSize) + $index + 1}}</td>
+
+                    <!-- 2. MRN -->
+                    <td class="text-center">
+                        <a ng-click="goToPatient(r)" class="patient-mrn-link" title="Open patient dashboard">
+                            {{r.mrn}}
+                        </a>
+                    </td>
+
+                    <!-- Patient Name -->
+                    <td class="cell-patient-name">
+                        <a ng-click="goToPatient(r)" class="patient-name-link" title="Open patient clinical record">
+                            {{r.patient_name}}
+                        </a>
+                        <span class="status-indicator" ng-class="{'badge-admitted': r.status === 'Admitted', 'badge-discharged': r.status === 'Discharged'}">
+                            {{r.status}}
+                        </span>
+                    </td>
+
+                    <!-- 3. Age -->
+                    <td class="text-center">{{r.age}}</td>
+
+                    <!-- 4. Sex -->
+                    <td class="text-center font-bold" ng-class="{'sex-m': r.sex === 'M', 'sex-f': r.sex === 'F'}">{{r.sex}}</td>
+
+                    <!-- 5. Woreda / Sub city -->
+                    <td class="cell-woreda">{{r.woreda}}<span ng-if="r.subcity && r.subcity !== '-' && r.subcity !== r.woreda"> / {{r.subcity}}</span></td>
+
+                    <!-- 6. Date of Admission -->
+                    <td class="text-center cell-date" title="Gregorian: {{r.admission_date | date:'yyyy-MM-dd HH:mm'}}">
+                        <strong>{{getAdmissionEthDate(r)}}</strong>
+                    </td>
+
+                    <!-- 7. ESV_ICD11 Diagnosis Name -->
+                    <td class="cell-diagnosis">{{r.admission_diagnosis}}</td>
+
+                    <!-- 7. Code -->
+                    <td class="text-center"><span class="badge-code" ng-if="r.icd11_code && r.icd11_code !== '-'">{{r.icd11_code}}</span><span ng-if="!r.icd11_code || r.icd11_code === '-'">-</span></td>
+
+                    <!-- 8. Road Traffic Accident -->
+                    <td class="text-center">{{r.road_traffic_accident}}</td>
+
+                    <!-- 9-12. PITC -->
+                    <td class="text-center">{{r.hiv_offered}}</td>
+                    <td class="text-center">{{r.hiv_performed}}</td>
+                    <td class="text-center">{{r.hiv_target_category}}</td>
+                    <td class="text-center" ng-class="{'text-danger': r.hiv_result === 'Positive' || r.hiv_result === 'P'}">{{r.hiv_result}}</td>
+
+                    <!-- 13. Malaria -->
+                    <td class="text-center">{{r.travel_malaria}}</td>
+
+                    <!-- 14-17. TB Screening -->
+                    <td class="text-center">{{r.tb_screened}}</td>
+                    <td class="text-center">{{r.tb_result}}</td>
+                    <td class="text-center">{{r.tb_eval_type}}</td>
+                    <td class="text-center">{{r.tb_screening_result}}</td>
+
+                    <!-- 18. Date of Discharge -->
+                    <td class="text-center cell-date" title="Gregorian: {{r.discharge_date ? (r.discharge_date | date:'yyyy-MM-dd HH:mm') : 'Active'}}">
+                        {{getDischargeEthDate(r)}}
+                    </td>
+
+                    <!-- 19. Length of stay (days) -->
+                    <td class="text-center font-bold">{{r.length_of_stay}}</td>
+
+                    <!-- 20. Condition at discharge -->
+                    <td class="text-center cell-condition">{{r.condition_at_discharge}}</td>
+
+                    <!-- 21. Discharge Diagnosis -->
+                    <td class="cell-diagnosis">{{r.discharge_diagnosis}}</td>
+
+                    <!-- 22. Death in IPD -->
+                    <td class="text-center" ng-class="{'text-danger font-bold': r.death_in_ipd !== '-'}">{{r.death_in_ipd}}</td>
+
+                    <!-- 23. Death Notification Given -->
+                    <td class="text-center">{{r.death_notification}}</td>
+
+                    <!-- 24-26. Finance -->
+                    <td class="text-center">-</td>
+                    <td class="text-center"><span class="badge-payment">{{r.payment_method}}</span></td>
+                    <td class="text-center">{{r.voucher_no}}</td>
+
+                    <!-- 27. Remark -->
+                    <td class="cell-remark">
+                        <span class="ward-tag">{{r.ward_name}}</span>
+                        <span class="bed-tag" ng-if="r.bed_number && r.bed_number !== '-'">Bed {{r.bed_number}}</span>
+                    </td>
+                </tr>
+
+                <!-- Empty State -->
+                <tr ng-if="paginatedAdmissions.length === 0">
+                    <td colspan="29" class="text-center empty-register-message">
+                        <i class="fa fa-info-circle fa-2x"></i>
+                        <p>No inpatient admission records found matching your filters.</p>
+                        <button class="btn btn-sm btn-outline-primary" ng-click="resetFilters()">Reset Filters</button>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Pagination Controls (No Print) -->
+    <div class="register-pagination no-print" ng-if="totalPages > 1 && pageSize !== 'All'">
+        <button class="btn-page" ng-disabled="currentPage === 1" ng-click="setPage(1)">
+            <i class="fa fa-angle-double-left"></i> First
+        </button>
+        <button class="btn-page" ng-disabled="currentPage === 1" ng-click="setPage(currentPage - 1)">
+            <i class="fa fa-angle-left"></i> Prev
+        </button>
+
+        <span class="page-indicator">
+            Page <strong>{{currentPage}}</strong> of <strong>{{totalPages}}</strong>
+        </span>
+
+        <button class="btn-page" ng-disabled="currentPage === totalPages" ng-click="setPage(currentPage + 1)">
+            Next <i class="fa fa-angle-right"></i>
+        </button>
+        <button class="btn-page" ng-disabled="currentPage === totalPages" ng-click="setPage(totalPages)">
+            Last <i class="fa fa-angle-double-right"></i>
+        </button>
+    </div>
+</div>
+
+<style>
+/* Modern styling for Inpatient Admission Register */
+.admission-register-container {
+    padding: 16px 24px;
+    background: #f7f9fc;
+    min-height: calc(100vh - 80px);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: #2c3e50;
+}
+
+/* Header Banner */
+.register-header-banner {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #ffffff;
+    padding: 14px 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+    margin-bottom: 16px;
+    border-left: 5px solid #005a9c;
+}
+.facility-branding {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+.facility-logo {
+    height: 48px;
+    width: auto;
+    object-fit: contain;
+}
+.facility-title {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 700;
+    color: #003366;
+}
+.register-subtitle {
+    margin: 3px 0 0 0;
+    font-size: 12px;
+    color: #666;
+    font-weight: 500;
+}
+.register-tag {
+    display: inline-block;
+    margin-left: 8px;
+    padding: 2px 8px;
+    background: #e6f0fa;
+    color: #005a9c;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+}
+.header-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+.date-badge {
+    padding: 6px 12px;
+    background: #eef3f8;
+    color: #003366;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+}
+.btn-back-ward {
+    padding: 8px 14px;
+    background: #4a6984;
+    color: #ffffff !important;
+    border-radius: 6px;
+    text-decoration: none;
+    font-size: 12px;
+    font-weight: 600;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+.btn-back-ward:hover {
+    background: #34495e;
+    transform: translateY(-1px);
+}
+
+/* Stat Cards */
+.register-stat-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 14px;
+    margin-bottom: 16px;
+}
+.stat-card {
+    display: flex;
+    align-items: center;
+    padding: 14px 18px;
+    background: #ffffff;
+    border-radius: 8px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+    border-left: 4px solid #ccc;
+}
+.stat-total { border-left-color: #005a9c; }
+.stat-total .stat-icon { color: #005a9c; background: #e6f0fa; }
+.stat-admitted { border-left-color: #27ae60; }
+.stat-admitted .stat-icon { color: #27ae60; background: #eafaf1; }
+.stat-discharged { border-left-color: #8e44ad; }
+.stat-discharged .stat-icon { color: #8e44ad; background: #f4ecf7; }
+.stat-deaths { border-left-color: #c0392b; }
+.stat-deaths .stat-icon { color: #c0392b; background: #fbeee6; }
+.stat-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    margin-right: 14px;
+}
+.stat-number {
+    font-size: 20px;
+    font-weight: 700;
+    line-height: 1.1;
+    color: #2c3e50;
+}
+.stat-label {
+    font-size: 11px;
+    color: #7f8c8d;
+    font-weight: 600;
+    text-transform: uppercase;
+    margin-top: 2px;
+}
+
+/* Toolbar */
+.register-toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    background: #ffffff;
+    padding: 12px 16px;
+    border-radius: 8px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+    margin-bottom: 12px;
+}
+.toolbar-filters {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+.filter-search {
+    position: relative;
+    min-width: 250px;
+}
+.filter-search input {
+    padding-left: 30px;
+    font-size: 12px;
+    height: 34px;
+}
+.filter-icon {
+    position: absolute;
+    left: 10px;
+    top: 10px;
+    color: #95a5a6;
+    font-size: 12px;
+}
+.filter-group select {
+    height: 34px;
+    font-size: 12px;
+    min-width: 140px;
+}
+.date-picker-group {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+.date-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: #7f8c8d;
+}
+.toolbar-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.btn-excel {
+    background: #107c41 !important;
+    color: #ffffff !important;
+    border: none;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 7px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+.btn-excel:hover {
+    background: #0e6837 !important;
+    transform: translateY(-1px);
+}
+.btn-print {
+    background: #005a9c !important;
+    color: #ffffff !important;
+    border: none;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 7px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+.btn-print:hover {
+    background: #004477 !important;
+    transform: translateY(-1px);
+}
+.btn-refresh {
+    background: #ffffff !important;
+    color: #34495e !important;
+    border: 1px solid #ccd1d9;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 7px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+}
+.btn-reset {
+    font-size: 12px;
+    height: 34px;
+    padding: 0 12px;
+}
+.btn-reference-guide {
+    background: #4a69bd !important;
+    color: #ffffff !important;
+    border: none;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 7px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+.btn-reference-guide:hover {
+    background: #3c559c !important;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 6px rgba(74, 105, 189, 0.4);
+}
+.btn-reference-guide.active {
+    background: #2f3542 !important;
+}
+.badge-pill {
+    background: rgba(255, 255, 255, 0.25);
+    padding: 2px 6px;
+    border-radius: 10px;
+    font-size: 10px;
+    font-weight: 700;
+}
+
+/* Data Source Reference Panel */
+.data-source-reference-container {
+    background: #ffffff;
+    border: 1px solid #d2d7df;
+    border-radius: 8px;
+    padding: 16px 20px;
+    margin-bottom: 16px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+    animation: fadeInSlide 0.25s ease-out;
+}
+@keyframes fadeInSlide {
+    from { opacity: 0; transform: translateY(-8px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+.ref-panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    border-bottom: 1px solid #edf0f5;
+    padding-bottom: 10px;
+    margin-bottom: 12px;
+}
+.ref-title-wrap h4 {
+    margin: 0 0 4px 0;
+    font-size: 15px;
+    font-weight: 700;
+    color: #2c3e50;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.ref-subtitle {
+    margin: 0;
+    font-size: 12px;
+    color: #7f8c8d;
+    line-height: 1.4;
+}
+.btn-ref-close {
+    background: #f1f2f6;
+    border: 1px solid #ced6e0;
+    color: #57606f;
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+.btn-ref-close:hover {
+    background: #dfe4ea;
+    color: #2f3542;
+}
+
+/* Category Filter Bar */
+.ref-filter-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 14px;
+}
+.ref-category-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+.pill-btn {
+    background: #f1f2f6;
+    border: 1px solid #ced6e0;
+    color: #4b6584;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 4px 10px;
+    border-radius: 14px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+.pill-btn:hover {
+    background: #dfe4ea;
+    color: #2f3542;
+}
+.pill-btn.active {
+    background: #005a9c;
+    border-color: #005a9c;
+    color: #ffffff;
+    box-shadow: 0 2px 4px rgba(0, 90, 156, 0.25);
+}
+.ref-search-wrap {
+    position: relative;
+    min-width: 280px;
+}
+.ref-search-icon {
+    position: absolute;
+    left: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #a4b0be;
+    font-size: 12px;
+}
+.ref-search-input {
+    height: 32px;
+    padding-left: 28px !important;
+    font-size: 12px;
+    border-radius: 16px;
+    border: 1px solid #ced6e0;
+}
+
+/* Active Column Detail Card */
+.active-col-card {
+    background: #f8fafc;
+    border: 1px solid #cbd5e1;
+    border-left: 5px solid #005a9c;
+    border-radius: 6px;
+    padding: 12px 16px;
+    margin-bottom: 14px;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+}
+.active-col-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+    font-size: 13px;
+    color: #1e293b;
+}
+.badge-col-num {
+    background: #005a9c;
+    color: #ffffff;
+    padding: 2px 7px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 700;
+}
+.badge-cat {
+    background: #e2e8f0;
+    color: #475569;
+    padding: 2px 7px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 600;
+}
+.badge-target {
+    background: #fef3c7;
+    color: #92400e;
+    padding: 2px 7px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 700;
+}
+.btn-card-close {
+    margin-left: auto;
+    background: transparent;
+    border: none;
+    color: #94a3b8;
+    cursor: pointer;
+    font-size: 12px;
+}
+.btn-card-close:hover {
+    color: #334155;
+}
+.active-col-body {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 8px 16px;
+    font-size: 11.5px;
+}
+.active-col-row {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+.active-col-row .lbl {
+    font-weight: 700;
+    color: #64748b;
+    font-size: 10.5px;
+    text-transform: uppercase;
+}
+.active-col-row .val {
+    color: #1e293b;
+    line-height: 1.35;
+}
+
+/* Reference Dictionary Table */
+.ref-table-scroll {
+    max-height: 420px;
+    overflow-y: auto;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+}
+.ref-dictionary-table {
+    margin-bottom: 0 !important;
+    font-size: 11px;
+    background: #ffffff;
+}
+.ref-dictionary-table thead th {
+    background: #f1f5f9 !important;
+    color: #334155 !important;
+    font-weight: 700 !important;
+    padding: 8px 10px !important;
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    border-bottom: 2px solid #cbd5e1 !important;
+}
+.ref-dictionary-table tbody td {
+    padding: 7px 10px !important;
+    vertical-align: top !important;
+    color: #334155;
+    border-color: #e2e8f0 !important;
+    line-height: 1.35;
+}
+.ref-dictionary-table tbody tr {
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+.ref-dictionary-table tbody tr:hover {
+    background: #f8fafc;
+}
+.ref-dictionary-table tbody tr.row-highlighted {
+    background: #eff6ff !important;
+}
+.ref-dictionary-table tbody tr.row-selected {
+    background: #e0f2fe !important;
+    outline: 2px solid #0284c7;
+}
+
+.ref-col-badge {
+    background: #005a9c;
+    color: #ffffff;
+    display: inline-block;
+    width: 24px;
+    height: 24px;
+    line-height: 24px;
+    border-radius: 50%;
+    font-size: 11px;
+    font-weight: 700;
+}
+.ref-col-title {
+    color: #0f172a;
+    display: block;
+    font-size: 11.5px;
+}
+.ref-moh-hdr small {
+    color: #64748b;
+    font-style: italic;
+}
+.ref-domain-tag {
+    display: inline-block;
+    padding: 2px 7px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 600;
+    background: #e2e8f0;
+    color: #334155;
+}
+.tag-iden { background: #e0e7ff; color: #3730a3; }
+.tag-admi { background: #e0f2fe; color: #0369a1; }
+.tag-pitc { background: #fce7f3; color: #9d174d; }
+.tag-mala { background: #fef3c7; color: #92400e; }
+.tag-tb   { background: #fed7aa; color: #9a3412; }
+.tag-disc { background: #dcfce7; color: #166534; }
+.tag-deat { background: #fee2e2; color: #991b1b; }
+.tag-fina { background: #f3e8ff; color: #6b21a8; }
+
+.ref-form-name {
+    font-weight: 600;
+    color: #1e293b;
+}
+.ref-concept-name {
+    font-weight: 600;
+    color: #0369a1;
+}
+.concept-id-tag {
+    background: #f1f5f9;
+    color: #475569;
+    padding: 1px 4px;
+    border-radius: 3px;
+    font-family: monospace;
+    font-size: 10px;
+}
+.ref-datatype {
+    font-size: 10.5px;
+    color: #64748b;
+}
+.badge-target-pill {
+    display: inline-block;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 600;
+    background: #f1f5f9;
+    color: #475569;
+}
+.badge-target-pill.mandatory {
+    background: #dbeafe;
+    color: #1e40af;
+    font-weight: 700;
+}
+.ref-audit-rule {
+    color: #334155;
+    margin-bottom: 3px;
+}
+.ref-action-tip {
+    font-size: 10.5px;
+    color: #15803d;
+    background: #f0fdf4;
+    padding: 3px 6px;
+    border-radius: 4px;
+    border-left: 3px solid #22c55e;
+}
+
+/* Header Info Icons in Register Table */
+.th-info-icon {
+    font-size: 10px;
+    color: #64748b;
+    margin-left: 4px;
+    cursor: pointer;
+    vertical-align: middle;
+    transition: color 0.15s ease, transform 0.15s ease;
+}
+.th-info-icon:hover {
+    color: #005a9c;
+    transform: scale(1.3);
+}
+
+/* Subbar */
+.register-subbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 4px;
+    margin-bottom: 8px;
+    font-size: 12px;
+    color: #555;
+}
+.count-badge {
+    color: #34495e;
+}
+.page-size-selector {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.select-page-size {
+    height: 28px;
+    width: auto;
+    font-size: 12px;
+    padding: 2px 8px;
+}
+
+/* Table Wrapper */
+.register-table-wrapper {
+    background: #ffffff;
+    border-radius: 8px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+    overflow-x: auto;
+    border: 1px solid #dce4ec;
+}
+.moh-register-table {
+    margin-bottom: 0;
+    font-size: 11px;
+    border-collapse: collapse;
+    width: 100%;
+}
+.moh-register-table th, .moh-register-table td {
+    padding: 6px 8px;
+    vertical-align: middle;
+    border: 1px solid #d0d7de;
+    line-height: 1.3;
+}
+.header-group-row th {
+    background: #eef3f8;
+    color: #003366;
+    font-weight: 700;
+    text-transform: uppercase;
+    font-size: 10px;
+    letter-spacing: 0.5px;
+    border-bottom: 1px solid #b0c0d0;
+}
+.header-cols-row th {
+    background: #f8fafc;
+    color: #333333;
+    font-weight: 600;
+    font-size: 10px;
+    cursor: pointer;
+    user-select: none;
+}
+.header-cols-row th:hover {
+    background: #edf2f7;
+}
+.header-cols-row th small {
+    display: block;
+    font-weight: normal;
+    color: #888;
+}
+
+/* Column specific widths on screen */
+.col-sno { width: 40px; }
+.col-mrn { width: 75px; }
+.col-name { min-width: 140px; }
+.col-age { width: 40px; }
+.col-sex { width: 40px; }
+.col-address { min-width: 110px; }
+.col-date { width: 85px; }
+.col-diag { min-width: 140px; }
+.col-icd { width: 65px; }
+.col-rta { width: 65px; }
+.col-pitc { width: 55px; }
+.col-malaria { width: 70px; }
+.col-tb { width: 55px; }
+.col-los { width: 50px; }
+.col-condition { width: 90px; }
+.col-disdiag { min-width: 130px; }
+.col-death { width: 65px; }
+.col-notif { width: 60px; }
+.col-fee { width: 65px; }
+.col-voucher { width: 65px; }
+.col-remark { min-width: 130px; }
+
+/* Links & Badges */
+.patient-mrn-link {
+    font-weight: 700;
+    color: #005a9c;
+    cursor: pointer;
+    text-decoration: none;
+}
+.patient-name-link {
+    font-weight: 600;
+    color: #2c3e50;
+    cursor: pointer;
+    text-decoration: none;
+}
+.patient-mrn-link:hover, .patient-name-link:hover {
+    color: #003366;
+    text-decoration: underline;
+}
+.status-indicator {
+    display: inline-block;
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-size: 9px;
+    font-weight: 700;
+    margin-left: 4px;
+}
+.badge-admitted {
+    background: #eafaf1;
+    color: #27ae60;
+}
+.badge-discharged {
+    background: #f4ecf7;
+    color: #8e44ad;
+}
+.badge-code {
+    display: inline-block;
+    padding: 1px 5px;
+    background: #f0f4f8;
+    color: #005a9c;
+    border: 1px solid #d0dce8;
+    border-radius: 3px;
+    font-weight: 600;
+    font-size: 10px;
+}
+.badge-payment {
+    display: inline-block;
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-size: 9px;
+    font-weight: 600;
+    background: #eef2f7;
+    color: #445566;
+}
+.ward-tag {
+    display: inline-block;
+    padding: 1px 6px;
+    background: #e6f0fa;
+    color: #005a9c;
+    border-radius: 3px;
+    font-weight: 600;
+    font-size: 10px;
+}
+.bed-tag {
+    display: inline-block;
+    padding: 1px 5px;
+    background: #f7f9fa;
+    color: #555;
+    border: 1px solid #e1e8ed;
+    border-radius: 3px;
+    font-size: 9px;
+    margin-left: 3px;
+}
+.sex-m { color: #2980b9; }
+.sex-f { color: #8e44ad; }
+.empty-register-message {
+    padding: 40px !important;
+    color: #7f8c8d;
+}
+.empty-register-message p {
+    margin: 10px 0 14px 0;
+    font-size: 14px;
+}
+
+/* Pagination */
+.register-pagination {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+    margin-top: 16px;
+}
+.btn-page {
+    padding: 6px 12px;
+    background: #ffffff;
+    border: 1px solid #ccd1d9;
+    border-radius: 4px;
+    color: #34495e;
+    font-size: 12px;
+    cursor: pointer;
+}
+.btn-page:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+.btn-page:not(:disabled):hover {
+    background: #eef3f8;
+    border-color: #005a9c;
+}
+.page-indicator {
+    font-size: 12px;
+    color: #555;
+    margin: 0 6px;
+}
+
+/* Print Only Section */
+.print-only {
+    display: none;
+}
+
+/* ========================================================= */
+/* PRINT STYLES - A4 LANDSCAPE OFFICIAL MOH FORMAT           */
+/* ========================================================= */
+@media print {
+    @page {
+        size: A4 landscape;
+        margin: 5mm 4mm 5mm 4mm;
+    }
+
+    body, html {
+        background: #ffffff !important;
+        color: #000000 !important;
+        font-family: Arial, "Helvetica Neue", Helvetica, sans-serif !important;
+        font-size: 8pt !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+
+    /* Hide Bahmni application chrome */
+    .opd-header, .opd-header-bottom, .header-left, .header-right,
+    .no-print, .btn, .btn-group, .pagination, .register-stat-cards,
+    .register-toolbar, .register-subbar, .register-pagination,
+    header, footer, nav, #header, #navigation {
+        display: none !important;
+    }
+
+    .admission-register-container {
+        padding: 0 !important;
+        background: transparent !important;
+        min-height: auto !important;
+    }
+
+    .register-table-wrapper {
+        border: none !important;
+        box-shadow: none !important;
+        overflow: visible !important;
+    }
+
+    /* Show official MOH print header */
+    .print-only {
+        display: block !important;
+    }
+
+    .moh-print-header {
+        margin-bottom: 6px;
+        border-bottom: 2px solid #000000;
+        padding-bottom: 4px;
+    }
+    .moh-logo-line {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-end;
+    }
+    .moh-left {
+        font-size: 8pt;
+        font-weight: bold;
+        line-height: 1.2;
+    }
+    .moh-emblem {
+        font-size: 9pt;
+    }
+    .moh-center {
+        text-align: center;
+    }
+    .moh-title {
+        margin: 0;
+        font-size: 14pt !important;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    .moh-right {
+        text-align: right;
+        font-size: 8pt;
+    }
+    .moh-ward-line {
+        margin-top: 4px;
+        font-size: 8.5pt;
+        font-weight: bold;
+    }
+
+    /* Print Table Layout */
+    .moh-register-table {
+        width: 100% !important;
+        border-collapse: collapse !important;
+        font-size: 6.8pt !important;
+        table-layout: fixed !important;
+    }
+
+    .moh-register-table th, .moh-register-table td {
+        border: 0.5pt solid #000000 !important;
+        padding: 2px 2px !important;
+        word-break: normal !important;
+        word-wrap: break-word !important;
+        overflow-wrap: break-word !important;
+        line-height: 1.15 !important;
+        color: #000000 !important;
+    }
+
+    .header-group-row th {
+        background: #f0f0f0 !important;
+        font-size: 6.5pt !important;
+        font-weight: bold !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+    .header-cols-row th {
+        background: #f8f8f8 !important;
+        font-size: 6pt !important;
+        font-weight: bold !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+
+    .status-indicator, .badge-admitted, .badge-discharged, .badge-code, .badge-payment, .ward-tag, .bed-tag {
+        border: none !important;
+        background: transparent !important;
+        padding: 0 !important;
+        color: #000000 !important;
+        font-size: inherit !important;
+        font-weight: normal !important;
+    }
+
+    .patient-mrn-link, .patient-name-link {
+        color: #000000 !important;
+        text-decoration: none !important;
+        font-size: inherit !important;
+    }
+}
+</style>

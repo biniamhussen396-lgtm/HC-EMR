@@ -12,6 +12,8 @@ angular.module('bahmni.ipd')
                     return true;
                 } else if ($state.current.name === "referralManagement" && link.name === "REFERRAL_MANAGEMENT_KEY") {
                     return true;
+                } else if ($state.current.name === "admissionRegister" && link.name === "ADMISSION_REGISTER_KEY") {
+                    return true;
                 }
             };
             $scope.linkAction = function (type, value, params) {

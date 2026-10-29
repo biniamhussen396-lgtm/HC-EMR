@@ -58,10 +58,10 @@ def purge_data(start_mrn=None):
         TRUNCATE TABLE patient_state;
         TRUNCATE TABLE allergy;
         TRUNCATE TABLE patient;
-        DELETE FROM person_name WHERE person_id NOT IN (SELECT user_id FROM users);
-        DELETE FROM person_address WHERE person_id NOT IN (SELECT user_id FROM users);
-        DELETE FROM person_attribute WHERE person_id NOT IN (SELECT user_id FROM users);
-        DELETE FROM person WHERE person_id NOT IN (SELECT user_id FROM users);
+        DELETE FROM person_name WHERE person_id NOT IN (SELECT person_id FROM users) AND person_id NOT IN (SELECT person_id FROM provider WHERE person_id IS NOT NULL);
+        DELETE FROM person_address WHERE person_id NOT IN (SELECT person_id FROM users) AND person_id NOT IN (SELECT person_id FROM provider WHERE person_id IS NOT NULL);
+        DELETE FROM person_attribute WHERE person_id NOT IN (SELECT person_id FROM users) AND person_id NOT IN (SELECT person_id FROM provider WHERE person_id IS NOT NULL);
+        DELETE FROM person WHERE person_id NOT IN (SELECT person_id FROM users) AND person_id NOT IN (SELECT person_id FROM provider WHERE person_id IS NOT NULL);
         SET FOREIGN_KEY_CHECKS = 1;
         """
         run_mysql(sql)
@@ -96,13 +96,17 @@ def purge_data(start_mrn=None):
         DELETE FROM patient WHERE patient_id IN (SELECT patient_id FROM target_patients_to_purge);
 
         DELETE FROM person_name WHERE person_id IN (SELECT patient_id FROM target_patients_to_purge)
-          AND person_id NOT IN (SELECT user_id FROM users);
+          AND person_id NOT IN (SELECT person_id FROM users)
+          AND person_id NOT IN (SELECT person_id FROM provider WHERE person_id IS NOT NULL);
         DELETE FROM person_address WHERE person_id IN (SELECT patient_id FROM target_patients_to_purge)
-          AND person_id NOT IN (SELECT user_id FROM users);
+          AND person_id NOT IN (SELECT person_id FROM users)
+          AND person_id NOT IN (SELECT person_id FROM provider WHERE person_id IS NOT NULL);
         DELETE FROM person_attribute WHERE person_id IN (SELECT patient_id FROM target_patients_to_purge)
-          AND person_id NOT IN (SELECT user_id FROM users);
+          AND person_id NOT IN (SELECT person_id FROM users)
+          AND person_id NOT IN (SELECT person_id FROM provider WHERE person_id IS NOT NULL);
         DELETE FROM person WHERE person_id IN (SELECT patient_id FROM target_patients_to_purge)
-          AND person_id NOT IN (SELECT user_id FROM users);
+          AND person_id NOT IN (SELECT person_id FROM users)
+          AND person_id NOT IN (SELECT person_id FROM provider WHERE person_id IS NOT NULL);
 
         DROP TEMPORARY TABLE target_patients_to_purge;
         SET FOREIGN_KEY_CHECKS = 1;

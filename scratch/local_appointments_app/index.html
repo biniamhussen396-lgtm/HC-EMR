@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Appointment Scheduling</title>
+    <link rel="shortcut icon" type="image/x-icon" href="/bahmni/favicon.ico">
+    <link rel="icon" type="image/x-icon" href="/bahmni/favicon.ico">
+    <link rel="shortcut icon" type="image/x-icon" href="favicon.ico">
+    <link rel="icon" type="image/x-icon" href="favicon.ico">
+    <script type="text/javascript" src="appointment.js"></script>
+    <style>
+    .back-btn-spec {
+        display: inline-block;
+        padding: 5px 12px !important;
+        margin: 15px 5px 0 !important;
+        border-radius: 3px;
+        color: #fff !important;
+        background: rgba(255,255,255,0.15);
+        font-size: 13px;
+        text-decoration: none !important;
+        border: 1px solid rgba(255,255,255,0.3);
+    }
+    .back-btn-spec:hover { background: rgba(255,255,255,0.3); }
+    </style>
+</head>
+<body>
+<div class="bahmni-appointments">
+    <div ui-view="additional-header"></div>
+    <div ng-include src="'ui-helper-messages'"></div>
+    <div ui-view="mainContent"></div>
+</div>
+<script>
+(function() {
+    var checkCount = 0;
+    var checkInterval = setInterval(function() {
+        checkCount++;
+        var headerUl = document.querySelector('.opd-header-wrapper .opd-header-top header ul');
+        if (headerUl && !document.querySelector('.speciality-admin-link')) {
+            var li = document.createElement('li');
+            li.style.display = 'inline';
+            var link1 = document.createElement('a');
+            link1.className = 'back-btn-spec speciality-admin-link';
+            link1.href = '/appointments/speciality-admin.html';
+            link1.textContent = 'MANAGE SPECIALITIES';
+            li.appendChild(link1);
+
+            var li2 = document.createElement('li');
+            li2.style.display = 'inline';
+            var link2 = document.createElement('a');
+            link2.className = 'back-btn-spec provider-admin-link';
+            link2.href = '/appointments/provider-admin.html';
+            link2.textContent = 'MANAGE PROVIDERS';
+            li2.appendChild(link2);
+
+            headerUl.appendChild(li);
+            headerUl.appendChild(li2);
+            clearInterval(checkInterval);
+        }
+        if (checkCount > 100) clearInterval(checkInterval);
+    }, 300);
+})();
+</script>
+</body>
+</html>

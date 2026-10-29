@@ -101,7 +101,13 @@ Bahmni.Clinical.EncounterTransactionMapper = function () {
         encounterData.orders = [];
         var addOrdersToEncounter = function () {
             var modifiedOrders = _.filter(consultation.orders, function (order) {
-                if ((order.isUnavailable || (order.concept && order.concept.isUnavailable)) && !order.isDiscontinued) {
+                var ordUuid = order.concept ? order.concept.uuid : order.uuid;
+                var isStockOut = order.isUnavailable ||
+                                 (order.concept && order.concept.isUnavailable) ||
+                                 (consultation.referralOrders && _.some(consultation.referralOrders, function (r) {
+                                     return r.uuid === ordUuid || (r.concept && r.concept.uuid === ordUuid);
+                                 }));
+                if (isStockOut && !order.isDiscontinued) {
                     return false;
                 }
                 return order.hasBeenModified || order.isDiscontinued || !order.uuid;
@@ -161,6 +167,22 @@ Bahmni.Clinical.EncounterTransactionMapper = function () {
             }
             if (consultation.labOrderNote) {
                 encounterData.observations.push(consultation.labOrderNote);
+            }
+            if (consultation.referralOrders && consultation.referralOrders.length > 0) {
+                var labNoteConcept = (consultation.labOrderNote && consultation.labOrderNote.concept) || {
+                    uuid: "d3e3f4be-5e07-11ef-8f7c-0242ac120002",
+                    name: "Lab Order Notes"
+                };
+                consultation.referralOrders.forEach(function (ro) {
+                    var testName = ro.name || ro.displayName || (ro.concept ? (ro.concept.displayName || ro.concept.name) : 'Test');
+                    var obsValue = '[STOCK-OUT: Reagent Unavailable] ' + testName;
+                    encounterData.observations.push({
+                        concept: labNoteConcept,
+                        value: obsValue,
+                        comment: 'Stock-Out: Reagent Unavailable',
+                        observationDateTime: encounterData.encounterDateTime || null
+                    });
+                });
             }
             if (!_.isEmpty(consultation.drugOrdersWithUpdatedOrderAttributes)) {
                 var orderAttributes = _.values(consultation.drugOrdersWithUpdatedOrderAttributes).map(function (drugOrder) {

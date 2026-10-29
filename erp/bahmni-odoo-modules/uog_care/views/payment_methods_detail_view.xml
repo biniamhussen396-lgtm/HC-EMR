@@ -37,9 +37,6 @@
 
             <xpath expr="//field[@name='payment_term_id']" position="after">
                 <field name="payment_method" />
-                <button name="action_fetch_payment_info" string="Fetch Payment Info" type="object"
-                    class="btn-primary"
-                    attrs="{'invisible': [('state', 'not in', ('draft', 'sent'))]}" />
             </xpath>
 
             <xpath expr="//field[@name='payment_method']" position="after">

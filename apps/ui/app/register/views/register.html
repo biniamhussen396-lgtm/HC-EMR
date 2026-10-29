@@ -1,0 +1,862 @@
+<div class="register-app-container">
+
+    <!-- Screen Header Banner (No Print) -->
+    <div class="register-header-banner no-print">
+        <div class="facility-branding">
+            <img ng-src="{{facilityLogo}}" alt="Logo" class="facility-logo" onerror="this.src='../images/bahmniLogo.png';">
+            <div>
+                <h2 class="facility-title">{{facilityName}}</h2>
+                <div class="register-subtitle">
+                    <i class="fa fa-book"></i> {{facilitySubtext}}
+                    <span class="register-tag">{{activeRegisterMeta.name}}</span>
+                </div>
+            </div>
+        </div>
+        <div class="header-right">
+            <div class="date-badge" title="Current Ethiopian Calendar Date">
+                <i class="fa fa-calendar"></i> {{currentEthFull || currentEthDate + ' E.C.'}}
+            </div>
+            <a href="../home/index.html#/dashboard" class="btn-home" title="Back to Home Dashboard">
+                <i class="fa fa-th"></i> Dashboard
+            </a>
+        </div>
+    </div>
+
+    <!-- Access Denied State (No Print) -->
+    <div ng-if="isAuthorized === false" class="access-denied-container no-print">
+        <div class="access-denied-card">
+            <div class="access-denied-icon"><i class="fa fa-lock"></i></div>
+            <h2>Access Restricted</h2>
+            <p class="access-denied-msg">{{accessError}}</p>
+            <div class="access-denied-details">
+                <p><strong>Required Privilege:</strong> <code>app:register</code></p>
+                <p style="margin: 6px 0 0;">This module displays protected patient and facility register logs. To gain access, please request your administrator to grant you the <code>app:register</code> privilege or the <strong>Register-App</strong> role.</p>
+            </div>
+            <div class="access-denied-actions">
+                <a href="../home/index.html#/dashboard" class="btn-home" style="display: inline-flex; align-items: center; gap: 8px; font-size: 13px; padding: 10px 22px; text-decoration: none;">
+                    <i class="fa fa-th"></i> Return to Home Dashboard
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <div ng-if="isAuthorized === true">
+        <!-- Official MOH Print Header (Print Only) -->
+    <div class="moh-print-header">
+        <div class="print-logo-row">
+            <div>
+                <div class="print-moh-amharic">የኢትዮጵያ ፌዴራላዊ ዴሞክራሲያዊ ሪፐብሊክ የጤና ጥበቃ ሚኒስቴር</div>
+                <div style="font-size: 11px; font-weight: bold;">MINISTRY OF HEALTH ETHIOPIA</div>
+            </div>
+            <div style="text-align: center;">
+                <h1 class="print-moh-title">{{activeRegisterMeta.name}}</h1>
+            </div>
+            <div style="text-align: right; font-size: 11px;">
+                <div>Facility: <strong>{{facilityName}}</strong></div>
+                <div>Date: <strong>{{currentEthDate}} E.C.</strong></div>
+            </div>
+        </div>
+        <div class="print-facility-row">
+            <span>Register Template: <u>&nbsp;{{activeRegisterMeta.name}}&nbsp;</u></span>
+            <span>Active Range: <u>&nbsp;{{filters.fromEthDate || 'All'}} to {{filters.toEthDate || 'All'}} (EC)&nbsp;</u></span>
+            <span>Total Records: <u>&nbsp;{{filteredRecords.length}}&nbsp;</u></span>
+        </div>
+    </div>
+
+    <!-- Top Register Selector Switcher Bar (No Print) -->
+    <div class="register-switcher-bar no-print">
+        <div class="switcher-label-wrap">
+            <span class="switcher-title"><i class="fa fa-book text-primary"></i> Select Register:</span>
+            <div class="switcher-pills">
+                <button type="button"
+                        class="switcher-pill-btn"
+                        ng-repeat="reg in availableRegisters"
+                        ng-class="{'active': activeRegister === reg.id}"
+                        ng-click="switchRegister(reg.id)">
+                    <i class="fa" ng-class="reg.icon"></i>
+                    <span>{{reg.shortName}}</span>
+                    <span class="pill-badge">{{reg.badge}}</span>
+                </button>
+            </div>
+        </div>
+        <div class="switcher-controls-right">
+            <button class="btn btn-guide" ng-class="{'active': isReferenceOpen}" ng-click="toggleReferenceGuide()" title="View MOH Data Source, Clinical Forms & Concept Dictionary">
+                <i class="fa fa-info-circle"></i> Data Source Guide
+                <span class="btn-badge">{{activeRegisterMeta.cols}} Cols</span>
+                <i class="fa" ng-class="{'fa-chevron-up': isReferenceOpen, 'fa-chevron-down': !isReferenceOpen}"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- Dynamic Summary KPI Cards (No Print) -->
+    <div class="register-stat-cards no-print">
+        <div class="stat-card" ng-class="kpis.card1.color">
+            <div class="stat-icon"><i class="fa" ng-class="kpis.card1.icon"></i></div>
+            <div class="stat-content">
+                <div class="stat-number">{{kpis.card1.value}}</div>
+                <div class="stat-label">{{kpis.card1.title}}</div>
+                <div class="stat-subtext">{{kpis.card1.subtitle}}</div>
+            </div>
+        </div>
+        <div class="stat-card" ng-class="kpis.card2.color">
+            <div class="stat-icon"><i class="fa" ng-class="kpis.card2.icon"></i></div>
+            <div class="stat-content">
+                <div class="stat-number">{{kpis.card2.value}}</div>
+                <div class="stat-label">{{kpis.card2.title}}</div>
+                <div class="stat-subtext">{{kpis.card2.subtitle}}</div>
+            </div>
+        </div>
+        <div class="stat-card" ng-class="kpis.card3.color">
+            <div class="stat-icon"><i class="fa" ng-class="kpis.card3.icon"></i></div>
+            <div class="stat-content">
+                <div class="stat-number">{{kpis.card3.value}}</div>
+                <div class="stat-label">{{kpis.card3.title}}</div>
+                <div class="stat-subtext">{{kpis.card3.subtitle}}</div>
+            </div>
+        </div>
+        <div class="stat-card" ng-class="kpis.card4.color">
+            <div class="stat-icon"><i class="fa" ng-class="kpis.card4.icon"></i></div>
+            <div class="stat-content">
+                <div class="stat-number">{{kpis.card4.value}}</div>
+                <div class="stat-label">{{kpis.card4.title}}</div>
+                <div class="stat-subtext">{{kpis.card4.subtitle}}</div>
+            </div>
+        </div>
+        <div class="stat-card" ng-class="kpis.card5.color">
+            <div class="stat-icon"><i class="fa" ng-class="kpis.card5.icon"></i></div>
+            <div class="stat-content">
+                <div class="stat-number">{{kpis.card5.value}}</div>
+                <div class="stat-label">{{kpis.card5.title}}</div>
+                <div class="stat-subtext">{{kpis.card5.subtitle}}</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Expandable Data Source & Concept Completeness Reference Guide (No Print) -->
+    <div class="reference-guide-panel no-print" ng-show="isReferenceOpen">
+        <div class="guide-panel-header">
+            <div>
+                <h4 class="guide-panel-title">
+                    <i class="fa fa-book text-success"></i> MOH Ethiopia {{activeRegisterMeta.name}} — Data Source &amp; Concept Completeness Dictionary
+                </h4>
+                <div class="guide-panel-sub">
+                    Audit and verify data completeness: each column is mapped to its Bahmni observation form, OpenMRS concept, and hospital audit standard.
+                </div>
+            </div>
+            <div style="display: flex; gap: 8px; align-items: center;">
+                <input type="text"
+                       class="guide-search-input"
+                       ng-model="referenceSearchText"
+                       placeholder="Search column, form, concept, or rule...">
+                <button class="btn btn-secondary" style="padding: 3px 8px;" ng-click="toggleReferenceGuide()"><i class="fa fa-times"></i> Close</button>
+            </div>
+        </div>
+        <div class="guide-table-wrap">
+            <table class="guide-table">
+                <thead>
+                    <tr>
+                        <th style="width: 60px;">Col #</th>
+                        <th style="width: 220px;">Column Name in Register</th>
+                        <th style="width: 220px;">Bahmni Clinical Observation Form</th>
+                        <th style="width: 280px;">OpenMRS Concept / Identifier</th>
+                        <th>Hospital Audit Rule &amp; Completeness Standard</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr ng-repeat="item in conceptDictionary | filterDictionary:referenceSearchText">
+                        <td><span class="col-badge">Col {{item.col}}</span></td>
+                        <td><strong>{{item.name}}</strong></td>
+                        <td><i class="fa fa-file-text-o text-muted"></i> {{item.form}}</td>
+                        <td><code>{{item.concept}}</code></td>
+                        <td>{{item.rule}}</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Filter & Table Controls Toolbar (No Print) -->
+    <div class="register-toolbar no-print">
+        <!-- Top Toolbar Row: Search + Quick Date Range Pills + Action Buttons -->
+        <div class="toolbar-top-row">
+            <div class="toolbar-search-wrap">
+                <i class="fa fa-search search-icon"></i>
+                <input type="text"
+                       class="search-input"
+                       ng-model="filters.search"
+                       ng-change="applyFilters()"
+                       placeholder="Global search MRN, Name, Diagnosis, Address, Remark...">
+            </div>
+
+            <!-- Date Range Filter Pills -->
+            <div class="date-range-pills">
+                <button type="button" class="range-pill" ng-class="{'active': filters.dateRangeKey === 'ALL'}" ng-click="setDateRange('ALL')">All Time</button>
+                <button type="button" class="range-pill" ng-class="{'active': filters.dateRangeKey === 'TODAY'}" ng-click="setDateRange('TODAY')">Today (ዛሬ)</button>
+                <button type="button" class="range-pill" ng-class="{'active': filters.dateRangeKey === 'WEEK'}" ng-click="setDateRange('WEEK')">Past 7 Days</button>
+                <button type="button" class="range-pill" ng-class="{'active': filters.dateRangeKey === 'MONTH'}" ng-click="setDateRange('MONTH')">This EC Month</button>
+            </div>
+
+            <!-- Custom Ethiopian Date Range Inputs with Interactive Datepicker -->
+            <div class="date-picker-wrap" title="Click to open Ethiopian Calendar Datepicker">
+                <span>From EC:</span>
+                <input type="text" class="ec-date-input" ng-model="filters.fromEthDate" ng-click="openEthPicker('fromEthDate', $event)" ng-change="applyFilters()" placeholder="DD/MM/YYYY" readonly style="cursor: pointer; background: #ffffff;">
+                <span>To EC:</span>
+                <input type="text" class="ec-date-input" ng-model="filters.toEthDate" ng-click="openEthPicker('toEthDate', $event)" ng-change="applyFilters()" placeholder="DD/MM/YYYY" readonly style="cursor: pointer; background: #ffffff;">
+
+                <!-- Interactive Ethiopian Calendar Datepicker Popover -->
+                <div class="eth-datepicker-popover" ng-if="ethPicker.isOpen" ng-click="$event.stopPropagation()">
+                    <div class="eth-dp-header">
+                        <button type="button" class="eth-dp-btn" ng-click="prevEthYear($event)" title="Previous Year">«</button>
+                        <button type="button" class="eth-dp-btn" ng-click="prevEthMonth($event)" title="Previous Month">‹</button>
+                        <span class="eth-dp-title">
+                            {{ethPicker.amharicMonths[ethPicker.month - 1]}} ({{ethPicker.englishMonths[ethPicker.month - 1]}}) {{ethPicker.year}} ዓ.ም
+                        </span>
+                        <button type="button" class="eth-dp-btn" ng-click="nextEthMonth($event)" title="Next Month">›</button>
+                        <button type="button" class="eth-dp-btn" ng-click="nextEthYear($event)" title="Next Year">»</button>
+                    </div>
+                    <div class="eth-dp-weekdays">
+                        <span ng-repeat="w in ethPicker.weekDays track by $index">{{w}}</span>
+                    </div>
+                    <div class="eth-dp-grid">
+                        <span class="eth-dp-blank" ng-repeat="b in ethPicker.leadingBlanks track by $index"></span>
+                        <button type="button" class="eth-dp-day" 
+                                ng-repeat="d in ethPicker.daysGrid track by $index" 
+                                ng-click="selectEthDay(d, $event)">
+                            {{d}}
+                        </button>
+                    </div>
+                    <div class="eth-dp-footer">
+                        <button type="button" class="btn-eth-today" ng-click="selectEthTodayInPicker($event)">ዛሬ (Today)</button>
+                        <button type="button" class="btn-eth-clear" ng-click="clearEthDateInPicker($event)">Clear</button>
+                        <button type="button" class="btn-eth-close" ng-click="closeEthPicker()">Close</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Actions -->
+            <div class="toolbar-actions">
+                <button class="btn btn-secondary" ng-click="resetFilters()" title="Reset all active filters">
+                    <i class="fa fa-refresh"></i> Reset
+                </button>
+                <button class="btn btn-excel" ng-click="exportToExcel()" title="Export official MOH register to Excel (.xls)">
+                    <i class="fa fa-file-excel-o"></i> Excel
+                </button>
+                <button class="btn btn-print" ng-click="printRegister()" title="Print A4/A3 Landscape MOH Register">
+                    <i class="fa fa-print"></i> Print
+                </button>
+                <button class="btn btn-refresh" ng-click="loadData()" title="Reload data from OpenMRS database">
+                    <i class="fa fa-database" ng-class="{'fa-spin': isLoading}"></i> Reload
+                </button>
+            </div>
+        </div>
+
+        <!-- Bottom Toolbar Row: Demographic & Register-Specific Filters -->
+        <div class="toolbar-filters-row">
+            <!-- Sex Filter -->
+            <select class="filter-select" ng-model="filters.sex" ng-change="applyFilters()">
+                <option value="">Sex: All</option>
+                <option value="M">Male (M)</option>
+                <option value="F">Female (F)</option>
+            </select>
+
+            <!-- Age Group Filter -->
+            <select class="filter-select" ng-model="filters.ageGroup" ng-change="applyFilters()">
+                <option value="">Age: All</option>
+                <option value="<5">&lt; 5 Years</option>
+                <option value="5-14">5 - 14 Years</option>
+                <option value="15-49">15 - 49 Years</option>
+                <option value="50+">50+ Years</option>
+            </select>
+
+            <!-- ICU Specific Filters -->
+            <span ng-if="activeRegister === 'ICU'" style="display:flex; gap:8px;">
+                <select class="filter-select" ng-model="filters.icuVentilation" ng-change="applyFilters()">
+                    <option value="">Ventilation: All</option>
+                    <option value="Yes">Ventilated (Yes)</option>
+                    <option value="No">Non-ventilated (No)</option>
+                </select>
+                <select class="filter-select" ng-model="filters.icuOutcome" ng-change="applyFilters()">
+                    <option value="">Outcome: All</option>
+                    <option value="Improved">1. Improved</option>
+                    <option value="Died">4. Died in ICU</option>
+                    <option value="Referred">5. Referred</option>
+                </select>
+                <select class="filter-select" ng-model="filters.icuVap" ng-change="applyFilters()">
+                    <option value="">VAP: All</option>
+                    <option value="Yes">VAP Developed (Yes)</option>
+                    <option value="No">No VAP</option>
+                </select>
+                <select class="filter-select" ng-model="filters.icuReadmission" ng-change="applyFilters()">
+                    <option value="">Readmission: All</option>
+                    <option value="Yes">ICU Readmission (Yes)</option>
+                    <option value="No">First Admission</option>
+                </select>
+            </span>
+
+            <!-- OPD Specific Filters -->
+            <span ng-if="activeRegister === 'OPD'" style="display:flex; gap:8px;">
+                <select class="filter-select" ng-model="filters.opdStatus" ng-change="applyFilters()">
+                    <option value="">Patient Status: All</option>
+                    <option value="New">New Visit (✓)</option>
+                    <option value="Repeat">Repeat Visit (✓)</option>
+                </select>
+                <!-- Multiselect Location Dropdown (OPD) -->
+                <div class="multiselect-dropdown-wrap">
+                    <button type="button" class="multiselect-trigger-btn" ng-click="toggleMultiselect('location', $event)" ng-class="{'has-selection': filters.selectedLocations.length > 0}">
+                        <span class="trigger-label">
+                            <i class="fa fa-map-marker text-muted"></i>
+                            {{getLocationDropdownLabel()}}
+                        </span>
+                        <span class="badge-sel-count" ng-if="filters.selectedLocations.length > 0">{{filters.selectedLocations.length}}</span>
+                        <i class="fa fa-caret-down caret-icon"></i>
+                    </button>
+                    
+                    <div class="multiselect-menu" ng-if="multiselectOpen === 'location'" ng-click="$event.stopPropagation()">
+                        <div class="multiselect-search-box">
+                            <input type="text" class="multiselect-search-input" placeholder="Search locations..." ng-model="locationSearchText">
+                        </div>
+                        <div class="multiselect-actions">
+                            <button type="button" class="btn-ms-action" ng-click="selectAllLocations($event)">All</button>
+                            <button type="button" class="btn-ms-action" ng-click="clearAllLocations($event)">Clear</button>
+                            <button type="button" class="btn-ms-action close-action" ng-click="closeMultiselect()">Done</button>
+                        </div>
+                        <div class="multiselect-items-list">
+                            <label class="multiselect-item" ng-repeat="loc in opdLocations | filter:locationSearchText">
+                                <input type="checkbox" ng-checked="isLocationSelected(loc)" ng-click="toggleLocationItem(loc, $event)">
+                                <span class="item-name">{{loc}}</span>
+                            </label>
+                            <div class="no-ms-items" ng-if="(opdLocations | filter:locationSearchText).length === 0">No matching locations</div>
+                        </div>
+                    </div>
+                </div>
+                <select class="filter-select" ng-model="filters.opdRta" ng-change="applyFilters()">
+                    <option value="">RTA: All</option>
+                    <option value="ANY">Any RTA Case</option>
+                    <option value="Pedestrian">1. Pedestrian</option>
+                    <option value="Motorcyclist">2. Motorcyclist</option>
+                    <option value="Vehicle">3. Vehicle Occupant</option>
+                </select>
+                <select class="filter-select" ng-model="filters.opdTb" ng-change="applyFilters()">
+                    <option value="">TB Screen: All</option>
+                    <option value="Positive">TB Result (Positive)</option>
+                    <option value="Negative">TB Result (Negative)</option>
+                    <option value="Screened">Screened for TB</option>
+                </select>
+                <select class="filter-select" ng-model="filters.opdHiv" ng-change="applyFilters()">
+                    <option value="">HIV Test: All</option>
+                    <option value="Positive">HIV Result (Positive / P)</option>
+                    <option value="Negative">HIV Result (Negative / N)</option>
+                    <option value="Tested">HIV Test Performed</option>
+                </select>
+            </span>
+
+            <!-- Liaison Specific Filters -->
+            <span ng-if="activeRegister === 'LIAISON'" style="display:flex; gap:8px;">
+                <select class="filter-select" ng-model="filters.liaisonType" ng-change="applyFilters()">
+                    <option value="">Referral Direction: All</option>
+                    <option value="In">Referral In (✓)</option>
+                    <option value="Out">Referral Out (✓)</option>
+                </select>
+                <select class="filter-select" ng-model="filters.liaisonCaseType" ng-change="applyFilters()">
+                    <option value="">Case Type: All</option>
+                    <option value="Emergency">Emergency</option>
+                    <option value="Cold">Cold / Elective</option>
+                </select>
+                <select class="filter-select" ng-model="filters.liaisonAmbulance" ng-change="applyFilters()">
+                    <option value="">Ambulance: All</option>
+                    <option value="Yes">Ambulance Dispatched (Yes)</option>
+                    <option value="No">No Ambulance</option>
+                </select>
+                <select class="filter-select" ng-model="filters.liaisonFeedback" ng-change="applyFilters()">
+                    <option value="">Feedback: All</option>
+                    <option value="Yes">Feedback Received / Sent</option>
+                    <option value="Pending">Pending Feedback</option>
+                </select>
+            </span>
+
+            <!-- IPD Specific Filters (Filter by Ward and Status) -->
+            <span ng-if="activeRegister === 'IPD'" style="display:flex; gap:8px;">
+                <!-- Multiselect Ward Dropdown (IPD) -->
+                <div class="multiselect-dropdown-wrap">
+                    <button type="button" class="multiselect-trigger-btn" ng-click="toggleMultiselect('ward', $event)" ng-class="{'has-selection': filters.selectedWards.length > 0}">
+                        <span class="trigger-label">
+                            <i class="fa fa-hospital-o text-muted"></i>
+                            {{getWardDropdownLabel()}}
+                        </span>
+                        <span class="badge-sel-count" ng-if="filters.selectedWards.length > 0">{{filters.selectedWards.length}}</span>
+                        <i class="fa fa-caret-down caret-icon"></i>
+                    </button>
+                    
+                    <div class="multiselect-menu" ng-if="multiselectOpen === 'ward'" ng-click="$event.stopPropagation()">
+                        <div class="multiselect-search-box">
+                            <input type="text" class="multiselect-search-input" placeholder="Search wards..." ng-model="wardSearchText">
+                        </div>
+                        <div class="multiselect-actions">
+                            <button type="button" class="btn-ms-action" ng-click="selectAllWards($event)">All</button>
+                            <button type="button" class="btn-ms-action" ng-click="clearAllWards($event)">Clear</button>
+                            <button type="button" class="btn-ms-action close-action" ng-click="closeMultiselect()">Done</button>
+                        </div>
+                        <div class="multiselect-items-list">
+                            <label class="multiselect-item" ng-repeat="w in ipdWards | filter:wardSearchText">
+                                <input type="checkbox" ng-checked="isWardSelected(w)" ng-click="toggleWardItem(w, $event)">
+                                <span class="item-name">{{w}}</span>
+                            </label>
+                            <div class="no-ms-items" ng-if="(ipdWards | filter:wardSearchText).length === 0">No matching wards</div>
+                        </div>
+                    </div>
+                </div>
+                <select class="filter-select" ng-model="filters.ipdStatus" ng-change="applyFilters()">
+                    <option value="">Status: All</option>
+                    <option value="Admitted">Admitted</option>
+                    <option value="Discharged">Discharged</option>
+                </select>
+            </span>
+        </div>
+    </div>
+
+    <!-- Main Register Table Container with Freeze-Headers -->
+    <div class="table-viewport-container">
+        <!-- Loading Spinner State -->
+        <div class="table-loading-overlay" ng-if="isLoading">
+            <i class="fa fa-spinner fa-spin fa-2x text-primary"></i>
+            <div>Loading {{activeRegisterMeta.name}} from OpenMRS...</div>
+        </div>
+
+        <!-- Empty State -->
+        <div class="table-empty-state" ng-if="!isLoading && filteredRecords.length === 0">
+            <i class="fa fa-folder-open-o empty-icon"></i>
+            <strong>No records found</strong>
+            <div>No register entries match your active search or date filter. Try clicking "Reset" or selecting "All Time".</div>
+        </div>
+
+        <div class="table-scroll-wrap" ng-if="!isLoading && filteredRecords.length > 0">
+            <table class="moh-register-table" id="moh-register-main-table">
+
+                <!-- ============================================================== -->
+                <!-- 1. INTENSIVE CARE UNIT (ICU) REGISTER SCHEMA (26 Columns)     -->
+                <!-- ============================================================== -->
+                <thead ng-if="activeRegister === 'ICU'">
+                    <!-- Row 1: Header Categories -->
+                    <tr>
+                        <th rowspan="2" class="sticky-col-1" style="width: 40px;">S.N</th>
+                        <th rowspan="2" class="sticky-col-2" style="width: 90px;">MRN</th>
+                        <th rowspan="2" class="sticky-col-3" style="width: 170px;">Patient Name</th>
+                        <th rowspan="2" style="width: 45px;">Age</th>
+                        <th rowspan="2" style="width: 45px;">Sex<br/>M/F</th>
+                        <th rowspan="2" style="width: 90px;">Date Admitted<br/>(EC)</th>
+                        <th colspan="2" style="width: 240px;">Diagnosis at admission<br/>(ESV_ICD11)</th>
+                        <th colspan="4" style="width: 240px;">HIV Assessment</th>
+                        <th colspan="2" style="width: 130px;">Invasive mechanical<br/>ventilation</th>
+                        <th rowspan="2" style="width: 60px;">VAP<br/>Deve-<br/>loped</th>
+                        <th colspan="3" style="width: 220px;">Nutrition Services</th>
+                        <th colspan="8" style="width: 660px;">Patient information at discharge</th>
+                        <th rowspan="2" style="width: 120px;">Remark</th>
+                    </tr>
+                    <!-- Row 2: Sub-headers -->
+                    <tr>
+                        <!-- Col 7 Diagnosis -->
+                        <th style="width: 160px;">Name</th>
+                        <th style="width: 80px;">Code</th>
+                        <!-- Col 8-11 HIV -->
+                        <th style="width: 55px;" title="HIV Test Offered">Offered (✓)</th>
+                        <th style="width: 55px;" title="HIV Test Performed">Perf. (✓)</th>
+                        <th style="width: 70px;" title="Targeted Population Category (code)">Target Pop</th>
+                        <th style="width: 60px;" title="HIV Test Result (P/N)">Result</th>
+                        <!-- Col 12-13 Mech Vent -->
+                        <th style="width: 55px;">Y/N</th>
+                        <th style="width: 75px;">Days in number</th>
+                        <!-- Col 15-17 Nutrition -->
+                        <th style="width: 70px;" title="Nutritional assessment conducted">Assessment</th>
+                        <th style="width: 70px;" title="Nutritional support given">Support</th>
+                        <th style="width: 80px;" title="Feeding type: 1. Enteral, 2. Parenteral">Feeding Type</th>
+                        <!-- Col 18-25 Discharge info -->
+                        <th style="width: 85px;">Date discharged<br/>(EC)</th>
+                        <th style="width: 150px;">Diagnosis at discharge</th>
+                        <th style="width: 75px;">Code</th>
+                        <th style="width: 70px;" title="Length of stay in ICU (in days)">LOS (days)</th>
+                        <th style="width: 95px;" title="Patient outcome at discharge (1-5)">Outcome</th>
+                        <th style="width: 90px;" title="Death in the ICU: 1. Within 24h, 2. After 24h">Death in ICU</th>
+                        <th style="width: 55px;" title="Death notification given">Notif.</th>
+                        <th style="width: 80px;" title="ICU Readmission & timing">Readmission</th>
+                    </tr>
+                    <!-- Row 3: Official MOH Column Numbers -->
+                    <tr>
+                        <th class="sticky-col-1">(1)</th>
+                        <th class="sticky-col-2">(2)</th>
+                        <th class="sticky-col-3">(3)</th>
+                        <th>(4)</th>
+                        <th>(5)</th>
+                        <th>(6)</th>
+                        <th>(7a)</th>
+                        <th>(7b)</th>
+                        <th>(8)</th>
+                        <th>(9)</th>
+                        <th>(10)</th>
+                        <th>(11)</th>
+                        <th>(12)</th>
+                        <th>(13)</th>
+                        <th>(14)</th>
+                        <th>(15)</th>
+                        <th>(16)</th>
+                        <th>(17)</th>
+                        <th>(18)</th>
+                        <th>(19a)</th>
+                        <th>(19b)</th>
+                        <th>(20)</th>
+                        <th>(21)</th>
+                        <th>(22)</th>
+                        <th>(23)</th>
+                        <th>(24-25)</th>
+                        <th>(26)</th>
+                    </tr>
+                </thead>
+
+                <!-- ============================================================== -->
+                <!-- 2. OUT PATIENT DEPARTMENT (OPD) REGISTER SCHEMA (23 Columns)   -->
+                <!-- ============================================================== -->
+                <thead ng-if="activeRegister === 'OPD'">
+                    <!-- Row 1: Header Categories -->
+                    <tr>
+                        <th colspan="7" style="width: 660px;">Identification</th>
+                        <th colspan="4" style="width: 380px;">Diagnosis (ESV-ICD 11)</th>
+                        <th rowspan="2" style="width: 100px;">Road Traffic<br/>Accident</th>
+                        <th colspan="4" style="width: 250px;">Provider Initiated HIV Counseling &amp; Testing (PIHCT)</th>
+                        <th rowspan="2" style="width: 75px;">Travel History<br/>to Malarious</th>
+                        <th colspan="4" style="width: 320px;">TB Screening &amp; Investigation</th>
+                        <th rowspan="2" style="width: 90px;">Referred to</th>
+                        <th rowspan="2" style="width: 50px;">Died<br/>(✓)</th>
+                        <th rowspan="2" style="width: 55px;">Death<br/>Notif.</th>
+                        <th rowspan="2" style="width: 120px;">Remark</th>
+                    </tr>
+                    <!-- Row 2: Sub-headers -->
+                    <tr>
+                        <th class="sticky-col-1" style="width: 40px;">S/No</th>
+                        <th class="sticky-col-2" style="width: 85px;">Service Date<br/>(EC)</th>
+                        <th class="sticky-col-3" style="width: 95px;">MRN</th>
+                        <th style="width: 45px;">Age</th>
+                        <th style="width: 45px;">Sex</th>
+                        <th style="width: 140px;">Address<br/>(Woreda/Kebele)</th>
+                        <th style="width: 130px;">Visit Location</th>
+                        <!-- Diagnosis -->
+                        <th style="width: 170px;">Name</th>
+                        <th style="width: 75px;">Code</th>
+                        <th style="width: 55px;">New (✓)</th>
+                        <th style="width: 55px;">Rpt (✓)</th>
+                        <!-- HIV -->
+                        <th style="width: 55px;" title="HIV Test Offered">Offered</th>
+                        <th style="width: 55px;" title="HIV Test Performed">Perf.</th>
+                        <th style="width: 75px;" title="Targeted Population Category (code)">Target Pop</th>
+                        <th style="width: 65px;" title="HIV Test Result (P or N)">Result</th>
+                        <!-- TB -->
+                        <th style="width: 65px;" title="Screened for TB">Screen (✓)</th>
+                        <th style="width: 65px;" title="TB Screening Result (P/N)">Result</th>
+                        <th style="width: 100px;" title="Type of Diagnostic Evaluation: 1-6">Diagnostic Eval</th>
+                        <th style="width: 90px;" title="Result of TB Screening / Code">TB Code</th>
+                    </tr>
+                    <!-- Row 3: Official MOH Column Numbers -->
+                    <tr>
+                        <th class="sticky-col-1">(1)</th>
+                        <th class="sticky-col-2">(2)</th>
+                        <th class="sticky-col-3">(3)</th>
+                        <th>(4)</th>
+                        <th>(5)</th>
+                        <th>(6)</th>
+                        <th>(6b)</th>
+                        <th>(7a)</th>
+                        <th>(7b)</th>
+                        <th>(8)</th>
+                        <th>(9)</th>
+                        <th>(10)</th>
+                        <th>(11)</th>
+                        <th>(12)</th>
+                        <th>(13)</th>
+                        <th>(14)</th>
+                        <th>(15)</th>
+                        <th>(16)</th>
+                        <th>(17)</th>
+                        <th>(18)</th>
+                        <th>(19)</th>
+                        <th>(20)</th>
+                        <th>(21)</th>
+                        <th>(22)</th>
+                        <th>(23)</th>
+                    </tr>
+                </thead>
+
+                <!-- ============================================================== -->
+                <!-- 3. LIAISON REFERRAL-IN/OUT REGISTER SCHEMA (21 Columns)        -->
+                <!-- ============================================================== -->
+                <thead ng-if="activeRegister === 'LIAISON'">
+                    <!-- Row 1: Header Categories -->
+                    <tr>
+                        <th colspan="6" style="width: 480px;">Identification</th>
+                        <th colspan="3" style="width: 270px;">Address</th>
+                        <th colspan="12" style="width: 1200px;">Referral Service</th>
+                    </tr>
+                    <!-- Row 2: Sub-headers -->
+                    <tr>
+                        <th class="sticky-col-1" style="width: 40px;">S/N</th>
+                        <th class="sticky-col-2" style="width: 85px;">Service Date<br/>(EC)</th>
+                        <th class="sticky-col-3" style="width: 90px;">MRN</th>
+                        <th style="width: 160px;">Name of the Patient</th>
+                        <th style="width: 45px;">Age</th>
+                        <th style="width: 45px;">Sex</th>
+                        <!-- Address -->
+                        <th style="width: 80px;">Region</th>
+                        <th style="width: 95px;">Subcity/Zone</th>
+                        <th style="width: 95px;">Woreda/Kebele</th>
+                        <!-- Type of Referral -->
+                        <th style="width: 65px;" title="Referral In">Ref In (✓)</th>
+                        <th style="width: 65px;" title="Referral Out">Ref Out (✓)</th>
+                        <!-- Facility -->
+                        <th style="width: 170px;" title="Name of Referring Facility or Facility to which client referred to">Name of Facility</th>
+                        <!-- Clinical info -->
+                        <th style="width: 90px;" title="Type of Case: Emergency / Cold">Type of Case</th>
+                        <th style="width: 170px;">Referral Diagnosis</th>
+                        <th style="width: 120px;">Department</th>
+                        <th style="width: 160px;">Reason for Referral</th>
+                        <!-- Logistics & Ops -->
+                        <th style="width: 75px;" title="Emergency referral with Ambulance (Y/N)">Ambulance</th>
+                        <th style="width: 75px;" title="Referral communication done (Y/N)">Comm. Done</th>
+                        <th style="width: 75px;" title="Payment Type (CBHI, Paying, Free)">Payment</th>
+                        <th style="width: 75px;" title="Feedback received or sent (Y/N)">Feedback</th>
+                        <th style="width: 110px;">Remark</th>
+                    </tr>
+                    <!-- Row 3: Official MOH Column Numbers -->
+                    <tr>
+                        <th class="sticky-col-1">(1)</th>
+                        <th class="sticky-col-2">(2)</th>
+                        <th class="sticky-col-3">(3)</th>
+                        <th>(4)</th>
+                        <th>(5)</th>
+                        <th>(6)</th>
+                        <th>(7)</th>
+                        <th>(8)</th>
+                        <th>(9)</th>
+                        <th>(10)</th>
+                        <th>(11)</th>
+                        <th>(12)</th>
+                        <th>(13)</th>
+                        <th>(14)</th>
+                        <th>(15)</th>
+                        <th>(16)</th>
+                        <th>(17)</th>
+                        <th>(18)</th>
+                        <th>(19)</th>
+                        <th>(20)</th>
+                        <th>(21)</th>
+                    </tr>
+                </thead>
+
+                <!-- ============================================================== -->
+                <!-- 4. INPATIENT ADMISSION REGISTER SCHEMA (Fallback / Bonus)      -->
+                <!-- ============================================================== -->
+                <thead ng-if="activeRegister === 'IPD'">
+                    <tr>
+                        <th class="sticky-col-1" style="width: 40px;">S.N</th>
+                        <th class="sticky-col-2" style="width: 90px;">MRN</th>
+                        <th class="sticky-col-3" style="width: 160px;">Patient Name</th>
+                        <th style="width: 45px;">Age</th>
+                        <th style="width: 45px;">Sex</th>
+                        <th style="width: 140px;">Woreda/Kebele</th>
+                        <th style="width: 90px;">Admission Date (EC)</th>
+                        <th style="width: 110px;">Ward &amp; Bed</th>
+                        <th style="width: 180px;">Admission Diagnosis</th>
+                        <th style="width: 90px;">Discharge Date (EC)</th>
+                        <th style="width: 65px;">LOS</th>
+                        <th style="width: 180px;">Discharge Diagnosis</th>
+                        <th style="width: 90px;">Status</th>
+                    </tr>
+                    <tr>
+                        <th class="sticky-col-1">(1)</th>
+                        <th class="sticky-col-2">(2)</th>
+                        <th class="sticky-col-3">(3)</th>
+                        <th>(4)</th>
+                        <th>(5)</th>
+                        <th>(6)</th>
+                        <th>(7)</th>
+                        <th>(8)</th>
+                        <th>(9)</th>
+                        <th>(10)</th>
+                        <th>(11)</th>
+                        <th>(12)</th>
+                        <th>(13)</th>
+                    </tr>
+                </thead>
+
+                <!-- ============================================================== -->
+                <!-- TABLE BODY ROWS                                                -->
+                <!-- ============================================================== -->
+                <tbody>
+                    <!-- ICU Register Rows -->
+                    <tr ng-if="activeRegister === 'ICU'" ng-repeat="row in pagedRecords track by $index">
+                        <td class="sticky-col-1">{{row.sno}}</td>
+                        <td class="sticky-col-2"><strong>{{row.mrn}}</strong></td>
+                        <td class="sticky-col-3 cell-align-left" title="{{row.patient_name}}"><strong>{{row.patient_name}}</strong></td>
+                        <td>{{row.age}}</td>
+                        <td>{{row.sex}}</td>
+                        <td>{{row.ethiopianServiceDate}}</td>
+                        <td class="cell-align-left" title="{{row.admission_diag_name}}">{{row.admission_diag_name || '-'}}</td>
+                        <td><code>{{row.admission_diag_code || '-'}}</code></td>
+                        <td><span class="badge-check" ng-if="row.hiv_offered === 'Yes'">✓</span></td>
+                        <td><span class="badge-check" ng-if="row.hiv_performed === 'Yes'">✓</span></td>
+                        <td>{{row.hiv_target_category || '-'}}</td>
+                        <td>
+                            <span class="badge-pos" ng-if="row.hiv_result === 'Positive' || row.hiv_result === 'P'">P</span>
+                            <span class="badge-neg" ng-if="row.hiv_result === 'Negative' || row.hiv_result === 'N'">N</span>
+                            <span ng-if="row.hiv_result !== 'Positive' && row.hiv_result !== 'Negative' && row.hiv_result !== 'P' && row.hiv_result !== 'N'">-</span>
+                        </td>
+                        <td><span class="badge-check" ng-if="row.mech_vent === 'Yes'">✓</span><span ng-if="row.mech_vent !== 'Yes'">No</span></td>
+                        <td><strong>{{row.vent_days}}</strong></td>
+                        <td><span class="badge-pos" ng-if="row.vap_developed === 'Yes'">Yes</span><span ng-if="row.vap_developed !== 'Yes'">No</span></td>
+                        <td>{{row.nutr_assessment || 'Yes'}}</td>
+                        <td>{{row.nutr_support || 'Yes'}}</td>
+                        <td>{{row.feeding_type || 'Enteral'}}</td>
+                        <td>{{row.ethiopianDischargeDate}}</td>
+                        <td class="cell-align-left" title="{{row.discharge_diag_name}}">{{row.discharge_diag_name || '-'}}</td>
+                        <td><code>{{row.discharge_diag_code || '-'}}</code></td>
+                        <td><strong>{{row.length_of_stay}}</strong></td>
+                        <td>
+                            <span class="badge-pill-status badge-admitted" ng-if="row.outcome_at_discharge.indexOf('Active') !== -1">{{row.outcome_at_discharge}}</span>
+                            <span class="badge-pill-status badge-discharged" ng-if="row.outcome_at_discharge.indexOf('Improved') !== -1">{{row.outcome_at_discharge}}</span>
+                            <span class="badge-pill-status badge-died" ng-if="row.outcome_at_discharge.indexOf('Died') !== -1">{{row.outcome_at_discharge}}</span>
+                            <span ng-if="row.outcome_at_discharge.indexOf('Active') === -1 && row.outcome_at_discharge.indexOf('Improved') === -1 && row.outcome_at_discharge.indexOf('Died') === -1">{{row.outcome_at_discharge}}</span>
+                        </td>
+                        <td><span class="badge-died" ng-if="row.death_in_icu !== 'No'">{{row.death_in_icu}}</span><span ng-if="row.death_in_icu === 'No'">-</span></td>
+                        <td>{{row.death_notification}}</td>
+                        <td>{{row.readmission}} {{row.readmission_timing !== '-' ? '(' + row.readmission_timing + ')' : ''}}</td>
+                        <td class="cell-align-left" title="{{row.remark}}">{{row.remark}}</td>
+                    </tr>
+
+                    <!-- OPD Register Rows -->
+                    <tr ng-if="activeRegister === 'OPD'" ng-repeat="row in pagedRecords track by $index">
+                        <td class="sticky-col-1">{{row.sno}}</td>
+                        <td class="sticky-col-2">{{row.ethiopianServiceDate}}</td>
+                        <td class="sticky-col-3"><strong>{{row.mrn}}</strong></td>
+                        <td>{{row.age}}</td>
+                        <td>{{row.sex}}</td>
+                        <td class="cell-align-left" title="{{row.woreda}} {{row.kebele}}">{{row.woreda}} {{row.kebele ? '/' + row.kebele : ''}}</td>
+                        <td class="cell-align-left" title="{{row.visit_location}}">
+                            <span class="badge-pill-status badge-admitted" style="background:#e0f2fe;color:#0369a1;font-weight:600;font-size:11px;">{{row.visit_location || 'OPD'}}</span>
+                        </td>
+                        <td class="cell-align-left" title="{{row.diagnosis_name}}">
+                            <span class="badge-pill-status badge-admitted" ng-if="row.admitted_mark === 'Admitted'">[Admitted]</span>
+                            {{row.diagnosis_name || '-'}}
+                        </td>
+                        <td><code>{{row.icd11_code || '-'}}</code></td>
+                        <td><span class="badge-new" ng-if="row.isNew">✓</span></td>
+                        <td><span class="badge-rpt" ng-if="row.isRepeat">✓</span></td>
+                        <td>{{row.rta_type || '-'}}</td>
+                        <td><span class="badge-check" ng-if="row.hiv_offered === 'Yes'">✓</span></td>
+                        <td><span class="badge-check" ng-if="row.hiv_performed === 'Yes'">✓</span></td>
+                        <td>{{row.hiv_target_category || '-'}}</td>
+                        <td>
+                            <span class="badge-pos" ng-if="row.hiv_result === 'Positive' || row.hiv_result === 'P'">P</span>
+                            <span class="badge-neg" ng-if="row.hiv_result === 'Negative' || row.hiv_result === 'N'">N</span>
+                            <span ng-if="row.hiv_result !== 'Positive' && row.hiv_result !== 'Negative' && row.hiv_result !== 'P' && row.hiv_result !== 'N'">-</span>
+                        </td>
+                        <td><span class="badge-pos" ng-if="row.travel_malaria === 'Yes'">✓</span><span ng-if="row.travel_malaria !== 'Yes'">-</span></td>
+                        <td><span class="badge-check" ng-if="row.tb_screened === 'Yes'">✓</span><span ng-if="row.tb_screened !== 'Yes'">-</span></td>
+                        <td>
+                            <span class="badge-pos" ng-if="row.tb_result === 'Positive' || row.tb_result === 'P'">P</span>
+                            <span class="badge-neg" ng-if="row.tb_result === 'Negative' || row.tb_result === 'N'">N</span>
+                            <span ng-if="row.tb_result !== 'Positive' && row.tb_result !== 'Negative' && row.tb_result !== 'P' && row.tb_result !== 'N'">-</span>
+                        </td>
+                        <td>{{row.tb_eval_type || '-'}}</td>
+                        <td><strong>{{row.tb_code || '-'}}</strong></td>
+                        <td>{{row.referred_to || '-'}}</td>
+                        <td><span class="badge-died" ng-if="row.died === 'Yes'">✓</span><span ng-if="row.died !== 'Yes'">-</span></td>
+                        <td><span class="badge-died" ng-if="row.death_notified === 'Yes'">✓</span><span ng-if="row.death_notified !== 'Yes'">-</span></td>
+                        <td class="cell-align-left" title="{{row.remark}}">{{row.remark}}</td>
+                    </tr>
+
+                    <!-- Liaison Register Rows -->
+                    <tr ng-if="activeRegister === 'LIAISON'" ng-repeat="row in pagedRecords track by $index">
+                        <td class="sticky-col-1">{{row.sno}}</td>
+                        <td class="sticky-col-2">{{row.ethiopianServiceDate}}</td>
+                        <td class="sticky-col-3"><strong>{{row.mrn}}</strong></td>
+                        <td class="cell-align-left" title="{{row.patient_name}}"><strong>{{row.patient_name}}</strong></td>
+                        <td>{{row.age}}</td>
+                        <td>{{row.sex}}</td>
+                        <td>{{row.region}}</td>
+                        <td>{{row.subcity_zone}}</td>
+                        <td>{{row.woreda_kebele}}</td>
+                        <td><span class="badge-check" ng-if="row.isReferralIn">✓</span><span ng-if="!row.isReferralIn">-</span></td>
+                        <td><span class="badge-check" ng-if="row.isReferralOut">✓</span><span ng-if="!row.isReferralOut">-</span></td>
+                        <td class="cell-align-left" title="{{row.facility_name}}"><strong>{{row.facility_name}}</strong></td>
+                        <td>
+                            <span class="badge-pill-status badge-died" ng-if="row.case_type.indexOf('Emergency') !== -1">{{row.case_type}}</span>
+                            <span class="badge-pill-status badge-admitted" ng-if="row.case_type.indexOf('Emergency') === -1">{{row.case_type}}</span>
+                        </td>
+                        <td class="cell-align-left" title="{{row.diagnosis}}">{{row.diagnosis}}</td>
+                        <td>{{row.department}}</td>
+                        <td class="cell-align-left" title="{{row.reason_for_referral}}">{{row.reason_for_referral}}</td>
+                        <td><span class="badge-check" ng-if="row.ambulance_dispatched === 'Yes'">Yes</span><span ng-if="row.ambulance_dispatched !== 'Yes'">No</span></td>
+                        <td><span class="badge-check" ng-if="row.communication_done === 'Yes'">Yes</span><span ng-if="row.communication_done !== 'Yes'">No</span></td>
+                        <td>{{row.payment_type}}</td>
+                        <td>
+                            <span class="badge-pill-status badge-discharged" ng-if="row.feedback_sent_received === 'Yes'">Yes</span>
+                            <span class="badge-pill-status badge-rpt" ng-if="row.feedback_sent_received !== 'Yes'">Pending</span>
+                        </td>
+                        <td class="cell-align-left" title="{{row.remark}}">{{row.remark}}</td>
+                    </tr>
+
+                    <!-- IPD Register Rows -->
+                    <tr ng-if="activeRegister === 'IPD'" ng-repeat="row in pagedRecords track by $index">
+                        <td class="sticky-col-1">{{row.sno}}</td>
+                        <td class="sticky-col-2"><strong>{{row.mrn}}</strong></td>
+                        <td class="sticky-col-3 cell-align-left"><strong>{{row.patient_name}}</strong></td>
+                        <td>{{row.age}}</td>
+                        <td>{{row.sex}}</td>
+                        <td>{{row.woreda}}</td>
+                        <td>{{row.ethiopianServiceDate}}</td>
+                        <td>{{row.ward_name}} {{row.bed_number ? '(' + row.bed_number + ')' : ''}}</td>
+                        <td class="cell-align-left">{{row.admission_diagnosis || row.admission_diag_name || '-'}}</td>
+                        <td>{{row.ethiopianDischargeDate}}</td>
+                        <td>{{row.length_of_stay}}</td>
+                        <td class="cell-align-left">{{row.discharge_diagnosis || row.discharge_diag_name || '-'}}</td>
+                        <td>
+                            <span class="badge-pill-status" ng-class="{'badge-admitted': row.status === 'Admitted', 'badge-discharged': row.status === 'Discharged'}">{{row.status}}</span>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Table Footer & Comprehensive Pagination Navigation Bar -->
+        <div class="table-footer-bar no-print">
+            <div class="footer-left">
+                Showing <strong>{{filteredRecords.length > 0 ? startIndex + 1 : 0}}</strong> to <strong>{{endIndex}}</strong> of <strong>{{filteredRecords.length}}</strong> entries
+                <span class="filtered-from-note" ng-if="filteredRecords.length !== rawRecords.length">(filtered from {{rawRecords.length}} total)</span>
+            </div>
+
+            <div class="footer-center">
+                <label class="page-size-label">Rows per page:</label>
+                <select class="page-size-select" ng-model="pagination.pageSize" ng-change="changePageSize(pagination.pageSize)">
+                    <option ng-repeat="opt in pagination.pageSizeOptions" value="{{opt}}">{{opt}}</option>
+                </select>
+            </div>
+
+            <div class="footer-right pagination-nav" ng-if="totalPages > 1">
+                <button type="button" class="pag-btn" ng-disabled="pagination.currentPage === 1" ng-click="goToPage(1)" title="First Page">« First</button>
+                <button type="button" class="pag-btn" ng-disabled="pagination.currentPage === 1" ng-click="prevPage()" title="Previous Page">‹ Prev</button>
+                
+                <span class="page-number-group">
+                    <button type="button" class="pag-num-btn" 
+                            ng-repeat="p in getPageNumbers()" 
+                            ng-class="{'active': p === pagination.currentPage}" 
+                            ng-click="goToPage(p)">
+                        {{p}}
+                    </button>
+                </span>
+
+                <button type="button" class="pag-btn" ng-disabled="pagination.currentPage === totalPages" ng-click="nextPage()" title="Next Page">Next ›</button>
+                <button type="button" class="pag-btn" ng-disabled="pagination.currentPage === totalPages" ng-click="goToPage(totalPages)" title="Last Page">Last »</button>
+                <span class="page-indicator">Page {{pagination.currentPage}} of {{totalPages}}</span>
+            </div>
+        </div>
+    </div>
+    </div>
+
+</div>
+

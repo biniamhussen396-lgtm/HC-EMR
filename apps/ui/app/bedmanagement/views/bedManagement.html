@@ -65,7 +65,34 @@
             >{{ option.ward.name }}
             </button>
         </div>
+        <div class="admission-register-btn-wrap" style="float: right; margin: 4px 10px 0 0;">
+            <a class="btn-admitted-table-view" ui-sref="admissionRegister" title="Display all admitted patients in table register form">
+                <i class="fa fa-table"></i> All Admitted Patients (Table Form)
+            </a>
+        </div>
     </div>
     <ward ward="ward" ng-if="departmentSelected"></ward>
 </div>
 </div>
+
+<style>
+.btn-admitted-table-view {
+    background: #005a9c;
+    color: #ffffff !important;
+    padding: 6px 14px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    box-shadow: 0 2px 4px rgba(0, 90, 156, 0.25);
+    transition: all 0.2s ease;
+}
+.btn-admitted-table-view:hover {
+    background: #004477;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0, 90, 156, 0.35);
+}
+</style>

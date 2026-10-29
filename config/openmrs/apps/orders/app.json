@@ -1,98 +1,145 @@
 {
-  "id": "bahmni.orders",
-  "extensionPoints": [
-    {
-      "id": "org.bahmni.orders.search",
-      "description": "Orders Dashboard"
+    "id": "bahmni.orders",
+    "extensionPoints": [
+        {
+            "id": "org.bahmni.orders.search",
+            "description": "Orders Dashboard"
+        }
+    ],
+    "config": {
+        "encounterType": "RADIOLOGY",
+        "visitType": "OPD",
+        "paymentConfig": {
+            "disable checking": true
+        },
+        "ignoredTabularViewHeadings": [
+            "uuid",
+            "activeVisitUuid",
+            "extraIdentifier",
+            "image",
+            "$$hashKey",
+            "birthDate",
+            "extraIdentifiers",
+            "personId",
+            "deathDate",
+            "addressFieldValue",
+            "dateCreated",
+            "customAttribute",
+            "patientProgramAttributeValue"
+        ],
+        "maxConceptSetLevels": 3,
+        "conceptSetUI": {
+            "Grid1": {
+                "grid": true
+            },
+            "Coded3": {
+                "multiSelect": true
+            },
+            "Procedure Date": {
+                "required": false,
+                "underlined": true,
+                "color": "red"
+            },
+            "Biopsy Procedure Date": {
+                "required": true
+            },
+            "GC Procedure Date": {
+                "required": true
+            },
+            "How NG Specimen was obtained": {
+                "required": true
+            },
+            "How HP Specimen was obtained": {
+                "required": true
+            },
+            "How BF Specimen was obtained": {
+                "required": true
+            },
+            "NG Specimen Source": {
+                "dropdown": false,
+                "required": false
+            },
+            "HP Specimen Source": {
+                "dropdown": false,
+                "required": false
+            },
+            "BF Specimen Source": {
+                "dropdown": false,
+                "required": false
+            },
+            "NG Specimen Source Detail": {
+                "dropdown": true
+            },
+            "Specimen Part Type": {
+                "dropdown": true
+            },
+            "Specimen Class": {
+                "required": true
+            },
+            "BF Source Laterality": {
+                "dropdown": true
+            },
+            "who performs a procedure": {
+                "autocomplete": true,
+                "durationRequired": false,
+                "allowAddMore": false
+            }
+        },
+        "sections": {
+            "title": "Radiology Order FulFillment Form",
+            "name": "Radiology Results",
+            "isObservation": true,
+            "conceptNames": [
+                "Radiology Notes"
+            ],
+            "numberOfVisits": 2,
+            "scope": "latest"
+        },
+        "ordersSerialNumberBuilding": [
+            {
+                "concept_id": 13290,
+                "prefix": "HP"
+            },
+            {
+                "concept_id": 13292,
+                "prefix": "BF"
+            },
+            {
+                "concept_id": 13289,
+                "prefix": "NG"
+            },
+            {
+                "concept_id": 13291,
+                "prefix": "SP"
+            },
+            {
+                "concept_id": 13288,
+                "prefix": "GC"
+            },
+            {
+                "concept_id": 9593,
+                "prefix": "US"
+            },
+            {
+                "concept_id": 9601,
+                "prefix": "XR"
+            },
+            {
+                "concept_id": 9612,
+                "prefix": "CT"
+            },
+            {
+                "concept_id": 9618,
+                "prefix": "CTC"
+            },
+            {
+                "concept_id": 9622,
+                "prefix": "MRI"
+            },
+            {
+                "concept_id": 9623,
+                "prefix": "MRIC"
+            }
+        ]
     }
-  ],
-  "config": {
-    "encounterType": "RADIOLOGY",
-    "visitType": "OPD",
-    "paymentConfig": {
-      "disable checking": false
-    },
-    "ignoredTabularViewHeadings": ["uuid","activeVisitUuid", "extraIdentifier","image","$$hashKey","birthDate","extraIdentifiers","personId","deathDate","addressFieldValue","dateCreated","customAttribute","patientProgramAttributeValue"],
-    "maxConceptSetLevels": 3,
-    "conceptSetUI": {
-      "Grid1": {
-        "grid": true
-      },
-      "Coded3": {
-        "multiSelect": true
-      },
-      "Procedure Date": {
-        "required": false,
-        "underlined": true,
-        "color": "red"
-      },
-      "Biopsy Procedure Date": {
-        "required": true
-      },
-      "GC Procedure Date": {
-        "required": true
-      },
-      "How NG Specimen was obtained": {
-        "required": true
-      },
-      "How HP Specimen was obtained": {
-        "required": true
-      },
-      "How BF Specimen was obtained": {
-        "required": true
-      },
-      "NG Specimen Source": {
-        "dropdown": false,
-        "required": false
-      },
-      "HP Specimen Source": {
-        "dropdown": false,
-        "required": false
-      },
-      "BF Specimen Source": {
-        "dropdown": false,
-        "required": false
-      },
-      "NG Specimen Source Detail": {
-        "dropdown": true
-      },
-      "Specimen Part Type": {
-        "dropdown": true
-      },
-      "Specimen Class": {
-        "required": true
-      },
-      "BF Source Laterality": {
-        "dropdown": true
-      },
-      "who performs a procedure": {
-        "autocomplete": true,
-        "durationRequired": false,
-        "allowAddMore": false
-      }
-    },
-    "sections": {
-      "title": "Radiology Order FulFillment Form",
-      "name": "Radiology Results",
-      "isObservation": true,
-      "conceptNames": [
-        "Radiology Notes"
-      ],
-      "numberOfVisits": 2,
-      "scope": "latest"
-    },
-    "ordersSerialNumberBuilding":[ 
-      {"concept_id": 13290, "prefix": "HP"},
-      {"concept_id": 13292, "prefix": "BF"},
-      {"concept_id": 13289, "prefix": "NG"},
-      {"concept_id": 13291, "prefix": "SP"},
-      {"concept_id": 13288, "prefix": "GC"},
-      {"concept_id": 9593, "prefix": "US"},
-      {"concept_id": 9601, "prefix": "XR"},
-      {"concept_id": 9612, "prefix": "CT"},
-      {"concept_id": 9618, "prefix": "CTC"},
-      {"concept_id": 9622, "prefix": "MRI"},
-      {"concept_id": 9623, "prefix": "MRIC"}
-    ]
-  }
 }

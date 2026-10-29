@@ -51,6 +51,8 @@
     "PATIENT_MOVEMENT_LABEL": "Patient Movement",
     "PATIENT_MOVEMENT_SELECT_LABEL": "Select",
     "BED_MANAGEMENT_KEY": "Bed Management",
+    "ADMISSION_REGISTER_KEY": "Admission Register",
+    "REFERRAL_MANAGEMENT_KEY": "Referral Management",
     "ADMIT_HOME_KEY": "Patient List",
     "ADD_A_TAG_KEY": "Add a tag",
     "GENDER_MALE_KEY": "Male",

@@ -2,15 +2,16 @@
 
 angular.module('bahmni.common.patient')
     .service('patientService', ['$http', 'sessionService', 'appService', function ($http, sessionService, appService) {
-        this.getPatient = function (uuid, rep) {
+        this.getPatient = function (uuid, rep, config) {
             if (!rep) {
                 rep = "full";
             }
-            var patient = $http.get(Bahmni.Common.Constants.openmrsUrl + "/ws/rest/v1/patient/" + uuid, {
+            var requestConfig = angular.extend({
                 method: "GET",
                 params: {v: rep},
                 withCredentials: true
-            });
+            }, config || {});
+            var patient = $http.get(Bahmni.Common.Constants.openmrsUrl + "/ws/rest/v1/patient/" + uuid, requestConfig);
             return patient;
         };
 

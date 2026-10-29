@@ -24,12 +24,18 @@
     ],
     "config": {
         "paymentConfig": {
-            "disable checking": false
+            "disable checking": true
         },
         "showSaveConfirmDialog": false,
         "hideConditions": false,
-        "enableRadiologyOrderOptions":["Urgent","NeedsPrint"],
-        "enableLabOrderOptions": [ "Urgent", "NeedsPrint" ],
+        "enableRadiologyOrderOptions": [
+            "Urgent",
+            "NeedsPrint"
+        ],
+        "enableLabOrderOptions": [
+            "Urgent",
+            "NeedsPrint"
+        ],
         "allMedicinesInPrescriptionAvailableForIPD": true,
         "enableIPDFeature": true,
         "allergyControlConceptIdMap": {
@@ -40,16 +46,25 @@
             "allergySeverityUuid": "160223AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
         },
         "showTextAsAbnormal": false,
-        "quickPrints":false,
+        "quickPrints": false,
         "allowAdhocTeleConsultation": false,
         "teleConsultationDomain": "meet.jit.si",
-        "networkConnectivity" : {
+        "networkConnectivity": {
             "showNetworkStatusMessage": false,
             "networkStatusCheckInterval": 20000,
-            "locales" : [
-                { "locale" : "fr", "css" : "offline-language-french"},
-                { "locale" : "es", "css": "offline-language-spanish"},
-                { "locale" : "pt", "css": "offline-language-portuguese-brazil"}
+            "locales": [
+                {
+                    "locale": "fr",
+                    "css": "offline-language-french"
+                },
+                {
+                    "locale": "es",
+                    "css": "offline-language-spanish"
+                },
+                {
+                    "locale": "pt",
+                    "css": "offline-language-portuguese-brazil"
+                }
             ]
         },
         "diagnosisStatus": "Inactive",
@@ -97,10 +112,19 @@
             "COMMENTS",
             "Patient file"
         ],
-        "orderTypeClassMap" :{
-            "Lab Samples": ["Test","LabSet","LabTest"],
-            "Radiology Orders": ["Radiology","Radiology/Imaging Procedure"],
-            "Procedure Orders": ["Procedure"]
+        "orderTypeClassMap": {
+            "Lab Samples": [
+                "Test",
+                "LabSet",
+                "LabTest"
+            ],
+            "Radiology Orders": [
+                "Radiology",
+                "Radiology/Imaging Procedure"
+            ],
+            "Procedure Orders": [
+                "Procedure"
+            ]
         },
         "otherInvestigationsMap": {
             "Radiology": "Radiology Order",
@@ -108,17 +132,42 @@
         },
         "formsAndPrivileges": [
             {
-                "privileges": ["app:pathologyOrders"],
-                "formsForEdit": ["OB-Bone Marrow Aspiration Cytology", "OB-Body Fluid Cytology", "OB-Fine Needle Aspiration Cytology", "OB-Biopsy", "OB-GYN Cytology"],
-                "formsForView": ["ALL"]
+                "privileges": [
+                    "app:pathologyOrders"
+                ],
+                "formsForEdit": [
+                    "OB-Bone Marrow Aspiration Cytology",
+                    "OB-Body Fluid Cytology",
+                    "OB-Fine Needle Aspiration Cytology",
+                    "OB-Biopsy",
+                    "OB-GYN Cytology"
+                ],
+                "formsForView": [
+                    "ALL"
+                ]
             },
             {
-                "privileges": ["app:onlyRadiologyOrders"],
-                "formsForEdit": ["Summary", "Obstetric Ultrasound Result Report Form"],
-                "formsForView": ["ALL"]
+                "privileges": [
+                    "app:onlyRadiologyOrders"
+                ],
+                "formsForEdit": [
+                    "Summary",
+                    "Obstetric Ultrasound Result Report Form"
+                ],
+                "formsForView": [
+                    "ALL"
+                ]
             }
         ],
-        "allowLongDurationObservationEdit": ["OB-Bone Marrow Aspiration Cytology", "OB-Body Fluid Cytology", "OB-Fine Needle Aspiration Cytology", "OB-Biopsy", "OB-GYN Cytology", "Summary", "Obstetric Ultrasound Result Report Form"],
+        "allowLongDurationObservationEdit": [
+            "OB-Bone Marrow Aspiration Cytology",
+            "OB-Body Fluid Cytology",
+            "OB-Fine Needle Aspiration Cytology",
+            "OB-Biopsy",
+            "OB-GYN Cytology",
+            "Summary",
+            "Obstetric Ultrasound Result Report Form"
+        ],
         "EMR_eAPTS_endPoint": "https://10.139.8.28:443/stockStatus",
         "enableDrugStockStatusCheck": false,
         "allowPrescriptionWithOutICD11": true,
@@ -127,8 +176,25 @@
         "visitTypeForRetrospectiveEntries": "Special OPD",
         "maxConceptSetLevels": 3,
         "allowOnlyCodedDiagnosis": false,
-        "ignoredTabularViewHeadings": ["uuid","activeVisitUuid","hasBeenAdmitted","display","image","$$hashKey","birthDate","extraIdentifiers","personId","deathDate","addressFieldValue","dateCreated","customAttribute","patientProgramAttributeValue"],
-        "identifierHeadings": ["identifier"],
+        "ignoredTabularViewHeadings": [
+            "uuid",
+            "activeVisitUuid",
+            "hasBeenAdmitted",
+            "display",
+            "image",
+            "$$hashKey",
+            "birthDate",
+            "extraIdentifiers",
+            "personId",
+            "deathDate",
+            "addressFieldValue",
+            "dateCreated",
+            "customAttribute",
+            "patientProgramAttributeValue"
+        ],
+        "identifierHeadings": [
+            "identifier"
+        ],
         "conceptSetUI": {
             "Intrapartum Care and follow-up; Monitoring Progress Of labor Using Partograph": {
                 "type": "partograph",
@@ -301,23 +367,21 @@
             "BMH Nurse set": {
                 "allowAddMore": true
             },
-             "BMH Senior Set": {
+            "BMH Senior Set": {
                 "allowAddMore": true
             },
-             "BMH Blood Transfussion Follows up Forms set": {
+            "BMH Blood Transfussion Follows up Forms set": {
                 "allowAddMore": true
-            }, 
-             
+            },
             "Vital Sign for Infants": {
                 "allowAddMore": true
             },
- 
             "BMH Neonatal Vital Sign": {
                 "allowAddMore": true
             },
-              "DKA Follow up Sheet": {
+            "DKA Follow up Sheet": {
                 "allowAddMore": true
-            },                    
+            },
             "Nursing and midwifery hourly round sheet for critical patient": {
                 "allowAddMore": true
             },
@@ -358,10 +422,10 @@
                 "Safe Abortion, Remarks": "Remarks",
                 "Malaria, Death Date": "2015-12-01"
             },
-            "Follow up Date" : {
+            "Follow up Date": {
                 "allowFutureDates": true
             },
-            "Date of Operation" : {
+            "Date of Operation": {
                 "allowFutureDates": true
             },
             "WHO Trauma, Chief Complaint": {

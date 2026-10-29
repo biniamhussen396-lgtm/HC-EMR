@@ -55,5 +55,6 @@
     "NO_NAVIGATION_LINKS_AVAILABLE_MESSAGE": "No navigation links available.",
     "ACCEPT":"Accept",
     "SELECT_VALUE_FROM_AUTOCOMPLETE_DEFAULT_MESSAGE": "Please select a value from auto complete",
-    "LOGIN_LOCATION_PAGE_TITLE_TEXT": "Select login location"
+    "LOGIN_LOCATION_PAGE_TITLE_TEXT": "Select login location",
+    "MODULE_LABEL_REGISTER_KEY": "Register"
 }

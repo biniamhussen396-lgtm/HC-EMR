@@ -239,12 +239,6 @@
                 <div class="order-selected-panel__header">
                     <h3>Selected Orders</h3>
                     <div style="display:flex;align-items:center;gap:6px;">
-                        <button class="order-btn-print-stockout"
-                                ng-if="hasUnavailableSelectedOrders()"
-                                ng-click="printStockOutNotice()"
-                                title="Print Reagent Stock-Out Notice for unavailable tests">
-                            <i class="fa fa-print"></i> Print Stock-Out
-                        </button>
                         <span class="order-badge" ng-if="selectedOrders.length > 0">{{selectedOrders.length}}</span>
                     </div>
                 </div>
@@ -254,19 +248,11 @@
                     </p>
                     <ul class="order-selected-list">
                         <li ng-repeat="order in selectedOrders" class="order-selected-item"
-                            ng-class="{'voided': order.isDiscontinued, 'is-unavailable': isTestUnavailable(order.concept || order)}">
+                            ng-class="{'voided': order.isDiscontinued}">
                             <div class="order-selected-item__name" title="{{::order.concept.displayName || order.concept.shortName || order.concept.name}}">
-                                <span ng-if="isTestUnavailable(order.concept || order)" style="color:#c0392b;font-weight:700;margin-right:3px;" title="Unavailable / Stock Out">[Stock-Out]</span>
                                 {{::order.concept.displayName || order.concept.shortName || order.concept.name}}
                             </div>
                             <div class="order-selected-item__actions">
-                                <button class="order-action-btn"
-                                        style="color:#c0392b"
-                                        ng-if="isTestUnavailable(order.concept || order)"
-                                        ng-click="printStockOutNotice(order)"
-                                        title="Print Stock-Out Notice for this test">
-                                    <i class="fa fa-print"></i>
-                                </button>
                                 <button class="order-action-btn order-action-btn--labnote"
                                         ng-class="{'has-notes': order.labNote}"
                                         ng-click="openLabNotePopup(order)"
@@ -398,11 +384,11 @@
                                 'noteditable': isTestIndirectlyPresent(test),
                                 'unavailable': isTestUnavailable(test)
                              }"
-                             ng-style="isTestUnavailable(test) ? {'color': '#c0392b', 'border-color': '#e8c0c0', 'background-color': '#fff5f5', 'font-weight': 'bold'} : {}"
+                             ng-style="isTestUnavailable(test) ? (isReferralOrderPresent(test) ? {'background-color': '#c0392b', 'color': '#ffffff', 'border-color': '#962d22', 'font-weight': 'bold'} : {'color': '#c0392b', 'border-color': '#e8c0c0', 'background-color': '#fff5f5', 'font-weight': 'bold'}) : {}"
                              ng-disabled="isTestIndirectlyPresent(test)"
                              title="{{isTestUnavailable(test) ? 'Unavailable / Reagent Stock Out' : ''}}">
                             <i class="fa fa-check-circle order-test-card__check" ng-show="isActiveOrderPresent(test) || isReferralOrderPresent(test)"></i>
-                            <span class="order-test-card__name" ng-style="isTestUnavailable(test) ? {'color': '#c0392b', 'font-weight': 'bold'} : {}">{{getName(test)}}</span>
+                            <span class="order-test-card__name" ng-style="isTestUnavailable(test) ? (isReferralOrderPresent(test) ? {'color': '#ffffff', 'font-weight': 'bold'} : {'color': '#c0392b', 'font-weight': 'bold'}) : {}">{{getName(test)}}</span>
                             <span ng-if="isTestUnavailable(test)" class="order-stockout-tag">Stock Out</span>
                         </div>
                     </div>

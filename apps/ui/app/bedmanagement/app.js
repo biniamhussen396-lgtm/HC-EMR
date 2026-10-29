@@ -12,8 +12,9 @@ angular.module('ipd').config(['$stateProvider', '$httpProvider', '$urlRouterProv
         var homeBackLink = {type: "link", name: "Home", value: "../home/", accessKey: "h", icon: "fa-home"};
         var admitLink = {type: "state", name: "ADMIT_HOME_KEY", value: "home", accessKey: "a"};
         var bedManagementLink = {type: "state", name: "BED_MANAGEMENT_KEY", value: "bedManagement", accessKey: "b"};
+        var admissionRegisterLink = {type: "state", name: "ADMISSION_REGISTER_KEY", value: "admissionRegister", accessKey: "m"};
         var referralManagementLink = {type: "state", name: "REFERRAL_MANAGEMENT_KEY", value: "referralManagement", accessKey: "r"};
-        var navigationLinks = [admitLink, bedManagementLink, referralManagementLink];
+        var navigationLinks = [admitLink, bedManagementLink, admissionRegisterLink, referralManagementLink];
 
         // @if DEBUG='production'
         $compileProvider.debugInfoEnabled(false);
@@ -62,7 +63,7 @@ angular.module('ipd').config(['$stateProvider', '$httpProvider', '$urlRouterProv
                 },
                 views: {
                     'content': {
-                        templateUrl: 'views/bedManagement.html',
+                        templateUrl: 'views/bedManagement.html?v=3.4',
                         controller: 'BedManagementController'
                     },
                     'additional-header': {
@@ -80,7 +81,7 @@ angular.module('ipd').config(['$stateProvider', '$httpProvider', '$urlRouterProv
             })
             .state('bedManagement.bed', {
                 url: '/bed/:bedId',
-                templateUrl: 'views/bedManagement.html',
+                templateUrl: 'views/bedManagement.html?v=3.4',
                 controller: 'BedManagementController',
                 params: {
                     dashboardCachebuster: null,
@@ -98,7 +99,7 @@ angular.module('ipd').config(['$stateProvider', '$httpProvider', '$urlRouterProv
             })
             .state('bedManagement.patient', {
                 url: '/patient/:patientUuid',
-                templateUrl: 'views/bedManagement.html',
+                templateUrl: 'views/bedManagement.html?v=3.4',
                 controller: 'BedManagementController',
                 resolve: {
                     patientResolution: function ($stateParams, bedInitialization, patientInitialization) {
@@ -164,7 +165,7 @@ angular.module('ipd').config(['$stateProvider', '$httpProvider', '$urlRouterProv
                 },
                 views: {
                     'content': {
-                        templateUrl: 'views/referFormPrint.html?v=2.6',
+                        templateUrl: 'views/referFormPrint.html?v=2.7',
                         controller: 'ReferFormPrintController'
                     },
                     'additional-header': {
@@ -183,8 +184,27 @@ angular.module('ipd').config(['$stateProvider', '$httpProvider', '$urlRouterProv
                 },
                 views: {
                     'content': {
-                        templateUrl: 'views/referralManagement.html?v=2.6',
+                        templateUrl: 'views/referralManagement.html?v=3.2',
                         controller: 'ReferralManagementController'
+                    },
+                    'additional-header': {
+                        templateUrl: 'views/header.html',
+                        controller: 'HeaderController'
+                    }
+                },
+                resolve: {
+                    initialization: 'initialization'
+                }
+            }).state('admissionRegister', {
+                url: '/admissionRegister',
+                data: {
+                    homeBackLink: homeBackLink,
+                    navigationLinks: navigationLinks
+                },
+                views: {
+                    'content': {
+                        templateUrl: 'views/admissionRegister.html?v=3.5',
+                        controller: 'AdmissionRegisterController'
                     },
                     'additional-header': {
                         templateUrl: 'views/header.html',

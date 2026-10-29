@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="en" ng-app="specialityAdmin">
+<head>
+    <meta charset="utf-8">
+    <title>Speciality Management</title>
+    <link rel="shortcut icon" type="image/x-icon" href="/bahmni/favicon.ico">
+    <link rel="icon" type="image/x-icon" href="/bahmni/favicon.ico">
+    <link rel="shortcut icon" type="image/x-icon" href="favicon.ico">
+    <link rel="icon" type="image/x-icon" href="favicon.ico">
+    <style>
+        body { font-family: 'Open Sans', sans-serif; margin: 0; padding: 0; background: #f5f5f5; }
+        .header { background: #2d6a4f; color: white; padding: 15px 30px; display: flex; align-items: center; gap: 20px; }
+        .header a { color: white; text-decoration: none; font-size: 24px; }
+        .header h2 { margin: 0; font-size: 18px; font-weight: 400; }
+        .header .admin-btn { background: #1b4332; padding: 6px 16px; border-radius: 4px; font-size: 14px; }
+        .container { max-width: 1000px; margin: 20px auto; padding: 0 20px; }
+        .card { background: white; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.12); margin-bottom: 20px; }
+        .card-header { background: #2d6a4f; color: white; padding: 12px 20px; border-radius: 4px 4px 0 0; display: flex; justify-content: space-between; align-items: center; }
+        .card-header h3 { margin: 0; font-size: 16px; font-weight: 500; }
+        .card-body { padding: 20px; }
+        table { width: 100%; border-collapse: collapse; }
+        th { text-align: left; padding: 12px 15px; background: #f8f9fa; border-bottom: 2px solid #dee2e6; font-weight: 600; color: #495057; font-size: 13px; }
+        td { padding: 12px 15px; border-bottom: 1px solid #dee2e6; font-size: 14px; }
+        tr:hover { background: #f8f9fa; }
+        .btn { padding: 6px 14px; border: none; border-radius: 3px; cursor: pointer; font-size: 13px; text-decoration: none; display: inline-block; }
+        .btn-primary { background: #2d6a4f; color: white; }
+        .btn-primary:hover { background: #1b4332; }
+        .btn-danger { background: #dc3545; color: white; }
+        .btn-danger:hover { background: #c82333; }
+        .btn-success { background: #28a745; color: white; }
+        .btn-success:hover { background: #218838; }
+        .btn-secondary { background: #6c757d; color: white; }
+        .btn-secondary:hover { background: #5a6268; }
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; margin-bottom: 5px; font-weight: 500; font-size: 14px; color: #333; }
+        .form-group input { width: 100%; padding: 8px 12px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; box-sizing: border-box; }
+        .form-group input:focus { border-color: #2d6a4f; outline: none; box-shadow: 0 0 0 2px rgba(45,106,79,0.2); }
+        .form-inline { display: flex; gap: 10px; align-items: flex-end; }
+        .form-inline .form-group { flex: 1; }
+        .alert { padding: 12px 15px; border-radius: 4px; margin-bottom: 15px; font-size: 14px; }
+        .alert-success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .alert-danger { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .empty-msg { text-align: center; padding: 30px; color: #6c757d; font-size: 14px; }
+        .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000; }
+        .modal { background: white; border-radius: 4px; width: 400px; max-width: 90%; }
+        .modal-header { padding: 15px 20px; border-bottom: 1px solid #dee2e6; }
+        .modal-header h4 { margin: 0; font-size: 16px; }
+        .modal-body { padding: 20px; }
+        .modal-footer { padding: 15px 20px; border-top: 1px solid #dee2e6; display: flex; justify-content: flex-end; gap: 10px; }
+    </style>
+    <link rel="stylesheet" href="/appointments/common-form.css">
+    <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.8.2/angular.min.js"></script>
+</head>
+<body ng-controller="SpecialityController">
+    <div class="header">
+        <a href="/appointments/#/home/admin/service">&#8592;</a>
+        <h2>Manage Appointments</h2>
+        <span class="admin-btn">Admin</span>
+    </div>
+    <div class="container">
+        <div ng-if="alertMsg" class="alert" ng-class="{'alert-success': alertType==='success', 'alert-danger': alertType==='error'}">
+            {{alertMsg}}
+            <span style="float:right;cursor:pointer" ng-click="alertMsg=''">&times;</span>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <h3>Specialities</h3>
+                <button class="btn btn-success" ng-click="showAddForm=true; editMode=false; newSpeciality.name=''">Add New Speciality</button>
+            </div>
+            <div class="card-body">
+                <div ng-if="specialities.length === 0" class="empty-msg">No specialities found.</div>
+                <table ng-if="specialities.length > 0">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th style="width:200px">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr ng-repeat="s in specialities | orderBy:'name'">
+                            <td ng-if="!s.editing">{{s.name}}</td>
+                            <td ng-if="s.editing">
+                                <input type="text" ng-model="s.editName" class="form-control" style="width:300px;padding:5px 10px;border:1px solid #ccc;border-radius:3px" ng-keypress="$event.keyCode===13 && saveEdit(s)">
+                            </td>
+                            <td>
+                                <span ng-if="!s.editing">
+                                    <button class="btn btn-primary" ng-click="startEdit(s)">Edit</button>
+                                    <button class="btn btn-danger" ng-click="confirmDelete(s)">Delete</button>
+                                </span>
+                                <span ng-if="s.editing">
+                                    <button class="btn btn-success" ng-click="saveEdit(s)">Save</button>
+                                    <button class="btn btn-secondary" ng-click="cancelEdit(s)">Cancel</button>
+                                </span>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" ng-if="showAddForm" ng-click="showAddForm=false">
+        <div class="modal" ng-click="$event.stopPropagation()">
+            <div class="modal-header">
+                <h4>Add New Speciality</h4>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Speciality Name *</label>
+                    <input type="text" ng-model="newSpeciality.name" placeholder="Enter speciality name" ng-keypress="$event.keyCode===13 && addSpeciality()">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" ng-click="showAddForm=false">Cancel</button>
+                <button class="btn btn-primary" ng-click="addSpeciality()" ng-disabled="!newSpeciality.name">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" ng-if="deleteConfirm" ng-click="deleteConfirm=null">
+        <div class="modal" ng-click="$event.stopPropagation()">
+            <div class="modal-header">
+                <h4>Confirm Delete</h4>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to delete speciality "<strong>{{deleteConfirm.name}}</strong>"?</p>
+                <p style="color:#dc3545;font-size:13px">This action cannot be undone.</p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" ng-click="deleteConfirm=null">Cancel</button>
+                <button class="btn btn-danger" ng-click="deleteSpeciality(deleteConfirm)">Delete</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    var app = angular.module('specialityAdmin', []);
+    app.controller('SpecialityController', function($scope, $http) {
+        $scope.specialities = [];
+        $scope.newSpeciality = {};
+        $scope.showAddForm = false;
+        $scope.deleteConfirm = null;
+        $scope.alertMsg = '';
+        $scope.alertType = '';
+
+        var baseUrl = '/openmrs/ws/appointmentsApi/speciality';
+
+        function showAlert(msg, type) {
+            $scope.alertMsg = msg;
+            $scope.alertType = type;
+        }
+
+        function loadSpecialities() {
+            $http.get(baseUrl + '/all', {withCredentials: true}).then(function(resp) {
+                $scope.specialities = (resp.data.data || resp.data || []).map(function(s) {
+                    s.editing = false;
+                    s.editName = s.name;
+                    return s;
+                });
+            }, function(err) {
+                showAlert('Failed to load specialities: ' + (err.data.message || 'Error'), 'error');
+            });
+        }
+
+        $scope.addSpeciality = function() {
+            if (!$scope.newSpeciality.name || !$scope.newSpeciality.name.trim()) return;
+            $http.post(baseUrl + '/save', {name: $scope.newSpeciality.name.trim()}, {withCredentials: true}).then(function(resp) {
+                $scope.showAddForm = false;
+                $scope.newSpeciality = {};
+                showAlert('Speciality "' + resp.data.name + '" created successfully.', 'success');
+                loadSpecialities();
+            }, function(err) {
+                showAlert('Failed to create speciality: ' + (err.data.message || 'Error'), 'error');
+            });
+        };
+
+        $scope.startEdit = function(s) {
+            s.editing = true;
+            s.editName = s.name;
+        };
+
+        $scope.cancelEdit = function(s) {
+            s.editing = false;
+            s.editName = s.name;
+        };
+
+        $scope.saveEdit = function(s) {
+            if (!s.editName || !s.editName.trim()) return;
+            $http.post(baseUrl + '/save', {uuid: s.uuid, name: s.editName.trim()}, {withCredentials: true}).then(function(resp) {
+                s.editing = false;
+                showAlert('Speciality updated successfully.', 'success');
+                loadSpecialities();
+            }, function(err) {
+                showAlert('Failed to update speciality: ' + (err.data.message || 'Error'), 'error');
+            });
+        };
+
+        $scope.confirmDelete = function(s) {
+            $scope.deleteConfirm = s;
+        };
+
+        $scope.deleteSpeciality = function(s) {
+            $http.post(baseUrl + '/delete', {uuid: s.uuid}, {withCredentials: true}).then(function(resp) {
+                $scope.deleteConfirm = null;
+                showAlert('Speciality "' + s.name + '" deleted successfully.', 'success');
+                loadSpecialities();
+            }, function(err) {
+                showAlert('Failed to delete speciality: ' + (err.data.message || 'Error'), 'error');
+            });
+        };
+
+        loadSpecialities();
+    });
+    </script>
+</body>
+</html>

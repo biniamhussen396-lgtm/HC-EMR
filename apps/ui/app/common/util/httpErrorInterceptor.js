@@ -38,7 +38,7 @@ angular.module('httpErrorInterceptor', [])
                 var data = response.data;
                 var unexpectedError = "There was an unexpected issue on the server. Please try again";
 
-                if (response.config && (response.config.ignoreErrors || (response.config.url && response.config.url.indexOf('/openelis/') !== -1))) {
+                if (response.config && (response.config.ignoreErrors || (response.config.url && (response.config.url.indexOf('/openelis/') !== -1 || response.config.url.indexOf('/bahmnicore/disposition/') !== -1)))) {
                     return $q.reject(response);
                 }
 

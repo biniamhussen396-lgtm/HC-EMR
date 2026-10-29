@@ -1,8 +1,8 @@
 {
   "homePage": {
-    "header_text": "<b>WELCOME TO BORU MEDA GENERAL HOSPITAL EMR System</b>",
+    "header_text": "<b>WELCOME TO Dessie HC EMR System</b>",
     "logo": "/bahmni_config/openmrs/apps/home/logo.png",
-    "title_text": "General Hospital EMR System"
+    "title_text": "HC EMR System"
   },
   "loginPage": {
     "logo": "/bahmni_config/openmrs/apps/home/logo.png",

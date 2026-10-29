@@ -1,0 +1,1038 @@
+{  
+    "general":{  
+        "translationKey":"DASHBOARD_TAB_GENERAL_KEY",
+        "displayByDefault":true,
+        "maxRecentlyViewedPatients":10,
+        "printing": {
+            "title": "BORU MEDA GENERAL HOSPITAL",
+            "header": "General Summary Report",
+            "logo": "../images/bahmniLogo.jpg",
+            "showNameAndImage": true
+        },
+        "sections":{  
+            "patientInformation":{  
+                "translationKey":"DASHBOARD_TITLE_PATIENT_INFORMATION_KEY",
+                "type":"patientInformation",
+                "displayOrder":0,
+                "ageLimit":100,
+                "patientAttributes":[],
+                "additionalPatientIdentifiers": [],
+                "addressFields":[  
+                    "address1",
+                    "address2",
+                    "cityVillage",
+                    "countyDistrict"
+                ]
+            },
+            "allergies": {
+                "type":"allergies",
+                "displayOrder": 2
+            },
+            "forms-v2-react": {
+                "type": "formsV2React",
+                "displayOrder": 17,
+                "dashboardConfig": {
+                    "title": null,
+                    "maximumNoOfVisits": 10,
+                    "showEditForActiveEncounter": true
+                },
+                "translationKey": "Observation Forms"
+            },
+            "triageValue":{
+                "translationKey":"DASHBOARD_TITLE_EMERGENCY_DEPARTMENT_TRIAGE_FORM_KEY",
+                "type":"vitals",
+                "isObservation":true,
+                "displayOrder":10,
+                "dashboardConfig":{
+                    "conceptNames":[
+                        "Triage Record Vital Sign", "Triage color", "Triage Color Result", "Triage Score Result"
+                    ],
+                    "showDetailsButton":true,
+                    "numberOfVisits":2
+                },
+                "expandedViewConfig":{
+                    "conceptNames":[
+                        "Triage Record Vital Sign", "Triage color", "Triage Color Result", "Triage Score Result"
+                    ],
+                    "numberOfVisits":2,
+                    "scope":"latest",
+                    "showDetailsButton":true,
+                    "pivotTable":{
+
+                    }
+                }
+            },
+            "centralTriageValue":{
+                "translationKey":"DASHBOARD_TITLE_CENTRAL_TRIAGE_FORM_KEY",
+                "type":"vitals",
+                "isObservation":true,
+                "displayOrder":11,
+                "dashboardConfig":{
+                    "conceptNames":[
+                        "Central Triage Form"
+                    ],
+                    "showDetailsButton":true,
+                    "numberOfVisits":2
+                },
+                "expandedViewConfig":{
+                    "conceptNames":[
+                        "Central Triage Form"
+                    ],
+                    "numberOfVisits":2,
+                    "scope":"latest",
+                    "showDetailsButton":true,
+                    "pivotTable":{
+
+                    }
+                }
+            },
+            "diagnosis":{
+                "translationKey":"DASHBOARD_TITLE_DIAGNOSIS_KEY",
+                "type":"diagnosis",
+                "showCertainty":true,
+                "showOrder":true,
+                "showDetailsButton":true,
+                "displayOrder":1
+            },
+            "navigationLinksControl":{  
+                "translationKey":"DASHBOARD_TITLE_NAVIGATION_LINKS_CONTROL_KEY",
+                "type":"navigationLinksControl",
+                "displayOrder":2,
+                "showLinks":[  
+                    "home",
+                    "visit",
+                    "registration",
+                    "inpatient",
+                    "enrolment",
+                    "visitAttribute"
+                ]
+            },
+	          "tuberculosis": {
+                "title": "Tuberculosis Follow Up",
+                "type": "tuberculosis",
+                "isObservation": true,
+                "dashboardConfig": {
+                    "conceptNames": [
+                        "Tuberculosis Followup Template"
+                    ],
+                    "numberOfVisits": 2
+                }
+            },
+            "disposition":{  
+                "translationKey":"DASHBOARD_TITLE_DISPOSITION_KEY",
+                "showDetailsButton":true,
+                "type":"disposition",
+                "numberOfVisits":1,
+                "displayOrder":7
+            },
+            "referralHistory": {
+                "translationKey": "DASHBOARD_TITLE_REFERRAL_HISTORY_KEY",
+                "type": "referralHistory",
+                "showDetailsButton": true,
+                "numberOfVisits": 5,
+                "displayOrder": 8
+            },
+            "treatments":{  
+                "translationKey":"DASHBOARD_TITLE_TREATMENTS_KEY",
+                "type":"treatment",
+                "displayOrder":4,
+                "dashboardConfig":{  
+                    "showFlowSheet":true,
+                    "showListView":true,
+                    "showRoute":true,
+                    "showDrugForm":true,
+                    "numberOfVisits":5,
+                    "showOtherActive":true,
+                    "showDetailsButton":true
+                },
+                "expandedViewConfig":{  
+                    "translationKey":"DASHBOARD_TITLE_TREATMENTS_KEY",
+                    "showFlowSheet":true,
+                    "showListView":true,
+                    "showRoute":true,
+                    "showDrugForm":true,
+                    "numberOfVisits":10,
+                    "showOtherActive":true,
+                    "showDetailsButton":true
+                }
+            },
+            "radiology":{  
+                "orderType":"Radiology Order",
+                "type":"ordersControl",
+                "translationKey":"DASHBOARD_TITLE_RADIOLOGY_KEY",
+                "displayOrder":6,
+                "dashboardConfig":{
+		        "showDetailsButton":true,	
+                    "conceptNames":[
+                        "Modality",
+                        "Radiology Notes",
+                        "Diagnostic Images",
+                        "Obstetric Ultrasound Result Report Form",
+                        "Radiology Result",
+                        "Impression"
+                    ],
+                    "numberOfVisits":10
+                },
+                "expandedViewConfig":{
+                    "conceptNames":[ 
+                        "Modality",
+                        "Radiology Notes",
+                        "Diagnostic Images",
+                        "Obstetric Ultrasound Result Report Form",
+                        "Radiology Result",
+                        "Impression"
+                    ],
+                    "numberOfVisits":10,
+                    "showDetailsButton":true,
+                    "pivotTable":{  
+
+                    }
+                }				
+            },
+            "pacs":{  
+                "orderType":"Radiology Order",
+                "type":"pacsOrders",
+                "translationKey":"DASHBOARD_TITLE_PACS_KEY",
+                "displayOrder":8,
+                "dashboardConfig":{  
+                    "pacsImageUrl":"/ohif/viewer?StudyInstanceUIDs={{studyUID}}",
+                    "numberOfVisits":4
+                }
+            },
+            "labOrdersDisplayControl":{
+                "translationKey":"DASHBOARD_TITLE_LAB_ORDERS_DISPLAY_CONTROL_KEY",
+                "type":"ordersControl",
+                "orderType":"Lab Order",
+                "showDetailsButton":true,
+                "displayOrder":8,
+                "dashboardConfig":{
+                    "conceptNames":[]
+                },
+                "expandedViewConfig":{
+                    "conceptNames":[],
+                    "showDetailsButton":true
+                }
+            },
+            "bacteriologyResults":{  
+                "translationKey":"DASHBOARD_TITLE_BACTERIOLOGY_RESULTS_KEY",
+                "type":"bacteriologyResultsControl",
+                "displayOrder": 20,
+                "scope":"All",
+                "orderType":"",
+                "dashboardConfig":{  
+                    "conceptNames":[  
+                        "BACTERIOLOGY CONCEPT SET"
+                    ]
+                }
+            },
+            "labResults":{  
+                "translationKey":"DASHBOARD_TITLE_LAB_RESULTS_KEY",
+                "type":"labOrders",
+                "displayOrder":6,
+                "dashboardConfig":{  
+                    "title":null,
+                    "numberOfVisits":6,
+                    "showChart":false,
+                    "showTable":true,
+                    "showNormalLabResults": true,
+                    "showCommentsExpanded": true,
+                    "showAccessionNotes": true,
+                    "showDetailsButton":false
+                },
+                "expandedViewConfig":{  
+                    "numberOfVisits":10
+                }
+            },
+            "PathologyDiagnostic Report":{  
+                "orderType":"Pathology Order",
+                "type":"ordersControl",
+                "translationKey":"DASHBOARD_TITLE_PATHOLOGY_DIAGNOSTIC_REPORT_KEY",
+                "displayOrder":7,
+                "dashboardConfig":{
+		        "showDetailsButton":true,	
+                    "conceptNames":[
+                        "Result Stage",
+                        "Procedure Date",
+                        "Pathology Preliminary Diagnosis",
+                        "Pathology Final Diagnosis",
+                        "Micro Description", 
+                        "Gross Description", 
+                        "Comment Given", 
+                        "Scanned Pathology Investigation", 
+                        "Pathology Procedure Video",
+                        "Orders result status marker",
+                        "Approved by"					
+                    ],
+                    "numberOfVisits":10
+                },
+                "expandedViewConfig":{
+                    "conceptNames":[ 
+                        "Result Stage",
+                        "Procedure Date",
+                        "Pathology Preliminary Diagnosis",
+                        "Pathology Final Diagnosis",
+                        "Micro Description", 
+                        "Gross Description", 
+                        "Comment Given", 
+                        "Scanned Pathology Investigation", 
+                        "Pathology Procedure Video",
+                        "Orders result status marker",
+                        "Approved by",
+                        "Modality",
+                        "Summary",
+                        "Obstetric Ultrasound Result Report Form"
+                    ],
+                    "numberOfVisits":10,
+                    "showDetailsButton":true,
+                    "pivotTable":{  
+
+                    }
+                }				
+            },
+            "Ophthalmic Report":{  
+                "orderType":"Ophtha Order",
+                "type":"ordersControl",
+                "translationKey":"Ophthalmic Findings",
+                "displayOrder":7,
+                "dashboardConfig":{
+		        "showDetailsButton":true,	
+                    "conceptNames":[],
+                    "numberOfVisits":10
+                },
+                "expandedViewConfig":{
+                    "conceptNames":[],
+                    "numberOfVisits":10,
+                    "showDetailsButton":true,
+                    "pivotTable":{  
+
+                    }
+                }				
+            },
+            "ProcedureNotes":{  
+                "orderType":"Procedure Order",
+                "type":"ordersControl",
+                "translationKey":"DASHBOARD_TITLE_PROCEDURE_NOTES_KEY",
+                "displayOrder":7,
+                "dashboardConfig":{
+		     "showDetailsButton":true,	
+                   "conceptNames":[  
+			            "All Procedure Notes"
+						
+                    ],
+                    "numberOfVisits":4
+                },
+                "expandedViewConfig":{  
+                    "conceptNames":[  
+			            "All Procedure Notes"
+                    ],
+                    "numberOfVisits":2,
+                    "showDetailsButton":true,
+                    "pivotTable":{  
+
+                    }
+                }				
+            }, 
+            
+            "programs":{  
+                "translationKey":"DASHBOARD_TITLE_PROGRAMS_KEY",
+                "type":"programs",
+                "displayOrder":10
+            },
+            "historyAndExaminations":{  
+                "translationKey":"DASHBOARD_TITLE_HISTORY_AND_EXAMINATIONS_KEY",
+                "type":"vitals",
+                "isObservation":true,
+                "displayOrder":14,
+                "dashboardConfig":{  
+                    "showDetailsButton":true,
+                    "conceptNames":[  
+                        "History and Physical Examination"
+                    ],
+                    "numberOfVisits":2
+                },
+                "expandedViewConfig":{  
+                    "conceptNames":[  
+                        "History and Physical Examination"
+                    ],
+                    "numberOfVisits":2,
+                    "showDetailsButton":true,
+                    "pivotTable":{  
+
+                    }
+                }
+            },
+            "vitals":{  
+                "translationKey":"DASHBOARD_TITLE_VITALS_KEY",
+                "type":"vitals",
+                "isObservation":true,
+                "displayOrder":12,
+                "dashboardConfig":{  
+                    "showDetailsButton":true,
+                    "conceptNames":[  
+                        "Vitals"
+                    ],
+                    "numberOfVisits":2
+                },
+                "expandedViewConfig":{  
+                    "conceptNames":[  
+                        "Vitals"
+                    ],
+                    "numberOfVisits":2,
+                    "showDetailsButton":true,
+                    "pivotTable":{  
+                        "numberOfVisits":"10",
+                        "groupBy":"encounters",
+                        "obsConcepts":[  
+                            "Weight",
+                            "Vitals"
+                        ],
+                        "drugConcepts":[  
+
+                        ],
+                        "labConcepts":[  
+
+                        ]
+                    }
+                }
+            },
+            "nutritionalValues":{  
+                "translationKey":"DASHBOARD_TITLE_NUTRITIONAL_VALUES_KEY",
+                "type":"vitals",
+                "isObservation":true,
+                "displayOrder":11,
+                "dashboardConfig":{  
+                    "conceptNames":[  
+                        "HEIGHT",
+                        "Weight",
+                        "BMI Data",
+                        "BMI Status Data",
+                        "Last Menstrual Period"
+                    ],
+                    "showDetailsButton":true,
+                    "numberOfVisits":2
+                },
+                "expandedViewConfig":{  
+                    "conceptNames":[  
+                        "HEIGHT",
+                        "Weight",
+                        "BMI",
+                        "BMI STATUS",
+                        "Last Menstrual Period"
+                    ],
+                    "numberOfVisits":2,
+                    "scope":"latest",
+                    "showDetailsButton":true,
+                    "pivotTable":{  
+
+                    }
+                }
+            },
+            "secondVitals":{  
+                "translationKey":"DASHBOARD_TITLE_SECOND_VITALS_KEY",
+                "type":"second vitals",
+                "isObservation":true,
+                "displayOrder":13,
+                "dashboardConfig":{  
+                    "showDetailsButton":true,
+                    "conceptNames":[  
+                        "Second Vitals"
+                    ],
+                    "numberOfVisits":2
+                },
+                "expandedViewConfig":{  
+                    "conceptNames":[  
+                        "Second Vitals"
+                    ],
+                    "numberOfVisits":2,
+                    "showDetailsButton":true,
+                    "pivotTable":{  
+
+                    }
+                }
+            },
+            "gynaecology":{  
+                "translationKey":"DASHBOARD_TITLE_GYNAECOLOGY_KEY",
+                "type":"gynaecology",
+                "isObservation":true,
+                "displayOrder":15,
+                "dashboardConfig":{  
+                    "conceptNames":[  
+                        "Gynaecology"
+                    ],
+                    "showDetailsButton":true,
+                    "numberOfVisits":2
+                },
+                "expandedViewConfig":{  
+                    "conceptNames":[  
+                        "Gynaecology"
+                    ],
+                    "numberOfVisits":2,
+                    "showDetailsButton":true,
+                    "pivotTable":{  
+
+                    }
+                }
+            },
+            "obstetrics":{  
+                "translationKey":"DASHBOARD_TITLE_OBSTETRICS_KEY",
+                "type":"obstetrics",
+                "isObservation":true,
+                "displayOrder":16,
+                "dashboardConfig":{  
+                    "showDetailsButton":true,
+                    "conceptNames":[  
+                        "Obstetrics"
+                    ],
+                    "numberOfVisits":2
+                },
+                "expandedViewConfig":{  
+                    "conceptNames":[  
+                        "Obstetrics"
+                    ],
+                    "numberOfVisits":2,
+                    "showDetailsButton":true,
+                    "pivotTable":{  
+
+                    }
+                }
+            },
+            "ANC":{  
+                "translationKey":"ANC",
+                "type":"ANC",
+                "isObservation":true,
+                "displayOrder":16,
+                "dashboardConfig":{  
+                    "showDetailsButton":true,
+                    "conceptNames":[  
+                        "ANC"
+                    ],
+                    "numberOfVisits":2
+                },
+                "expandedViewConfig":{  
+                    "conceptNames":[  
+                        "ANC"
+                    ],
+                    "numberOfVisits":2,
+                    "showDetailsButton":true,
+                    "pivotTable":{  
+
+                    }
+                }
+            },
+            "visits":{  
+                "translationKey":"DASHBOARD_TITLE_VISITS_KEY",
+                "type":"visits",
+                "displayOrder":3,
+                "dashboardConfig":{  
+                    "title":null,
+                    "maximumNoOfVisits":8,
+                    "groupByVisits":true
+                }
+            },
+            "diabetes":{  
+                "title":"Diabetes",
+                "templateName":"Diabetes Templates",
+                "type":"diseaseTemplate",
+                "displayOrder":18,
+                "dashboardConfig":{  
+                    "showOnly":[  
+
+                    ]
+                },
+                "expandedViewConfig":{  
+                    "showDetailsButton":true,
+                    "pivotTable":{  
+                        "numberOfVisits":"15",
+                        "groupBy":"encounters",
+                        "obsConcepts":[  
+                            "Weight",
+                            "Height",
+                            "Systolic",
+                            "Diastolic",
+                            "Diabetes, Foot Exam",
+                            "Diabetes, Eye Exam"
+                        ],
+                        "drugConcepts":[  
+                            "Ipratropium Pressurised",
+                            "Garbhpal Rasa"
+                        ],
+                        "labConcepts":[  
+                            "RBS",
+                            "FBS",
+                            "PP2BS",
+                            "Hb1AC",
+                            "Creatinine",
+                            "Albumin",
+                            "Polymorph"
+                        ]
+                    }
+                }
+            },
+            "otFollowupForm":{  
+                "translationKey":"Ot Followup Form",
+                "type":"otFollowupForm",
+                "isObservation":true,
+                "displayOrder":24,
+                "dashboardConfig":{  
+                    "showDetailsButton":true,
+                    "conceptNames":["Ot Observations Templates"],
+                    "numberOfVisits":4
+                },
+                "expandedViewConfig":{  
+                    "conceptNames":["Ot Observations Templates"],
+                    "numberOfVisits":4,
+                    "showDetailsButton":true,
+                    "pivotTable":{  
+
+                    }
+                }
+            },
+            "fingerprint":{  
+                "translationKey":"Fingerprint/Signature",
+                "type":"fingerprint",
+                "isObservation":true,
+                "displayOrder":24,
+                "dashboardConfig":{  
+                    "showDetailsButton":true,
+                    "conceptNames":["Add Fingerprint or Video"],
+                    "numberOfVisits":4
+                },
+                "expandedViewConfig":{  
+                    "conceptNames":["Add Fingerprint or Video"],
+                    "numberOfVisits":4,
+                    "showDetailsButton":true,
+                    "pivotTable":{  
+
+                    }
+                }
+            },
+            "admissionDetails":{  
+                "translationKey":"DASHBOARD_TITLE_ADMISSION_DETAILS_KEY",
+                "type":"admissionDetails",
+                "displayOrder":19,
+                "showDetailsButton":true
+            },
+            "conditions": {
+                "translationKey":"CONDITION_LIST_DISPLAY_CONTROL_TITLE",
+                "type": "conditionsList",
+                "displayOrder": 20
+            },
+            "patientAppointments": {
+                "type": "custom",
+                "displayOrder": 22,
+                "config": {
+                    "title": "DASHBOARD_TITLE_APPOINTMENTS_KEY",
+                    "template": "<patient-appointments-dashboard section='config' patient='patient'></patient-appointments-dashboard>"
+                }
+            },
+            "whoTraumaForm": {
+                "translationKey": "WHO Emergency Unit Form - Trauma",
+                "type": "vitals",
+                "isObservation": true,
+                "displayOrder": 25,
+                "dashboardConfig": {
+                    "conceptNames": ["WHO Trauma Form Templates"],
+                    "showDetailsButton": true,
+                    "numberOfVisits": 2
+                },
+                "expandedViewConfig": {
+                    "conceptNames": ["WHO Trauma Form Templates"],
+                    "numberOfVisits": 2,
+                    "scope": "latest",
+                    "showDetailsButton": true,
+                    "pivotTable": {}
+                }
+            },
+            "formsDisplay": {
+                "type": "forms",
+                "displayOrder": 100,
+                "showDetailsButton": true,
+                "dashboardConfig": {
+                    "title": null,
+                    "showDetailsButton": true,
+                    "maximumNoOfVisits": 100
+                },
+                "formGroup": [ ],
+                "translationKey": "DASHBOARD_TITLE_FORMS_DISPLAY_CONTROL_KEY"
+            }
+        }
+    },
+    "trends":{  
+        "translationKey":"DASHBOARD_TAB_TRENDS_KEY",
+        "maxRecentlyViewedPatients":10,
+        "printing": {
+            "title": "BORU MEDA GENERAL HOSPITAL",
+            "header": "Trends Summary Report",
+            "logo": "../images/bahmniLogo.jpg",
+            "showNameAndImage": true
+        },
+        "sections":{  
+            "patientInformation":{  
+                "translationKey":"DASHBOARD_TITLE_PATIENT_INFORMATION_KEY",
+                "type":"patientInformation",
+                "patientAttributes":[  
+                ],
+                "addressFields":[  
+                    "address1",
+                    "address2",
+                    "cityVillage",
+                    "countyDistrict"
+                ],
+                "displayOrder":0
+            },
+            "growthChart":{  
+                "type":"observationGraph",
+                "translationKey": "DASHBOARD_TITLE_GROWTH_CHART",
+                "config":{  
+                    "yAxisConcepts":[  
+                        "Weight"
+                    ],
+                    "referenceData":"growthChartReference.csv",
+                    "numberOfVisits":20
+                },
+                "displayOrder":1
+            },
+            "BP":{  
+                "type":"observationGraph",
+                "translationKey": "DASHBOARD_TITLE_BLOOD_PRESSURE",
+                "config":{  
+                    "yAxisConcepts":[  
+                        "Systolic Data",
+                        "Diastolic Data"
+                    ],
+                    "xAxisConcept":"observationDateTime",
+                    "numberOfVisits":10
+                },
+                "displayOrder":2
+            },
+            "weight/BMI":{  
+                "type":"observationGraph",
+                "translationKey": "DASHBOARD_TITLE_WEIGHT_BMI",
+                "config":{  
+                    "yAxisConcepts":[  
+                        "Weight",
+                        "BMI"
+                    ],
+                    "xAxisConcept":"observationDateTime",
+                    "numberOfVisits":10
+                },
+                "displayOrder":3
+            },
+            "diabetes/BloodSugar":{  
+                "type":"observationGraph",
+                "translationKey": "DASHBOARD_TITLE_DIABETES_BLOOD_SUGAR",
+                "config":{  
+                    "yAxisConcepts":[  
+                        "Blood Sugar Fasting",
+                        "Blood Sugar P.P"
+                    ],
+                    "xAxisConcept":"observationDateTime",
+                    "numberOfVisits":10
+                },
+                "displayOrder":4
+            },
+            "observationGraph":{  
+                "type":"observationGraph",
+                "translationKey": "DASHBOARD_TITLE_PULSE",
+                "config":{  
+                    "yAxisConcepts":[  
+                        "Pulse Data"
+                    ],
+                    "xAxisConcept":"observationDateTime",
+                    "numberOfVisits":10
+                },
+                "displayOrder":5
+            },
+            "diabetes":{  
+                "title":"Diabetes",
+                "templateName":"Diabetes, Progress",
+                "type":"diseaseTemplate",
+                "dashboardConfig":{  
+                    "showOnly":[  
+
+                    ]
+                },
+                "expandedViewConfig":{  
+                    "showDetailsButton":true,
+                    "pivotTable":{  
+                        "numberOfVisits":"10",
+                        "groupBy":"visits",
+                        "obsConcepts":[  
+                            "Diabetes, Blood Pressure",
+                            "Diabetes, A1C",
+                            "Diabetes, LDL",
+                            "Diabetes, Ulcers on Feet",
+                            "Blood Sugar Fasting",
+                            "Blood Sugar PP"
+                        ],
+                        "labConcepts":[  
+                            "RBS",
+                            "FBS",
+                            "PP2BS",
+                            "Hb1AC",
+                            "Creatinine",
+                            "Cholesterol"
+                        ]
+                    }
+                },
+                "displayOrder":6
+            }
+        }
+    },
+    "eDTriageForm-GYN": {
+        "title": "ED Triage Form - GYN",
+        "printing": {
+            "title": "ED Triage Form - GYN",
+            "header": "ED Triage Form - GYN",
+            "logo": "../images/bahmniLogo.png"
+        },
+        "sections": {
+            "ED Triage Form - GYN":{
+                "translationKey":"ED Triage Form - GYN",
+                "type":"eDTriageForm-GYN",
+                "isObservation":true,
+                "displayOrder":17,
+                "dashboardConfig":{
+                    "conceptNames":[
+                        "ED Triage Form - GYN"
+                        
+                    ],
+                    "showDetailsButton":true,
+                    "numberOfVisits":2
+                },
+                "expandedViewConfig":{
+                    "conceptNames":[
+                        "ED Triage Form - GYN"
+                    ],
+                    "numberOfVisits":2,
+                    "scope":"latest",
+                    "showDetailsButton":true,
+                    "pivotTable":{
+
+                    }
+                }
+            }
+        }
+    },
+    "whoTraumaFormFullPage": {
+        "title": "WHO Emergency Unit Form: Trauma",
+        "printing": {
+            "title": "WHO EMERGENCY UNIT FORM: TRAUMA",
+            "header": "WHO Emergency Unit Form - Trauma Assessment",
+            "logo": "../images/bahmniLogo.png"
+        },
+        "sections": {
+            "WHO Trauma Assessment": {
+                "translationKey": "WHO Emergency Unit Form - Trauma",
+                "type": "whoTraumaForm",
+                "isObservation": true,
+                "displayOrder": 1,
+                "dashboardConfig": {
+                    "conceptNames": ["WHO Trauma Form Templates"],
+                    "showDetailsButton": true,
+                    "numberOfVisits": 2
+                },
+                "expandedViewConfig": {
+                    "conceptNames": ["WHO Trauma Form Templates"],
+                    "numberOfVisits": 2,
+                    "scope": "latest",
+                    "showDetailsButton": true,
+                    "pivotTable": {}
+                }
+            }
+        }
+    },
+    "patientSummary":{  
+        "translationKey":"DASHBOARD_TAB_PATIENT_SUMMARY_KEY",
+        "maxRecentlyViewedPatients":10,
+        "printing": {
+            "title": "BORU MEDA GENERAL HOSPITAL",
+            "header": "Patient Summary Report",
+            "logo": "../images/bahmniLogo.jpg",
+            "showNameAndImage": true
+        },
+        "sections":{  
+            "Bacteriology Concept Set":{  
+                "displayType":"Full-Page",
+                "translationKey":"DASHBOARD_TITLE_BACTERIOLOGY_RESULTS_KEY",
+                "type":"obsToObsFlowSheet",
+                "dashboardConfig":{  
+                    "numberOfVisits":1,
+                    "templateName":"BACTERIOLOGY CONCEPT SET",
+                    "groupByConcept":"Specimen Collection Date",
+                    "conceptNames":[  
+                        "Specimen Id"
+                    ]
+                },
+                "expandedViewConfig":{  
+                    "templateName":"BACTERIOLOGY CONCEPT SET",
+                    "groupByConcept":"Specimen Collection Date"
+                }
+            },
+            
+            "drugOther":{  
+                "translationKey":"DASHBOARD_TITLE_TREATMENTS_KEY",
+                "type":"drugOrderDetails",
+                "displayType":"Full-Page",
+                "showDetailsButton":true,
+                "displayOrder":24,
+                "dashboardConfig":{  
+                    "showOnlyActive":true,
+                    "drugConceptSet":"All Other Drugs"
+                }
+            },
+            "malaria":{  
+                "title":"Malaria",
+                "type":"obsToObsFlowSheet",
+                "displayType":"Full-Page",
+                "displayOrder":26,
+                "dashboardConfig":{  
+                    "groupByConcept":"Malaria, Treatment Start Date",
+                    "templateName":"Malaria",
+                    "conceptNames":[  
+                        "Malaria, Parents Name",
+                        "Malaria, drug regimen",
+                        "Malaria, Malaria Type",
+                        "Malaria, Source"
+                    ]
+                }
+            },
+            "Chronic Treatment Chart":{  
+                "displayType":"Full-Page",
+                "title":"Chronic Treatment Chart",
+                "type":"chronicTreatmentChart",
+                "dashboardConfig":{  
+                    "drugs":[  
+
+                    ]
+                },
+                "expandedViewConfig":{  
+                    "drugs":[  
+
+                    ]
+                }
+            }
+        }
+    },
+    "MedicalCertificate": {
+        "title": "Medical Certificate",
+        "printing": {
+            "title": "BORU MEDA GENERAL HOSPITAL",
+            "header": "Medical Certificate",
+            "logo": "../images/bahmniLogo.png"
+        },
+        "sections": {
+            "Medical Certificate":{
+                "translationKey":"Medical Certificate",
+                "type":"obsToObsFlowSheet",
+                "isObservation":true,
+                "displayOrder":27,
+                "dashboardConfig":{
+                    "conceptNames":[
+                        "Medical Certificate"
+                        
+                    ],
+                    "showDetailsButton":true,
+                    "numberOfVisits":2
+                },
+                "expandedViewConfig":{
+                    "conceptNames":[
+                        "Medical Certificate"
+                    ],
+                    "numberOfVisits":2,
+                    "scope":"latest",
+                    "showDetailsButton":true,
+                    "pivotTable":{
+
+                    }
+                }
+            }
+        }
+    },
+    "BirthNotificationRegistration": {
+        "title": "Birth Notification Registration",
+        "printing": {
+            "title": "BORU MEDA GENERAL HOSPITAL",
+            "header": "Birth Notification Registration",
+            "logo": "../images/bahmniLogo.png"
+        },
+        "sections": {
+            "Medical Certificate":{
+                "translationKey":"Birth Notification Registration",
+                "type":"obsToObsFlowSheet",
+                "isObservation":true,
+                "displayOrder":28,
+                "dashboardConfig":{
+                    "conceptNames":[
+                        "Birth Notification Registration"
+                        
+                    ],
+                    "showDetailsButton":true,
+                    "numberOfVisits":2
+                },
+                "expandedViewConfig":{
+                    "conceptNames":[
+                        "Birth Notification Registration"
+                    ],
+                    "numberOfVisits":2,
+                    "scope":"latest",
+                    "showDetailsButton":true,
+                    "pivotTable":{
+
+                    }
+                }
+            }
+        }
+    },
+    "PathologyDiagnosticReport": {
+        "title": "Pathology Diagnostic Report",
+        "printing": {
+            "title": "BORU MEDA GENERAL HOSPITAL",
+            "header": "Pathology Diagnostic Report",
+            "logo": "../images/bahmniLogo.png"
+        },
+        "sections": {
+            "PathologyDiagnostic Report":{
+                "orderType":"Pathology Order",
+                "type":"ordersControl",
+                "translationKey":"DASHBOARD_TITLE_PATHOLOGY_DIAGNOSTIC_REPORT_KEY",
+                "displayOrder":7,
+                "dashboardConfig":{
+                "showDetailsButton":true,
+                    "conceptNames":[
+                        "Result Stage",
+                        "Procedure Date",
+                        "Pathology Final Diagnosis",
+                        "Micro Description", 
+                        "Gross Description", 
+                        "Comment Given", 
+                        "Scanned Pathology Investigation", 
+                        "Pathology Procedure Video",
+                        "Orders result status marker",
+                        "Approved by"
+                    ],
+                    "numberOfVisits":10
+                },
+                "expandedViewConfig":{
+                    "showDetailsButton":true,
+                    "conceptNames":[
+                        "Result Stage",
+                        "Procedure Date",
+                        "Pathology Final Diagnosis",
+                        "Micro Description", 
+                        "Gross Description", 
+                        "Comment Given", 
+                        "Scanned Pathology Investigation", 
+                        "Pathology Procedure Video",
+                        "Orders result status marker",
+                        "Approved by"
+                    ],
+                    "numberOfVisits":10,
+                    "pivotTable":{
+
+                    }
+                }
+            }
+          }	
+       }    
+}

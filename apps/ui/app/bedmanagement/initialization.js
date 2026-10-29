@@ -46,6 +46,9 @@ angular.module('bahmni.ipd').factory('initialization', ['$rootScope', '$q', '$ba
                 }
             });
         };
+        if ($rootScope.encounterConfig && $rootScope.patientConfig && appService.getAppDescriptor()) {
+            return $q.when(true);
+        }
         return spinner.forPromise(authenticator.authenticateUser().then(initApp).then(getConfigs));
     }
 ]);

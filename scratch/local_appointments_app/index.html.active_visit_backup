@@ -1,0 +1,586 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Appointment Scheduling</title>
+    <link rel="shortcut icon" type="image/x-icon" href="/bahmni/favicon.ico">
+    <link rel="icon" type="image/x-icon" href="/bahmni/favicon.ico">
+    <link rel="shortcut icon" type="image/x-icon" href="favicon.ico">
+    <link rel="icon" type="image/x-icon" href="favicon.ico">
+<script type="text/javascript" src="appointment.js"></script></head>
+<body>
+<div class="bahmni-appointments">
+    <div ui-view="additional-header"></div>
+    <div ng-include src="'ui-helper-messages'"></div>
+    <div ui-view="mainContent"></div>
+</div>
+<style>
+.back-btn-spec {
+    display: inline-block;
+    padding: 5px 12px !important;
+    margin: 15px 5px 0 !important;
+    border-radius: 3px;
+    color: #fff !important;
+    background: rgba(255,255,255,0.15);
+    font-size: 13px;
+    text-decoration: none !important;
+    border: 1px solid rgba(255,255,255,0.3);
+}
+.back-btn-spec:hover { background: rgba(255,255,255,0.3); }
+.app-list-view .row-cb,
+.app-list-view .select-all-cb input[type="checkbox"] {
+    width: 18px; height: 18px; cursor: pointer;
+    margin: 0; padding: 0; accent-color: #27AE60;
+}
+.select-all-cb { text-align: center; vertical-align: middle; }
+.visit-progress { font-size: 12px; margin-left: 10px; color: #333; }
+.visit-success { color: #27AE60; font-weight: bold; }
+.visit-error { color: #e74c3c; font-weight: bold; }
+#av-toast {
+    display: none; position: fixed; top: 60px; right: 20px; z-index: 99999;
+    padding: 14px 24px; border-radius: 6px; font-size: 14px; font-weight: 600;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.25); max-width: 400px;
+    transition: opacity 0.4s; opacity: 1;
+}
+#av-toast.success { background: #27AE60; color: #fff; border-left: 5px solid #1e8449; }
+#av-toast.error { background: #e74c3c; color: #fff; border-left: 5px solid #c0392b; }
+#av-toast.info { background: #2980b9; color: #fff; border-left: 5px solid #1f6da1; }
+
+#active-visit-btn {
+    background: #27AE60;
+    color: #fff;
+    border: none;
+    padding: 8px 15px;
+    border-radius: 3px;
+    margin-left: 10px;
+    font-size: 13px;
+    cursor: pointer;
+    font-weight: bold;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24);
+    transition: all 0.2s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+#active-visit-btn:hover:not(:disabled) {
+    box-shadow: 0 4px 9px rgba(0,0,0,0.25), 0 5px 5px rgba(0,0,0,0.22);
+}
+#active-visit-btn:disabled {
+    background: #bdc3c7 !important;
+    color: #7f8c8d !important;
+    cursor: not-allowed !important;
+    opacity: 0.65 !important;
+    box-shadow: none !important;
+}
+</style>
+<script>
+(function() {
+    var OPD_VISIT_TYPE_UUID = '54f43754-c6ce-4472-890e-0f28acaeaea6';
+    var selectedAppointments = {};
+    var interceptedAppointments = [];
+    var _locationVisitTypeMap = null;
+
+    function getLoginLocation() {
+        var match = document.cookie.match(/bahmni\.user\.location=([^;]+)/);
+        if (!match) return null;
+        try {
+            var val = decodeURIComponent(match[1]);
+            var obj = JSON.parse(val);
+            return obj && obj.uuid ? obj : null;
+        } catch(e) { return null; }
+    }
+
+    function fetchLocationVisitTypeMap() {
+        if (_locationVisitTypeMap) return Promise.resolve(_locationVisitTypeMap);
+        return fetch('/openmrs/ws/rest/v1/entitymapping?mappingType=loginlocation_visittype&s=byEntityAndMappingType', {
+            credentials: 'same-origin'
+        }).then(function(r) { return r.ok ? r.json() : { results: [] }; })
+        .then(function(data) {
+            var map = {};
+            var results = data.results || [];
+            results.forEach(function(em) {
+                if (em.entity && em.entity.uuid && em.mappings && em.mappings.length > 0) {
+                    var vt = em.mappings[0];
+                    if (vt && vt.uuid && !vt.retired) {
+                        map[em.entity.uuid] = vt.uuid;
+                    }
+                }
+            });
+            _locationVisitTypeMap = map;
+            console.log('[ActiveVisit] Location→VisitType map:', map);
+            return map;
+        });
+    }
+
+    function showToast(msg, type, duration) {
+        var t = document.getElementById('av-toast');
+        if (!t) { t = document.createElement('div'); t.id = 'av-toast'; document.body.appendChild(t); }
+        t.textContent = msg;
+        t.className = type || 'info';
+        t.style.display = 'block';
+        t.style.opacity = '1';
+        clearTimeout(t._hideTimer);
+        t._hideTimer = setTimeout(function() {
+            t.style.opacity = '0';
+            setTimeout(function() { t.style.display = 'none'; }, 400);
+        }, duration || 5000);
+    }
+
+    var origOpen = XMLHttpRequest.prototype.open;
+    var origSend = XMLHttpRequest.prototype.send;
+    XMLHttpRequest.prototype.open = function(method, url) {
+        this._url = url;
+        this._method = method;
+        return origOpen.apply(this, arguments);
+    };
+    XMLHttpRequest.prototype.send = function() {
+        var self = this;
+        if (self._url && (self._url.indexOf('/rest/v1/appointment') > -1 || self._url.indexOf('/rest/v1/appointments') > -1)) {
+            self.addEventListener('load', function() {
+                try {
+                    var data = JSON.parse(self.responseText);
+                    var list = null;
+                    if (Array.isArray(data)) list = data;
+                    else if (data && data.results && Array.isArray(data.results)) list = data.results;
+                    if (list && list.length > 0 && list[0].uuid && list[0].patient) {
+                        interceptedAppointments = list;
+                        console.log('[ActiveVisit] Intercepted', list.length, 'appointments from API');
+                    }
+                } catch(e) {}
+            });
+        }
+        return origSend.apply(this, arguments);
+    };
+
+    function getAppointmentForRow(tr, rowIndex) {
+        try {
+            var s = window.angular ? window.angular.element(tr).scope() : null;
+            if (s && s.appointment) return s.appointment;
+        } catch(e) {}
+        var list = interceptedAppointments;
+        if (list && list[rowIndex]) return list[rowIndex];
+        try {
+            var injector = window.angular ? window.angular.element(document.body).injector() : null;
+            if (injector) {
+                var rootScope = injector.get('$rootScope');
+                var found = null;
+                function searchScope(s) {
+                    if (found || !s) return;
+                    if (s.filteredAppointments && s.filteredAppointments.length > 0) { found = s.filteredAppointments; return; }
+                    if (s.appointments && Array.isArray(s.appointments) && s.appointments.length > 0) { found = s.appointments; return; }
+                    if (s.$$childHead) searchScope(s.$$childHead);
+                    if (s.$$nextSibling) searchScope(s.$$nextSibling);
+                }
+                searchScope(rootScope);
+                if (found && found[rowIndex]) { interceptedAppointments = found; return found[rowIndex]; }
+            }
+        } catch(e) {}
+        if (interceptedAppointments[rowIndex]) return interceptedAppointments[rowIndex];
+        return null;
+    }
+
+    function safeApply(scope) {
+        if (scope && !scope.$$phase && (!scope.$root || !scope.$root.$$phase)) {
+            scope.$apply();
+        }
+    }
+
+    function updateSelectAllState() {
+        var cbAll = document.querySelector('.select-all-cb input');
+        if (!cbAll) return;
+        var rowCbs = document.querySelectorAll('.app-list-view table tbody .row-cb');
+        if (rowCbs.length === 0) {
+            cbAll.checked = false;
+            return;
+        }
+        var allChecked = true;
+        rowCbs.forEach(function(c) { if (!c.checked) allChecked = false; });
+        cbAll.checked = allChecked;
+    }
+
+    function syncCheckboxesWithAngular() {
+        var table = document.querySelector('.app-list-view table');
+        if (!table) return;
+        var tbody = table.querySelector('tbody');
+        if (!tbody) return;
+        var trs = tbody.querySelectorAll('tr');
+        var anySelectedInAngular = false;
+
+        trs.forEach(function(tr, idx) {
+            var childScope = window.angular ? window.angular.element(tr).scope() : null;
+            var parentScope = childScope ? childScope.$parent : null;
+            var cb = tr.querySelector('.row-cb');
+            var appt = (childScope && childScope.appointment) ? childScope.appointment : getAppointmentForRow(tr, idx);
+            if (!cb || !appt || !appt.uuid) return;
+
+            var isSelected = parentScope && parentScope.selectedAppointment && parentScope.selectedAppointment.uuid === appt.uuid;
+            if (isSelected) {
+                anySelectedInAngular = true;
+                cb.checked = true;
+                selectedAppointments[appt.uuid] = appt;
+            }
+        });
+
+        if (anySelectedInAngular) {
+            trs.forEach(function(tr, idx) {
+                var childScope = window.angular ? window.angular.element(tr).scope() : null;
+                var parentScope = childScope ? childScope.$parent : null;
+                var cb = tr.querySelector('.row-cb');
+                var appt = (childScope && childScope.appointment) ? childScope.appointment : getAppointmentForRow(tr, idx);
+                if (!cb || !appt || !appt.uuid) return;
+                var isSelected = parentScope && parentScope.selectedAppointment && parentScope.selectedAppointment.uuid === appt.uuid;
+                if (!isSelected) {
+                    cb.checked = false;
+                    delete selectedAppointments[appt.uuid];
+                }
+            });
+        }
+        updateSelectAllState();
+        updateBtnLabel();
+    }
+
+    function patchAppointmentsService() {
+        try {
+            var injector = window.angular ? window.angular.element(document.body).injector() : null;
+            if (!injector) return;
+            var appointmentsService = injector.get('appointmentsService');
+            if (appointmentsService && !appointmentsService._patchedForTransitions) {
+                appointmentsService._patchedForTransitions = true;
+                var origChangeStatus = appointmentsService.changeStatus;
+                appointmentsService.changeStatus = function(appointmentUuid, toStatus, onDate, applyForAll) {
+                    return origChangeStatus.apply(this, arguments).catch(function(err) {
+                        if (toStatus === 'CheckedIn' || toStatus === 'Cancelled') {
+                            console.log('[Appointments] Direct status change to ' + toStatus + ' failed, attempting 2-step transition via Scheduled...');
+                            return origChangeStatus.call(appointmentsService, appointmentUuid, 'Scheduled', null, applyForAll)
+                                .then(function() {
+                                    return origChangeStatus.call(appointmentsService, appointmentUuid, toStatus, onDate, applyForAll);
+                                });
+                        }
+                        throw err;
+                    });
+                };
+                console.log('[Appointments] appointmentsService.changeStatus enhanced with 2-step transition');
+            }
+        } catch(e) {}
+    }
+
+    function createVisit(patientUuid, locationUuid, visitTypeUuid) {
+        var now = new Date();
+        var pad = function(n) { return String(n).padStart(2, '0'); };
+        var startStr = now.getFullYear() + '-' + pad(now.getMonth()+1) + '-' + pad(now.getDate()) + 'T' + pad(now.getHours()) + ':' + pad(now.getMinutes()) + ':00.000';
+        var payload = {
+            patient: { uuid: patientUuid },
+            visitType: { uuid: visitTypeUuid || OPD_VISIT_TYPE_UUID },
+            startDatetime: startStr
+        };
+        if (locationUuid) payload.location = { uuid: locationUuid };
+        return fetch('/openmrs/ws/rest/v1/visit', {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        }).then(function(r) {
+            if (!r.ok) return r.json().then(function(e) { throw new Error(e.error ? e.error.message : 'HTTP ' + r.status); });
+            return r.json();
+        });
+    }
+
+    function checkActiveVisit(patientUuid, visitTypeUuid) {
+        var vtUuid = visitTypeUuid || OPD_VISIT_TYPE_UUID;
+        return fetch('/openmrs/ws/rest/v1/visit?patient=' + patientUuid + '&visitType=' + vtUuid + '&v=custom:(uuid,stopDatetime)&limit=100', {
+            credentials: 'same-origin'
+        }).then(function(r) {
+            if (!r.ok) return { results: [] };
+            return r.json();
+        }).then(function(data) {
+            if (!data.results) data.results = [];
+            data.results = data.results.filter(function(v) { return v.stopDatetime === null; });
+            return data;
+        });
+    }
+
+    function updateBtnLabel() {
+        var btn = document.getElementById('active-visit-btn');
+        if (!btn) return;
+        var count = Object.keys(selectedAppointments).length;
+        btn.disabled = count === 0;
+        btn.textContent = count > 0 ? 'Active Visit (' + count + ')' : 'Active Visit';
+    }
+
+    function addCheckboxes() {
+        var table = document.querySelector('.app-list-view table');
+        if (!table) return;
+        var thead = table.querySelector('thead tr');
+        var tbody = table.querySelector('tbody');
+        if (!thead || !tbody) return;
+
+        patchAppointmentsService();
+
+        if (!thead.querySelector('.select-all-cb')) {
+            var thAll = document.createElement('th');
+            thAll.className = 'select-all-cb';
+            thAll.style.cssText = 'width:40px;min-width:40px;max-width:40px;text-align:center;';
+            var cbAll = document.createElement('input');
+            cbAll.type = 'checkbox';
+            cbAll.title = 'Select all';
+            cbAll.addEventListener('change', function(e) {
+                e.stopPropagation();
+                var self = this;
+                var firstAppt = null;
+                tbody.querySelectorAll('tr').forEach(function(tr, idx) {
+                    var cb = tr.querySelector('.row-cb');
+                    if (!cb) return;
+                    cb.checked = self.checked;
+                    var childScope = window.angular ? window.angular.element(tr).scope() : null;
+                    var appt = (childScope && childScope.appointment) ? childScope.appointment : getAppointmentForRow(tr, idx);
+                    if (appt && appt.uuid) {
+                        if (self.checked) {
+                            selectedAppointments[appt.uuid] = appt;
+                            if (!firstAppt) firstAppt = appt;
+                        } else {
+                            delete selectedAppointments[appt.uuid];
+                        }
+                    }
+                });
+
+                var anyTr = tbody.querySelector('tr');
+                var anyScope = anyTr && window.angular ? window.angular.element(anyTr).scope() : null;
+                var parentScope = anyScope ? anyScope.$parent : null;
+                if (parentScope) {
+                    if (self.checked) {
+                        parentScope.selectedAppointment = firstAppt;
+                    } else {
+                        parentScope.selectedAppointment = undefined;
+                    }
+                    safeApply(parentScope);
+                }
+                updateBtnLabel();
+            });
+            thAll.appendChild(cbAll);
+            thead.insertBefore(thAll, thead.firstChild);
+        }
+
+        var rows = tbody.querySelectorAll('tr');
+        rows.forEach(function(tr, idx) {
+            if (tr.querySelector('.row-cb')) return;
+            var td = document.createElement('td');
+            td.className = 'row-cb-td';
+            td.style.cssText = 'text-align:center;width:40px;min-width:40px;max-width:40px;';
+            var cb = document.createElement('input');
+            cb.type = 'checkbox';
+            cb.className = 'row-cb';
+            cb.setAttribute('data-idx', idx);
+
+            cb.addEventListener('click', function(e) {
+                e.stopPropagation();
+            });
+
+            cb.addEventListener('change', function(e) {
+                e.stopPropagation();
+                var childScope = window.angular ? window.angular.element(tr).scope() : null;
+                var parentScope = childScope ? childScope.$parent : null;
+                var appt = (childScope && childScope.appointment) ? childScope.appointment : getAppointmentForRow(tr, idx);
+                if (!appt || !appt.uuid) {
+                    console.warn('[ActiveVisit] Could not get appointment data for row', idx);
+                    return;
+                }
+
+                if (this.checked) {
+                    selectedAppointments[appt.uuid] = appt;
+                    if (parentScope) {
+                        parentScope.selectedAppointment = appt;
+                        safeApply(parentScope);
+                    }
+                } else {
+                    delete selectedAppointments[appt.uuid];
+                    if (parentScope && parentScope.selectedAppointment && parentScope.selectedAppointment.uuid === appt.uuid) {
+                        var remKeys = Object.keys(selectedAppointments);
+                        if (remKeys.length > 0) {
+                            parentScope.selectedAppointment = selectedAppointments[remKeys[0]];
+                        } else {
+                            parentScope.selectedAppointment = undefined;
+                        }
+                        safeApply(parentScope);
+                    }
+                }
+                updateSelectAllState();
+                updateBtnLabel();
+            });
+
+            td.appendChild(cb);
+            tr.insertBefore(td, tr.firstChild);
+        });
+
+        if (!tbody._syncListenerAttached) {
+            tbody._syncListenerAttached = true;
+            tbody.addEventListener('click', function(e) {
+                if (e.target.closest('.row-cb-td')) return;
+                setTimeout(function() {
+                    syncCheckboxesWithAngular();
+                }, 60);
+            });
+        }
+
+        syncCheckboxesWithAngular();
+    }
+
+    function addActiveVisitButton() {
+        if (document.getElementById('active-visit-btn')) return;
+        var toolbar = document.querySelector('.appointment-action-btn-container');
+        if (!toolbar) return;
+
+        var btn = document.createElement('button');
+        btn.id = 'active-visit-btn';
+        btn.textContent = 'Active Visit';
+        btn.disabled = true;
+
+        var progress = document.createElement('span');
+        progress.id = 'visit-progress';
+        progress.className = 'visit-progress';
+
+        btn.addEventListener('click', function() {
+            var appts = Object.values(selectedAppointments);
+            if (appts.length === 0) {
+                showToast('No appointments selected. Please check one or more appointments first.', 'error', 3000);
+                return;
+            }
+
+            var loginLoc = getLoginLocation();
+            var loginLocUuid = loginLoc ? loginLoc.uuid : null;
+            var loginLocName = loginLoc ? loginLoc.display : 'Unknown';
+            console.log('[ActiveVisit] Login location:', loginLocName, loginLocUuid);
+
+            btn.disabled = true;
+            showToast('Resolving visit type for ' + loginLocName + '...', 'info', 10000);
+            progress.textContent = 'Resolving visit type...';
+            progress.className = 'visit-progress';
+
+            function finish(created, skipped, errors, errorMessages) {
+                var msg;
+                if (errors === 0 && skipped === 0 && created > 0) {
+                    msg = 'Active visit created successfully for ' + created + ' patient(s) at ' + loginLocName + '!';
+                    showToast(msg, 'success');
+                } else if (created > 0) {
+                    msg = created + ' created, ' + skipped + ' skipped, ' + errors + ' error(s)';
+                    showToast(msg, errors > 0 ? 'error' : 'success');
+                } else if (skipped > 0 && errors === 0) {
+                    msg = 'All ' + skipped + ' patient(s) already have an active visit';
+                    showToast(msg, 'info');
+                } else {
+                    msg = 'Failed: ' + errorMessages.join('; ');
+                    showToast(msg || 'Unknown error', 'error', 8000);
+                }
+                progress.textContent = msg;
+                progress.className = 'visit-progress ' + (errors > 0 ? 'visit-error' : 'visit-success');
+                btn.disabled = false;
+                selectedAppointments = {};
+                document.querySelectorAll('.row-cb').forEach(function(cb) { cb.checked = false; });
+                var allCb = document.querySelector('.select-all-cb input');
+                if (allCb) allCb.checked = false;
+                updateBtnLabel();
+                setTimeout(function() { progress.textContent = ''; }, 5000);
+            }
+
+            function processAppts(visitTypeUuid, useLocUuid) {
+                showToast('Creating active visit(s) for ' + appts.length + ' patient(s) at ' + loginLocName + '...', 'info', 10000);
+                progress.textContent = 'Processing ' + appts.length + ' patients...';
+
+                var processed = 0, errors = 0, skipped = 0, created = 0, total = appts.length;
+                var errorMessages = [];
+
+                appts.forEach(function(appt) {
+                    if (!appt.patient || !appt.patient.uuid) {
+                        errors++; processed++;
+                        errorMessages.push('Missing patient data');
+                        console.error('[ActiveVisit] No patient UUID for appointment:', appt.uuid);
+                        if (processed >= total) finish(created, skipped, errors, errorMessages);
+                        return;
+                    }
+                    console.log('[ActiveVisit] Checking visit for patient:', appt.patient.uuid, 'location:', useLocUuid, 'visitType:', visitTypeUuid);
+                    checkActiveVisit(appt.patient.uuid, visitTypeUuid).then(function(data) {
+                        if (data.results && data.results.length > 0) {
+                            skipped++; processed++;
+                            console.log('[ActiveVisit] Skipped (already active):', appt.patient.uuid);
+                            if (processed >= total) finish(created, skipped, errors, errorMessages);
+                        } else {
+                            createVisit(appt.patient.uuid, useLocUuid, visitTypeUuid).then(function(result) {
+                                created++; processed++;
+                                console.log('[ActiveVisit] Created visit:', result.uuid, 'at', loginLocName, 'for patient:', appt.patient.uuid);
+                                if (processed >= total) finish(created, skipped, errors, errorMessages);
+                            }).catch(function(e) {
+                                errors++; processed++;
+                                var errMsg = e.message || 'Unknown error';
+                                errorMessages.push(errMsg);
+                                console.error('[ActiveVisit] Failed to create visit for', appt.patient.uuid, ':', errMsg);
+                                if (processed >= total) finish(created, skipped, errors, errorMessages);
+                            });
+                        }
+                    }).catch(function(e) {
+                        errors++; processed++;
+                        var errMsg = e ? (e.message || 'Network error') : 'Network error';
+                        errorMessages.push(errMsg);
+                        console.error('[ActiveVisit] Failed to check visit for', appt.patient.uuid, ':', errMsg);
+                        if (processed >= total) finish(created, skipped, errors, errorMessages);
+                    });
+                });
+            }
+
+            fetchLocationVisitTypeMap().then(function(locMap) {
+                var visitTypeUuid = loginLocUuid ? locMap[loginLocUuid] : null;
+                if (!visitTypeUuid) {
+                    console.warn('[ActiveVisit] No visit type mapping for login location', loginLocUuid, '- falling back to OPD');
+                    visitTypeUuid = OPD_VISIT_TYPE_UUID;
+                } else {
+                    console.log('[ActiveVisit] Using visit type:', visitTypeUuid, 'for login location:', loginLocName);
+                }
+                processAppts(visitTypeUuid, loginLocUuid);
+            }).catch(function(e) {
+                console.error('[ActiveVisit] Failed to fetch entity mappings:', e);
+                showToast('Failed to resolve visit type. Using default OPD.', 'error', 3000);
+                processAppts(OPD_VISIT_TYPE_UUID, loginLocUuid);
+            });
+        });
+
+        toolbar.appendChild(btn);
+        toolbar.appendChild(progress);
+    }
+
+    var observerBusy = false;
+    var mainObserver = new MutationObserver(function() {
+        if (observerBusy) return;
+        observerBusy = true;
+        try {
+            var table = document.querySelector('.app-list-view table');
+            var toolbar = document.querySelector('.appointment-action-btn-container');
+            if (table) addCheckboxes();
+            if (toolbar) addActiveVisitButton();
+        } finally { observerBusy = false; }
+    });
+    mainObserver.observe(document.body, { childList: true, subtree: true });
+
+    var injected = false;
+    var checkInterval = setInterval(function() {
+        if (injected) return;
+        var headerUl = document.querySelector('.opd-header-wrapper .opd-header-top header ul');
+        if (headerUl && !document.querySelector('.speciality-admin-link')) {
+            var li = document.createElement('li');
+            li.style.display = 'inline';
+            var link1 = document.createElement('a');
+            link1.className = 'back-btn-spec speciality-admin-link';
+            link1.href = '/appointments/speciality-admin.html';
+            link1.textContent = 'MANAGE SPECIALITIES';
+            li.appendChild(link1);
+            var li2 = document.createElement('li');
+            li2.style.display = 'inline';
+            var link2 = document.createElement('a');
+            link2.className = 'back-btn-spec provider-admin-link';
+            link2.href = '/appointments/provider-admin.html';
+            link2.textContent = 'MANAGE PROVIDERS';
+            li2.appendChild(link2);
+            headerUl.appendChild(li);
+            headerUl.appendChild(li2);
+            injected = true;
+        }
+    }, 300);
+    setTimeout(function() { clearInterval(checkInterval); }, 30000);
+})();
+</script>
+</body>
+</html>

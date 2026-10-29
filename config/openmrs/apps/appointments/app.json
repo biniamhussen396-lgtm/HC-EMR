@@ -21,9 +21,13 @@
     "enableServiceTypes": false,
     "enableCalendarView": true,
     "isServiceOnAppointmentEditable": false,
-    "enableResetAppointmentStatuses": ["CheckedIn"],
+    "enableResetAppointmentStatuses": [
+      "CheckedIn",
+      "Missed",
+      "Completed",
+      "Cancelled"
+    ],
     "colorsForAppointmentService": [
-      "#006400",
       "#DC143C",
       "#00008B",
       "#3F51B5",
@@ -48,6 +52,7 @@
     "allowedActionsByStatus": {
       "Scheduled": ["CheckedIn", "Missed", "Cancelled"],
       "CheckedIn": ["Completed", "Missed", "Cancelled"],
+      "Missed": ["CheckedIn", "Cancelled"],
       "WaitList": ["Cancelled"]
     },
     "colorsForListView": {

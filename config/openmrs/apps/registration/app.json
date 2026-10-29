@@ -1,6 +1,6 @@
 {
     "id": "bahmni.registration",
-        "instanceOf":"bahmni.template.registration",
+    "instanceOf": "bahmni.template.registration",
     "description": "Bahmni Patient Registration App",
     "extensionPoints": [
         {
@@ -85,7 +85,7 @@
             ]
         },
         "paymentConfig": {
-            "disable billing": false,
+            "disable billing": true,
             "payment window": 30
         },
         "erTriageFormLookup": {
@@ -160,10 +160,15 @@
             "logics": [
                 {
                     "trigger": "PaymentMethod",
-                    "values": [ "Credit"],
+                    "values": [
+                        "Credit"
+                    ],
                     "action": "show",
                     "dependent": "CreditType",
-                    "defaultTriggerValue": ["Cash", "Free"],
+                    "defaultTriggerValue": [
+                        "Cash",
+                        "Free"
+                    ],
                     "defaultValue": {
                         "conceptUuid": "fd08aa37-e18d-415d-be41-f8bbbc81bea3",
                         "value": "N/A"
@@ -171,10 +176,15 @@
                 },
                 {
                     "trigger": "PaymentMethod",
-                    "values": [ "Free" ],
+                    "values": [
+                        "Free"
+                    ],
                     "action": "show",
                     "dependent": "FreePaymentDetails",
-                    "defaultTriggerValue": ["Cash", "Credit"],
+                    "defaultTriggerValue": [
+                        "Cash",
+                        "Credit"
+                    ],
                     "defaultValue": {
                         "conceptUuid": "fd08aa37-e18d-415d-be41-f8bbbc81bea3",
                         "value": "N/A"
@@ -182,10 +192,15 @@
                 },
                 {
                     "trigger": "PaymentMethod",
-                    "values": ["Credit"],
+                    "values": [
+                        "Credit"
+                    ],
                     "action": "show",
                     "dependent": "Reference Number",
-                    "defaultTriggerValue": ["Free", "Cash"],
+                    "defaultTriggerValue": [
+                        "Free",
+                        "Cash"
+                    ],
                     "defaultValue": {
                         "conceptUuid": "fd08aa37-e18d-415d-be41-f8bbbc81bea3",
                         "value": "N/A"
@@ -193,10 +208,18 @@
                 },
                 {
                     "trigger": "CreditType",
-                    "values": ["Agreement", "Social Health Insurance", "Staff", "Student" ],
+                    "values": [
+                        "Agreement",
+                        "Social Health Insurance",
+                        "Staff",
+                        "Student"
+                    ],
                     "action": "show",
                     "dependent": "CreditCompany",
-                    "defaultTriggerValue": ["CBHI", "N/A"],
+                    "defaultTriggerValue": [
+                        "CBHI",
+                        "N/A"
+                    ],
                     "defaultValue": {
                         "conceptUuid": "fd08aa37-e18d-415d-be41-f8bbbc81bea3",
                         "value": "N/A"
@@ -204,10 +227,19 @@
                 },
                 {
                     "trigger": "CreditType",
-                    "values": [ "CBHI"],
+                    "values": [
+                        "CBHI"
+                    ],
                     "action": "show",
                     "dependent": "CBHIAgreedWoreda",
-                    "defaultTriggerValue": ["Agreement", "Fee Waiver", "Social Health Insurance", "Staff", "Student", "N/A"],
+                    "defaultTriggerValue": [
+                        "Agreement",
+                        "Fee Waiver",
+                        "Social Health Insurance",
+                        "Staff",
+                        "Student",
+                        "N/A"
+                    ],
                     "defaultValue": {
                         "conceptUuid": "fd08aa37-e18d-415d-be41-f8bbbc81bea3",
                         "value": "N/A"
@@ -519,12 +551,12 @@
         "patientSearch": {
             "address": {
                 "label": "Woreda/Subcity",
-                "placeholder": "ወረዳ/ክፍለ ከተማ ",
+                "placeholder": "\u12c8\u1228\u12f3/\u12ad\u134d\u1208 \u12a8\u1270\u121b ",
                 "field": "City_Village"
             },
             "customAttributes": {
                 "label": "Phone Number",
-                "placeholder": "ስልክ ቁጥር",
+                "placeholder": "\u1235\u120d\u12ad \u1241\u1325\u122d",
                 "fields": [
                     "PhoneNumber"
                 ]

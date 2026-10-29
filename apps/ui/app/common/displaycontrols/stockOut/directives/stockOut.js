@@ -67,14 +67,58 @@ angular.module('bahmni.common.displaycontrol.stockOut')
                 var loadPatientOrders = function () {
                     var pUuid = getPatientUuid();
                     if (!pUuid) return $q.when([]);
-                    return $http.get('/openmrs/ws/rest/v1/order', {
+
+                    var ordersPromise = $http.get('/openmrs/ws/rest/v1/order', {
                         params: {
                             patient: pUuid,
                             v: 'custom:(uuid,orderNumber,concept:(uuid,name:(display),display),action,dateActivated,dateStopped,voided,voidReason,commentToFulfiller,orderType:(name))'
                         }
                     }).then(function (res) {
-                        var orders = (res.data && res.data.results) ? res.data.results : [];
+                        return (res.data && res.data.results) ? res.data.results : [];
+                    }).catch(function () {
+                        return [];
+                    });
+
+                    var obsPromise = $http.get('/openmrs/ws/rest/v1/obs', {
+                        params: {
+                            patient: pUuid,
+                            v: 'custom:(uuid,obsDatetime,value,comment,concept:(uuid,name:(display),display))'
+                        }
+                    }).then(function (res) {
+                        return (res.data && res.data.results) ? res.data.results : [];
+                    }).catch(function () {
+                        return [];
+                    });
+
+                    return $q.all([ordersPromise, obsPromise]).then(function (results) {
+                        var orders = results[0];
+                        var obsList = results[1];
                         var stockOutList = [];
+                        var seenMap = {};
+
+                        // Process stock-out observations
+                        obsList.forEach(function (ob) {
+                            var val = ob.value || '';
+                            if (typeof val === 'string' && (val.indexOf('[STOCK-OUT') !== -1 || val.indexOf('[Stock-Out') !== -1)) {
+                                var match = val.match(/\[STOCK-OUT:[^\]]*\]\s*(.*)/i) || val.match(/\[STOCK-OUT\]\s*(.*)/i);
+                                var testName = match ? match[1].trim() : val.trim();
+                                var key = (testName || '').toLowerCase() + '_' + (ob.obsDatetime || '').substr(0, 10);
+                                if (!seenMap[key]) {
+                                    seenMap[key] = true;
+                                    stockOutList.push({
+                                        uuid: ob.uuid,
+                                        orderNumber: '',
+                                        testName: testName || 'Laboratory Test',
+                                        orderDate: ob.obsDatetime,
+                                        voidReason: 'Reagent Stock Out',
+                                        voided: false,
+                                        status: 'Stock-Out'
+                                    });
+                                }
+                            }
+                        });
+
+                        // Process any stock-out orders
                         var localMap = {};
                         getLocalStockOutTests().forEach(function (t) {
                             if (t.name) localMap[t.name.toLowerCase().trim()] = true;
@@ -116,17 +160,29 @@ angular.module('bahmni.common.displaycontrol.stockOut')
                                     displayReason = voidReason;
                                 }
 
-                                stockOutList.push({
-                                    uuid: o.uuid,
-                                    orderNumber: o.orderNumber,
-                                    testName: testName || 'Laboratory Test',
-                                    orderDate: o.dateActivated || o.dateStopped,
-                                    voidReason: displayReason || 'Reagent Stock Out',
-                                    voided: o.voided,
-                                    status: 'Stock-Out'
-                                });
+                                var ordDate = o.dateActivated || o.dateStopped;
+                                var key = lowerName + '_' + (ordDate || '').substr(0, 10);
+                                if (!seenMap[key]) {
+                                    seenMap[key] = true;
+                                    stockOutList.push({
+                                        uuid: o.uuid,
+                                        orderNumber: o.orderNumber,
+                                        testName: testName || 'Laboratory Test',
+                                        orderDate: ordDate,
+                                        voidReason: displayReason || 'Reagent Stock Out',
+                                        voided: o.voided,
+                                        status: 'Stock-Out'
+                                    });
+                                }
                             }
                         });
+
+                        stockOutList.sort(function (a, b) {
+                            var da = new Date(a.orderDate || 0);
+                            var db = new Date(b.orderDate || 0);
+                            return db - da;
+                        });
+
                         return stockOutList;
                     }).catch(function () {
                         return [];

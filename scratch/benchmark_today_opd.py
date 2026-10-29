@@ -1,0 +1,92 @@
+import subprocess
+import time
+
+PLINK = r"C:\Program Files\PuTTY\plink.EXE"
+PW = "   "
+HOST = "196.189.94.149"
+USER = "bmh"
+
+def run_query(sql):
+    escaped = sql.replace('"', '\\"').replace('\n', ' ')
+    cmd = f'docker exec bahmni-standard-openmrsdb-1 mysql -u openmrs-user -pulDHfskBAYSFkOPBGkkjCPbv openmrs -e "{escaped}"'
+    t0 = time.time()
+    res = subprocess.run([PLINK, "-batch", "-ssh", "-pw", PW, f"{USER}@{HOST}", cmd], capture_output=True, text=True, timeout=60)
+    t1 = time.time()
+    return t1 - t0, res.returncode, res.stdout, res.stderr
+
+# Query for today's OPD visits (or recent visits, e.g. up to 2000)
+sql_today_opd = """
+SELECT 
+    v.visit_id,
+    p.uuid as patient_uuid,
+    v.uuid as visit_uuid,
+    pi.identifier as mrn,
+    TRIM(CONCAT(pn.given_name, IF(pn.middle_name IS NOT NULL AND pn.middle_name != '', CONCAT(' ', pn.middle_name), ''), IF(pn.family_name IS NOT NULL AND pn.family_name != '', CONCAT(' ', pn.family_name), ''))) as patient_name,
+    p.gender as sex,
+    TIMESTAMPDIFF(YEAR, p.birthdate, v.date_started) as age,
+    COALESCE(pa.city_village, pa.address1, '') as woreda,
+    COALESCE(pa.address2, pa.county_district, '') as kebele,
+    COALESCE(pa.state_province, 'Amhara') as region,
+    DATE_FORMAT(v.date_started, '%Y-%m-%d %H:%i:%s') as service_date,
+    vt.name as visit_type_name,
+    COALESCE(vl.name, vt.name, 'OPD') as visit_location,
+    IFNULL(GROUP_CONCAT(DISTINCT CASE WHEN o.concept_id IN (22, 11847, 11848) THEN COALESCE(cn.name, o.value_text) END SEPARATOR '; '), '-') as diagnosis_name,
+    IFNULL(GROUP_CONCAT(DISTINCT CASE WHEN o.concept_id IN (22, 11847, 11848) THEN crt.code END SEPARATOR '; '), '-') as icd11_code,
+    IF(MAX(CASE WHEN o.concept_id = 11849 THEN cn_occ.name END) = 'Repeat', 'Repeat', 'New') as patient_status,
+    '' as admitted_mark,
+    COALESCE(MAX(CASE WHEN o.concept_id IN (3325, 11924) THEN COALESCE(val_cn.name, o.value_text) END), '') as rta_type,
+    COALESCE(MAX(CASE WHEN o.concept_id = 63657 THEN IF(o.value_coded IS NOT NULL, 'Yes', o.value_text) END), '') as hiv_offered,
+    COALESCE(MAX(CASE WHEN o.concept_id IN (22442, 63658) THEN IF(o.value_coded IS NOT NULL, 'Yes', o.value_text) END), '') as hiv_performed,
+    COALESCE(MAX(CASE WHEN o.concept_id IN (32992, 47297) THEN COALESCE(val_cn.name, o.value_text) END), '') as hiv_result,
+    COALESCE(MAX(CASE WHEN o.concept_id = 63659 THEN COALESCE(val_cn.name, o.value_text) END), '') as hiv_target_category,
+    COALESCE(MAX(CASE WHEN o.concept_id IN (63266) THEN COALESCE(val_cn.name, IF(o.value_coded IS NOT NULL, 'Yes', o.value_text)) END), '') as tb_screened,
+    COALESCE(MAX(CASE WHEN o.concept_id IN (63267) THEN COALESCE(val_cn.name, o.value_text) END), '') as tb_result,
+    COALESCE(MAX(CASE WHEN o.concept_id = 63268 THEN COALESCE(val_cn.name, o.value_text) END), '') as tb_eval_type,
+    COALESCE(MAX(CASE WHEN o.concept_id = 63269 THEN COALESCE(val_cn.name, o.value_text) END), '') as tb_code,
+    COALESCE(MAX(CASE WHEN o.concept_id = 63270 THEN COALESCE(val_cn.name, o.value_text) END), '') as travel_malaria,
+    COALESCE(MAX(CASE WHEN rcn.name = 'Refers' THEN o.value_text END), '') as referred_to,
+    IF(p.dead = 1, 'Yes', 'No') as died,
+    IF(p.dead = 1, 'Yes', 'No') as death_notified,
+    '' as remark
+FROM (
+    SELECT v_inner.visit_id, v_inner.patient_id, v_inner.date_started, v_inner.visit_type_id, v_inner.location_id, v_inner.uuid
+    FROM visit v_inner
+    JOIN visit_type vt_inner ON v_inner.visit_type_id = vt_inner.visit_type_id
+    LEFT JOIN location vl_inner ON v_inner.location_id = vl_inner.location_id
+    WHERE v_inner.voided = 0
+      AND DATE(v_inner.date_started) = '2026-10-28'
+      AND vt_inner.name NOT LIKE '%Ward%'
+      AND vt_inner.name NOT IN ('ICU', 'Adult MICU', 'Pedi HDU', 'PNC A', 'PNC B', 'SAM', 'preterm ward', 'IPD', 'Labor Ward', 'Delivery Room')
+      AND (vl_inner.name IS NULL OR (vl_inner.name NOT LIKE '%Ward%' AND vl_inner.name NOT IN ('ICU', 'Adult MICU', 'Pedi HDU', 'PNC A', 'PNC B', 'SAM', 'preterm ward', 'IPD', 'Labor Ward', 'Delivery Room')))
+    ORDER BY v_inner.visit_id DESC
+) v
+JOIN visit_type vt ON v.visit_type_id = vt.visit_type_id
+LEFT JOIN location vl ON v.location_id = vl.location_id
+JOIN patient_identifier pi ON v.patient_id = pi.patient_id
+JOIN patient_identifier_type pit ON pi.identifier_type = pit.patient_identifier_type_id
+JOIN global_property gp ON gp.property = 'bahmni.primaryIdentifierType' AND gp.property_value = pit.uuid
+JOIN person p ON v.patient_id = p.person_id
+JOIN person_name pn ON v.patient_id = pn.person_id AND pn.voided = 0
+LEFT JOIN person_address pa ON v.patient_id = pa.person_id AND pa.voided = 0
+LEFT JOIN encounter e ON v.visit_id = e.visit_id AND e.voided = 0
+LEFT JOIN location el ON e.location_id = el.location_id
+LEFT JOIN obs o ON e.encounter_id = o.encounter_id AND o.voided = 0
+LEFT JOIN concept_name cn ON o.value_coded = cn.concept_id AND cn.concept_name_type = 'FULLY_SPECIFIED' AND cn.locale = 'en'
+LEFT JOIN concept_reference_map crm ON o.value_coded = crm.concept_id
+LEFT JOIN concept_reference_term crt ON crm.concept_reference_term_id = crt.concept_reference_term_id
+LEFT JOIN concept_name cn_occ ON o.value_coded = cn_occ.concept_id AND cn_occ.concept_name_type = 'FULLY_SPECIFIED' AND o.concept_id = 11849
+LEFT JOIN concept_name val_cn ON o.value_coded = val_cn.concept_id AND val_cn.concept_name_type = 'FULLY_SPECIFIED' AND val_cn.locale = 'en'
+LEFT JOIN concept_name rcn ON o.concept_id = rcn.concept_id AND rcn.name = 'Refers' AND rcn.concept_name_type = 'FULLY_SPECIFIED'
+GROUP BY v.visit_id
+ORDER BY v.visit_id DESC;
+"""
+
+elapsed, rc, out, err = run_query(sql_today_opd)
+print(f"Today's OPD query took: {elapsed:.2f}s, RC={rc}")
+if rc == 0:
+    lines = out.strip().split("\n")
+    print(f"Total rows: {len(lines)-1}")
+    for l in lines[:4]:
+        print(l[:150])
+else:
+    print("Error:", err)

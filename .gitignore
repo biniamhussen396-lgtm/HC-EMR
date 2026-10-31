@@ -67,7 +67,6 @@ fix_struts.py
 patch_bytecode.py
 MessageResources.properties
 analyzerTestName.txt
-openelis-jsp/
 *.deb
 user_guide_screenshots/
 test_shot.png

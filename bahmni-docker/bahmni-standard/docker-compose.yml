@@ -61,6 +61,7 @@ services:
       - "../../openelis-jsp/test/testMenu.jsp:/run/bahmni-lab/bahmni-lab/pages/test/testMenu.jsp"
       - "../../openelis-jsp/test/test.jsp:/run/bahmni-lab/bahmni-lab/pages/test/test.jsp"
       - "../../openelis-jsp/test/inactiveTests.jsp:/run/bahmni-lab/bahmni-lab/pages/test/inactiveTests.jsp"
+      - "../../openelis-jsp/test/testHarmonizationAdmin.jsp:/run/bahmni-lab/bahmni-lab/pages/test/testHarmonizationAdmin.jsp"
       - "../../openelis-jsp/location/labLocationAdmin.jsp:/run/bahmni-lab/bahmni-lab/pages/location/labLocationAdmin.jsp"
       - "../../openelis-jsp/location/locationSelect.jsp:/run/bahmni-lab/bahmni-lab/pages/location/locationSelect.jsp"
       - "../../openelis-jsp/location/labLocationList.jsp:/run/bahmni-lab/bahmni-lab/pages/location/labLocationList.jsp"

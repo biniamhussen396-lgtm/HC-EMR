@@ -56,16 +56,18 @@ class ApiEventWorker(models.Model):
     @api.model
     def _cancel_order(self, vals):
         """Handle order cancellation from OpenELIS/OpenMRS
-        Supports per-test cancellation via stockOutTestNames parameter.
-        If stockOutTestNames is provided, only those specific order lines are cancelled.
+        Supports per-test cancellation via stockOutTestNames and stockOutTestUuids.
+        If provided, only those specific order lines are cancelled.
         Otherwise, all lines in the order are cancelled.
         """
         order_uuid = vals.get("orderUuid")
         accession_number = vals.get("accessionNumber")
         cancel_reason = vals.get("cancelReason", "Reagent Stock Out")
         stock_out_test_names = vals.get("stockOutTestNames", [])
+        stock_out_test_uuids = vals.get("stockOutTestUuids", [])
         
-        _logger.info("Processing order cancellation for order: %s, accession: %s, tests: %s", order_uuid, accession_number, stock_out_test_names)
+        _logger.info("Processing order cancellation for order: %s, accession: %s, tests: %s, uuids: %s",
+                     order_uuid, accession_number, stock_out_test_names, stock_out_test_uuids)
         
         sale_order = None
         if order_uuid:
@@ -97,22 +99,36 @@ class ApiEventWorker(models.Model):
                     ('partner_id', '=', partner.id),
                     ('state', '=', 'draft')
                 ], order='id desc', limit=1)
-        
+
         if not sale_order:
-            _logger.warning("No draft sale order found for order: %s, accession: %s", order_uuid, accession_number)
+            _logger.warning("No draft sale order found for order: %s, accession: %s, patient: %s", order_uuid, accession_number, patient_ref)
             return
         
-        if stock_out_test_names:
-            for line in sale_order.order_line:
-                product_name = (line.product_id.name or '').lower()
-                for test_name in stock_out_test_names:
-                    if test_name.lower() in product_name or product_name.startswith(test_name.lower()):
-                        line.sudo().write({'price_subtotal': 0, 'price_unit': 0})
-                        line.sudo().unlink()
-                        _logger.info("Cancelled order line: %s for test: %s", line.id, test_name)
-                        break
+        if stock_out_test_names or stock_out_test_uuids:
+            clean_names = [n.strip().lower() for n in stock_out_test_names if n and n.strip()]
+            clean_uuids = [u.strip().lower() for u in stock_out_test_uuids if u and u.strip()]
+
+            for line in list(sale_order.order_line):
+                matched = False
+                prod = line.product_id
+                prod_uuid = (prod.uuid or prod.product_tmpl_id.uuid or '').strip().lower()
+                prod_name = (prod.name or '').strip().lower()
+
+                if prod_uuid and prod_uuid in clean_uuids:
+                    matched = True
+
+                if not matched and clean_names:
+                    for test_name in clean_names:
+                        if test_name == prod_name or test_name in prod_name or prod_name.startswith(test_name):
+                            matched = True
+                            break
+
+                if matched:
+                    line.sudo().write({'price_subtotal': 0, 'price_unit': 0})
+                    line.sudo().unlink()
+                    _logger.info("Cancelled/Unlinked stock-out order line: %s (%s) from order %s", line.id, prod.name, sale_order.name)
         else:
-            for line in sale_order.order_line:
+            for line in list(sale_order.order_line):
                 line.sudo().unlink()
             _logger.info("Cancelled all lines in sale order: %s (no specific tests)", sale_order.name)
         
@@ -202,10 +218,13 @@ class ApiEventWorker(models.Model):
 
     @api.model
     def _add_available_lab_tests(self, vals):
-        """Add lab tests that have been evaluated and confirmed AVAILABLE in OpenELIS to Odoo sale order"""
+        """Add lab tests that have been evaluated and confirmed AVAILABLE in OpenELIS to Odoo sale order.
+        Supports matching by concept UUID as well as test name to guarantee zero test-name mismatch.
+        """
         patient_ref = vals.get("patientId") or vals.get("customer_id")
         test_names = vals.get("availableTestNames", [])
-        if not patient_ref or not test_names:
+        test_uuids = vals.get("availableTestUuids", [])
+        if not patient_ref or (not test_names and not test_uuids):
             return
 
         partner = self.env['res.partner'].search([('ref', '=', str(patient_ref))], limit=1)
@@ -255,39 +274,61 @@ class ApiEventWorker(models.Model):
                 'origin': 'API FEED SYNC',
             })
 
-        for test_name in test_names:
-            test_name = test_name.strip()
-            if not test_name:
-                continue
+        items_to_add = []
+        max_len = max(len(test_names), len(test_uuids))
+        for idx in range(max_len):
+            t_name = test_names[idx].strip() if idx < len(test_names) and test_names[idx] else ''
+            t_uuid = test_uuids[idx].strip() if idx < len(test_uuids) and test_uuids[idx] else ''
+            if t_name or t_uuid:
+                items_to_add.append((t_name, t_uuid))
 
+        for test_name, test_uuid in items_to_add:
+            # 1. Check if line already exists in draft sale order
             existing_line = False
             for line in sale_order.order_line:
-                prod_name = (line.product_id.name or '').lower()
-                if test_name.lower() in prod_name or prod_name.startswith(test_name.lower()):
+                prod = line.product_id
+                line_uuid = (prod.uuid or prod.product_tmpl_id.uuid or '').strip()
+                prod_name = (prod.name or '').strip().lower()
+                if test_uuid and line_uuid and test_uuid == line_uuid:
+                    existing_line = True
+                    break
+                if test_name and (test_name.lower() in prod_name or prod_name.startswith(test_name.lower())):
                     existing_line = True
                     break
             if existing_line:
                 continue
 
-            product = self.env['product.product'].search([
-                ('name', 'ilike', test_name)
-            ], limit=1)
-            if not product:
-                tmpl = self.env['product.template'].search([
-                    ('name', 'ilike', test_name)
-                ], limit=1)
-                if tmpl and tmpl.product_variant_ids:
-                    product = tmpl.product_variant_ids[0]
+            # 2. Search product by UUID first
+            product = None
+            if test_uuid:
+                product = self.env['product.product'].search([('uuid', '=', test_uuid)], limit=1)
+                if not product:
+                    tmpl = self.env['product.template'].search([('uuid', '=', test_uuid)], limit=1)
+                    if tmpl and tmpl.product_variant_ids:
+                        product = tmpl.product_variant_ids[0]
 
+            # 3. Search product by Name if not found by UUID
+            if not product and test_name:
+                product = self.env['product.product'].search([('name', 'ilike', test_name)], limit=1)
+                if not product:
+                    tmpl = self.env['product.template'].search([('name', 'ilike', test_name)], limit=1)
+                    if tmpl and tmpl.product_variant_ids:
+                        product = tmpl.product_variant_ids[0]
+
+            # 4. Auto-create product if completely missing
             if not product:
+                display_name = test_name or 'Lab Test'
                 tmpl = self.env['product.template'].sudo().create({
-                    'name': test_name,
+                    'name': display_name,
                     'type': 'service',
+                    'uuid': test_uuid or None,
                     'sale_ok': True,
                     'list_price': 1.0,
                     'invoice_policy': 'order',
                 })
                 product = tmpl.product_variant_ids[0]
+                if test_uuid and product:
+                    product.sudo().write({'uuid': test_uuid})
 
             price_unit = product.list_price or 1.0
             if sale_order.pricelist_id:
@@ -304,4 +345,5 @@ class ApiEventWorker(models.Model):
                 'price_unit': price_unit,
                 'tax_id': [(5, 0, 0)],
             })
-            _logger.info("Added evaluated available test [%s] to sale order %s for patient %s", test_name, sale_order.name, partner.name)
+            _logger.info("Added evaluated available test [%s / uuid:%s] to sale order %s for patient %s",
+                         test_name, test_uuid, sale_order.name, partner.name)

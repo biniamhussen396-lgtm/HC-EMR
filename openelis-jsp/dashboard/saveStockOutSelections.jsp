@@ -78,9 +78,8 @@
         boolean wasSentToBilling = false;
         try {
             org.hibernate.Query sentQ = hSession.createSQLQuery(
-                "SELECT bool_or(COALESCE(sent_to_billing, false)) FROM stock_out_selection WHERE sample_id = :sid" + (altSid != null ? " OR sample_id = :altSid" : "")
+                "SELECT bool_or(COALESCE(sent_to_billing, false)) FROM stock_out_selection WHERE sample_id = :sid"
             ).setParameter("sid", sid);
-            if (altSid != null) sentQ.setParameter("altSid", altSid);
             List sentList = sentQ.list();
             if (sentList != null && !sentList.isEmpty() && sentList.get(0) != null) {
                 wasSentToBilling = Boolean.TRUE.equals(sentList.get(0));
@@ -89,10 +88,6 @@
 
         hSession.createSQLQuery("DELETE FROM stock_out_selection WHERE sample_id = :sid")
             .setParameter("sid", sid).executeUpdate();
-        if (altSid != null && !altSid.equals(sid)) {
-            hSession.createSQLQuery("DELETE FROM stock_out_selection WHERE sample_id = :altSid")
-                .setParameter("altSid", altSid).executeUpdate();
-        }
 
         if (selections != null) {
             for (int i = 0; i < selections.length(); i++) {
@@ -140,22 +135,14 @@
                     .setParameter("cu", conceptUuid)
                     .setParameter("wasSent", wasSentToBilling)
                     .executeUpdate();
-                if (altSid != null && !altSid.equals(sid)) {
-                    hSession.createSQLQuery("INSERT INTO stock_out_selection (sample_id, test_id, test_name, status, concept_uuid, sent_to_billing, created_at, updated_at) VALUES (:sid, :tid, :tn, :st, :cu, :wasSent, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)")
-                        .setParameter("sid", altSid)
-                        .setParameter("tid", tid)
-                        .setParameter("tn", tn)
-                        .setParameter("st", st)
-                        .setParameter("cu", conceptUuid)
-                        .setParameter("wasSent", wasSentToBilling)
-                        .executeUpdate();
-                }
+
             }
         }
 
         tx.commit();
 
         // Asynchronously execute background sync with Odoo and OpenMRS so the HTTP response is instantaneous (<50ms)
+        final boolean fWasSentToBilling = wasSentToBilling;
         final List<String> fStockOutNames = new ArrayList<String>(stockOutNames);
         final List<String> fStockOutUuids = new ArrayList<String>(stockOutUuids);
         final List<String> fAvailableNames = new ArrayList<String>(availableNames);
@@ -239,8 +226,8 @@
                         } catch (Exception ignore) {}
                     }
 
-                    // 2. Add evaluated and confirmed AVAILABLE tests to Odoo for billing
-                    if (!fAvailableNames.isEmpty() && !fPatientRef.isEmpty()) {
+                    // 2. Add evaluated and confirmed AVAILABLE tests to Odoo for billing (only if already sent to billing)
+                    if (fWasSentToBilling && !fAvailableNames.isEmpty() && !fPatientRef.isEmpty()) {
                         try {
                             StringBuilder pyCmd = new StringBuilder();
                             pyCmd.append("import xmlrpclib\n");

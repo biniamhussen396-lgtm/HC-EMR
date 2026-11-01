@@ -557,35 +557,11 @@ class OrderSaveService(models.Model):
         """
         Check if a lab test has been evaluated and confirmed AVAILABLE by OpenELIS.
         Tests that are stock-out, pending evaluation, or not yet evaluated by OpenELIS must NOT reach Odoo.
+        Incoming lab orders from OpenMRS AtomFeed are always held until OpenELIS explicitly dispatches them via Send to Billing.
         """
         concept_name = (order.get('conceptName') or order.get('productName') or '').strip()
-        if not concept_name:
-            return False
-        try:
-            import psycopg2
-            conn = psycopg2.connect(host='openelisdb', port=5432, dbname='clinlims', user='clinlims', password='clinlims', connect_timeout=3)
-            cur = conn.cursor()
-            cur.execute("""
-                SELECT status FROM stock_out_selection 
-                WHERE (LOWER(TRIM(test_name)) = LOWER(%s) OR %s ILIKE '%%' || LOWER(TRIM(test_name)) || '%%' OR LOWER(TRIM(test_name)) ILIKE '%%' || %s || '%%')
-                ORDER BY id DESC LIMIT 1
-            """, (concept_name, concept_name.lower(), concept_name.lower()))
-            row = cur.fetchone()
-            cur.close()
-            conn.close()
-            if not row:
-                _logger.info("HOLDING BILLING: Lab order [%s] %s has NOT been evaluated by OpenELIS yet. Excluding from Odoo billing.", order.get('orderId'), concept_name)
-                return False
-            status = (row[0] or '').lower()
-            if status == 'available':
-                _logger.info("PERMITTING BILLING: Lab order [%s] %s evaluated and AVAILABLE in OpenELIS. Permitted in Odoo billing.", order.get('orderId'), concept_name)
-                return True
-            else:
-                _logger.info("CRITICAL BILLING PROTECTION: Lab order [%s] %s evaluated as '%s' in OpenELIS. Excluding from Odoo billing.", order.get('orderId'), concept_name, status)
-                return False
-        except Exception as e:
-            _logger.warning("Error checking OpenELIS evaluation for %s: %s", concept_name, e)
-            return False
+        _logger.info("HOLDING BILLING: Lab order [%s] %s has NOT been evaluated by OpenELIS yet. Excluding from Odoo billing.", order.get('orderId'), concept_name)
+        return False
 
     @api.model
     def _is_test_stock_out(self, order):

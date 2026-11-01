@@ -69,6 +69,7 @@ services:
       - "../../openelis-jsp/payment/paymentStatus.jsp:/run/bahmni-lab/bahmni-lab/pages/payment/paymentStatus.jsp"
       - "../../openelis-jsp/payment/paymentGateAdmin.jsp:/run/bahmni-lab/bahmni-lab/pages/payment/paymentGateAdmin.jsp"
       - "../../openelis-jsp/SystemConfiguration.properties:/run/bahmni-lab/bahmni-lab/WEB-INF/classes/SystemConfiguration.properties"
+      - "../../java-custom/us/mn/state/health/lims/dashboard/daoimpl/OrderPayment.class:/run/bahmni-lab/bahmni-lab/WEB-INF/classes/us/mn/state/health/lims/dashboard/daoimpl/OrderPayment.class"
       - "../../openelis-jsp/dashboard/dashboardMaster.jsp:/run/bahmni-lab/bahmni-lab/pages/dashboard/dashboardMaster.jsp"
       - "../../openelis-jsp/dashboard/samplesCollected.jsp:/run/bahmni-lab/bahmni-lab/pages/dashboard/samplesCollected.jsp"
       - "../../openelis-jsp/dashboard/samplesToCollect.jsp:/run/bahmni-lab/bahmni-lab/pages/dashboard/samplesToCollect.jsp"

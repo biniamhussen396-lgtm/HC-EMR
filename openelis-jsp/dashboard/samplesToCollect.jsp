@@ -38,30 +38,23 @@ try {
     org.hibernate.Session dbSession = us.mn.state.health.lims.hibernate.HibernateUtil.getSession();
     java.util.List soRows = dbSession.createSQLQuery(
         "SELECT " +
-        "  CAST(sos.sample_id AS text), " +
-        "  CAST(sh.samp_id AS text), " +
-        "  CAST(sh.id AS text), " +
-        "  CAST(pi.identity_data AS text), " +
-        "  bool_or(COALESCE(sos.sent_to_billing, false)) " +
-        "FROM stock_out_selection sos " +
-        "LEFT JOIN sample_human sh ON (sos.sample_id = sh.samp_id OR sos.sample_id = sh.id) " +
-        "LEFT JOIN patient_identity pi ON (sh.patient_id = pi.patient_id AND pi.identity_data IS NOT NULL AND trim(pi.identity_data) != '') " +
-        "WHERE sos.status IN ('available', 'stockout') " +
-        "GROUP BY sos.sample_id, sh.samp_id, sh.id, pi.identity_data"
+        "  CAST(sample_id AS text), " +
+        "  bool_or(COALESCE(sent_to_billing, false)) " +
+        "FROM stock_out_selection " +
+        "WHERE status IN ('available', 'stockout') " +
+        "GROUP BY sample_id"
     ).list();
     if (soRows != null) {
         for (Object obj : soRows) {
             if (obj instanceof Object[]) {
                 Object[] r = (Object[]) obj;
-                boolean isSent = (r[4] != null && Boolean.TRUE.equals(r[4]));
-                for (int i = 0; i <= 3; i++) {
-                    if (r[i] != null) {
-                        String idVal = r[i].toString().trim();
-                        if (!idVal.isEmpty()) {
-                            evaluatedSampleIds.add(idVal);
-                            if (isSent) {
-                                sentToBillingSampleIds.add(idVal);
-                            }
+                if (r[0] != null) {
+                    String sidVal = r[0].toString().trim();
+                    boolean isSent = (r[1] != null && Boolean.TRUE.equals(r[1]));
+                    if (!sidVal.isEmpty()) {
+                        evaluatedSampleIds.add(sidVal);
+                        if (isSent) {
+                            sentToBillingSampleIds.add(sidVal);
                         }
                     }
                 }

@@ -14,37 +14,25 @@
     Transaction tx = null;
     List<String> availableNames = new ArrayList<String>();
     List<String> availableUuids = new ArrayList<String>();
+    List<String> stockOutNames = new ArrayList<String>();
+    List<String> stockOutUuids = new ArrayList<String>();
 
     try {
         hSession = HibernateUtil.getSession();
         tx = hSession.beginTransaction();
 
         java.math.BigDecimal sid = new java.math.BigDecimal(orderId);
-        java.math.BigDecimal altSid = null;
-        try {
-            List shRows = hSession.createSQLQuery(
-                "SELECT CASE WHEN samp_id = :sid THEN id ELSE samp_id END FROM sample_human WHERE samp_id = :sid OR id = :sid LIMIT 1"
-            ).setParameter("sid", sid).list();
-            if (shRows != null && !shRows.isEmpty() && shRows.get(0) != null) {
-                altSid = new java.math.BigDecimal(shRows.get(0).toString().trim());
-            }
-        } catch (Exception ignore) {}
 
-        // Mark sent_to_billing in stock_out_selection
+        // Mark sent_to_billing in stock_out_selection strictly by sample_id
         hSession.createSQLQuery("UPDATE stock_out_selection SET sent_to_billing = TRUE, updated_at = CURRENT_TIMESTAMP WHERE sample_id = :sid")
             .setParameter("sid", sid).executeUpdate();
-        if (altSid != null && !altSid.equals(sid)) {
-            hSession.createSQLQuery("UPDATE stock_out_selection SET sent_to_billing = TRUE, updated_at = CURRENT_TIMESTAMP WHERE sample_id = :altSid")
-                .setParameter("altSid", altSid).executeUpdate();
-        }
 
         // Find available test names for this sample
-        org.hibernate.Query q = hSession.createSQLQuery("SELECT DISTINCT test_name, concept_uuid FROM stock_out_selection WHERE (sample_id = :sid" + (altSid != null ? " OR sample_id = :altSid" : "") + ") AND status = 'available'")
+        org.hibernate.Query qAvail = hSession.createSQLQuery("SELECT DISTINCT test_name, concept_uuid FROM stock_out_selection WHERE sample_id = :sid AND status = 'available'")
             .setParameter("sid", sid);
-        if (altSid != null) q.setParameter("altSid", altSid);
-        List rowList = q.list();
-        if (rowList != null) {
-            for (Object obj : rowList) {
+        List availList = qAvail.list();
+        if (availList != null) {
+            for (Object obj : availList) {
                 if (obj instanceof Object[]) {
                     Object[] r = (Object[]) obj;
                     if (r[0] != null) availableNames.add(r[0].toString().trim());
@@ -53,10 +41,24 @@
             }
         }
 
+        // Find stock-out test names for this sample to void in OpenMRS
+        org.hibernate.Query qSo = hSession.createSQLQuery("SELECT DISTINCT test_name, concept_uuid FROM stock_out_selection WHERE sample_id = :sid AND status = 'stockout'")
+            .setParameter("sid", sid);
+        List soList = qSo.list();
+        if (soList != null) {
+            for (Object obj : soList) {
+                if (obj instanceof Object[]) {
+                    Object[] r = (Object[]) obj;
+                    if (r[0] != null) stockOutNames.add(r[0].toString().trim());
+                    if (r[1] != null && !r[1].toString().trim().isEmpty()) stockOutUuids.add(r[1].toString().trim());
+                }
+            }
+        }
+
         // Find sample UUID for Odoo external_id mapping
         String sampleUuid = "";
         try {
-            List uList = hSession.createSQLQuery("SELECT uuid FROM sample WHERE id = :sid" + (altSid != null ? " OR id = :altSid" : "") + " LIMIT 1")
+            List uList = hSession.createSQLQuery("SELECT uuid FROM sample WHERE id = :sid LIMIT 1")
                 .setParameter("sid", sid).list();
             if (uList != null && !uList.isEmpty() && uList.get(0) != null) {
                 sampleUuid = uList.get(0).toString().trim();
@@ -80,16 +82,20 @@
 
         tx.commit();
 
-        // Trigger Odoo add.available.lab.tests
+        // 1. Trigger Odoo add.available.lab.tests
         if (!availableNames.isEmpty() && !patientId.isEmpty()) {
             try {
                 StringBuilder pyCmd = new StringBuilder();
                 pyCmd.append("import xmlrpclib\n");
                 pyCmd.append("common = xmlrpclib.ServerProxy('http://odoo:8069/xmlrpc/2/common')\n");
                 pyCmd.append("uid = common.authenticate('odoo', 'emrsync', 'Admin123', {})\n");
+                pyCmd.append("pwd = 'Admin123'\n");
+                pyCmd.append("if not uid:\n");
+                pyCmd.append("    uid = common.authenticate('odoo', 'admin', 'admin', {})\n");
+                pyCmd.append("    pwd = 'admin'\n");
                 pyCmd.append("if uid:\n");
                 pyCmd.append("    models = xmlrpclib.ServerProxy('http://odoo:8069/xmlrpc/2/object')\n");
-                pyCmd.append("    models.execute_kw('odoo', uid, 'Admin123', 'api.event.worker', 'process_event', [{\n");
+                pyCmd.append("    models.execute_kw('odoo', uid, pwd, 'api.event.worker', 'process_event', [{\n");
                 pyCmd.append("        'category': 'add.available.lab.tests',\n");
                 pyCmd.append("        'patientId': '").append(patientId).append("',\n");
                 pyCmd.append("        'orderUuid': '").append(sampleUuid).append("',\n");
@@ -114,7 +120,53 @@
             } catch (Exception ignore) {}
         }
 
-        out.print("{\"success\":true,\"orderId\":\"" + orderId + "\",\"patientId\":\"" + patientId + "\",\"availableCount\":" + availableNames.size() + "}");
+        // 2. Void stock-out tests in OpenMRS via REST API
+        if (!stockOutNames.isEmpty() && !patientId.isEmpty()) {
+            try {
+                StringBuilder pyVoid = new StringBuilder();
+                pyVoid.append("import urllib2, base64, json\n");
+                pyVoid.append("try:\n");
+                pyVoid.append("    p_req = urllib2.Request('http://openmrs:8080/openmrs/ws/rest/v1/patient?q=").append(patientId).append("&v=default')\n");
+                pyVoid.append("    p_req.add_header('Authorization', 'Basic ' + base64.b64encode('admin:Admin123'))\n");
+                pyVoid.append("    p_res = urllib2.urlopen(p_req)\n");
+                pyVoid.append("    p_data = json.loads(p_res.read())\n");
+                pyVoid.append("    if p_data.get('results'):\n");
+                pyVoid.append("        p_uuid = p_data['results'][0]['uuid']\n");
+                pyVoid.append("        o_req = urllib2.Request('http://openmrs:8080/openmrs/ws/rest/v1/order?patient=' + p_uuid + '&v=full')\n");
+                pyVoid.append("        o_req.add_header('Authorization', 'Basic ' + base64.b64encode('admin:Admin123'))\n");
+                pyVoid.append("        o_res = urllib2.urlopen(o_req)\n");
+                pyVoid.append("        orders_data = json.loads(o_res.read())\n");
+                pyVoid.append("        opener = urllib2.build_opener(urllib2.HTTPHandler)\n");
+                pyVoid.append("        so_list = [");
+                for (int k = 0; k < stockOutNames.size(); k++) {
+                    if (k > 0) pyVoid.append(",");
+                    pyVoid.append("'").append(stockOutNames.get(k).replace("'", "\\'").toLowerCase()).append("'");
+                }
+                pyVoid.append("]\n");
+                pyVoid.append("        for ord_item in orders_data.get('results', []):\n");
+                pyVoid.append("            disp = (ord_item.get('concept', {}).get('display') or '').strip().lower()\n");
+                pyVoid.append("            ouuid = ord_item.get('uuid')\n");
+                pyVoid.append("            for s_name in so_list:\n");
+                pyVoid.append("                if s_name in disp or disp in s_name or (s_name == 'rbs' and 'random blood sugar' in disp):\n");
+                pyVoid.append("                    v_req = urllib2.Request('http://openmrs:8080/openmrs/ws/rest/v1/order/' + ouuid + '?reason=Reagent+Out+of+Stock')\n");
+                pyVoid.append("                    v_req.get_method = lambda: 'DELETE'\n");
+                pyVoid.append("                    v_req.add_header('Authorization', 'Basic ' + base64.b64encode('admin:Admin123'))\n");
+                pyVoid.append("                    try:\n");
+                pyVoid.append("                        opener.open(v_req)\n");
+                pyVoid.append("                    except Exception:\n");
+                pyVoid.append("                        pass\n");
+                pyVoid.append("                    break\n");
+                pyVoid.append("except Exception:\n");
+                pyVoid.append("    pass\n");
+
+                ProcessBuilder pbVoid = new ProcessBuilder("python", "-c", pyVoid.toString());
+                pbVoid.redirectErrorStream(true);
+                Process procVoid = pbVoid.start();
+                procVoid.waitFor();
+            } catch (Exception ignore) {}
+        }
+
+        out.print("{\"success\":true,\"orderId\":\"" + orderId + "\",\"patientId\":\"" + patientId + "\",\"availableCount\":" + availableNames.size() + ",\"stockOutCount\":" + stockOutNames.size() + "}");
     } catch (Exception e) {
         if (tx != null) try { tx.rollback(); } catch (Exception ex) {}
         out.print("{\"success\":false,\"error\":\"" + (e.getMessage() != null ? e.getMessage().replace("\"", "\\\"") : "error") + "\"}");

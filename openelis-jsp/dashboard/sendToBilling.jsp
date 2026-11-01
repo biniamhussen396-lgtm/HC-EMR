@@ -53,6 +53,16 @@
             }
         }
 
+        // Find sample UUID for Odoo external_id mapping
+        String sampleUuid = "";
+        try {
+            List uList = hSession.createSQLQuery("SELECT uuid FROM sample WHERE id = :sid" + (altSid != null ? " OR id = :altSid" : "") + " LIMIT 1")
+                .setParameter("sid", sid).list();
+            if (uList != null && !uList.isEmpty() && uList.get(0) != null) {
+                sampleUuid = uList.get(0).toString().trim();
+            }
+        } catch (Exception ignore) {}
+
         // Fetch patientRef if empty
         if (patientId.isEmpty()) {
             try {
@@ -82,6 +92,7 @@
                 pyCmd.append("    models.execute_kw('odoo', uid, 'Admin123', 'api.event.worker', 'process_event', [{\n");
                 pyCmd.append("        'category': 'add.available.lab.tests',\n");
                 pyCmd.append("        'patientId': '").append(patientId).append("',\n");
+                pyCmd.append("        'orderUuid': '").append(sampleUuid).append("',\n");
                 pyCmd.append("        'availableTestNames': [");
                 for (int k = 0; k < availableNames.size(); k++) {
                     if (k > 0) pyCmd.append(",");

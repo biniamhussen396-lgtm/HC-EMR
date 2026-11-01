@@ -241,6 +241,7 @@ class ApiEventWorker(models.Model):
         patient_ref = vals.get("patientId") or vals.get("customer_id")
         test_names = vals.get("availableTestNames", [])
         test_uuids = vals.get("availableTestUuids", [])
+        order_uuid = vals.get("orderUuid") or vals.get("sampleUuid") or vals.get("encounterUuid") or vals.get("external_id")
         if not patient_ref or (not test_names and not test_uuids):
             return
 
@@ -354,13 +355,16 @@ class ApiEventWorker(models.Model):
                 except Exception:
                     pass
 
-            self.env['sale.order.line'].sudo().create({
+            line_vals = {
                 'order_id': sale_order.id,
                 'product_id': product.id,
                 'name': product.name or test_name,
                 'product_uom_qty': 1.0,
                 'price_unit': price_unit,
                 'tax_id': [(5, 0, 0)],
-            })
+            }
+            if order_uuid:
+                line_vals['external_id'] = order_uuid
+            self.env['sale.order.line'].sudo().create(line_vals)
             _logger.info("Added evaluated available test [%s / uuid:%s] to sale order %s for patient %s",
                          test_name, test_uuid, sale_order.name, partner.name)

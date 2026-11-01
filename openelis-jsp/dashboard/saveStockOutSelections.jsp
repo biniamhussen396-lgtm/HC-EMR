@@ -65,6 +65,15 @@
             } catch (Exception ignore) {}
         }
 
+        String sampleUuid = "";
+        try {
+            List uRows = hSession.createSQLQuery("SELECT uuid FROM sample WHERE id = :sid" + (altSid != null ? " OR id = :altSid" : "") + " LIMIT 1")
+                .setParameter("sid", sid).list();
+            if (uRows != null && !uRows.isEmpty() && uRows.get(0) != null) {
+                sampleUuid = uRows.get(0).toString().trim();
+            }
+        } catch (Exception ignore) {}
+
         // Preserve prior sent_to_billing state if editing an already-sent order
         boolean wasSentToBilling = false;
         try {
@@ -152,6 +161,7 @@
         final List<String> fAvailableNames = new ArrayList<String>(availableNames);
         final List<String> fAvailableUuids = new ArrayList<String>(availableUuids);
         final String fPatientRef = patientRef;
+        final String fSampleUuid = sampleUuid;
 
         new Thread(new Runnable() {
             public void run() {
@@ -172,6 +182,7 @@
                             pyCmd.append("    models.execute_kw('odoo', uid, pwd, 'api.event.worker', 'process_event', [{\n");
                             pyCmd.append("        'category': 'cancel.order',\n");
                             pyCmd.append("        'patientId': '").append(fPatientRef).append("',\n");
+                            pyCmd.append("        'orderUuid': '").append(fSampleUuid).append("',\n");
                             pyCmd.append("        'stockOutTestNames': [");
                             for (int k = 0; k < fStockOutNames.size(); k++) {
                                 if (k > 0) pyCmd.append(",");
@@ -244,6 +255,7 @@
                             pyCmd.append("    models.execute_kw('odoo', uid, pwd, 'api.event.worker', 'process_event', [{\n");
                             pyCmd.append("        'category': 'add.available.lab.tests',\n");
                             pyCmd.append("        'patientId': '").append(fPatientRef).append("',\n");
+                            pyCmd.append("        'orderUuid': '").append(fSampleUuid).append("',\n");
                             pyCmd.append("        'availableTestNames': [");
                             for (int k = 0; k < fAvailableNames.size(); k++) {
                                 if (k > 0) pyCmd.append(",");

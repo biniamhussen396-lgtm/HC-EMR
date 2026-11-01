@@ -28,7 +28,7 @@
             .setParameter("sid", sid).executeUpdate();
 
         // Find available test names for this sample
-        org.hibernate.Query qAvail = hSession.createSQLQuery("SELECT DISTINCT test_name, concept_uuid FROM stock_out_selection WHERE sample_id = :sid AND status = 'available'")
+        org.hibernate.Query qAvail = hSession.createSQLQuery("SELECT DISTINCT CAST(test_name AS varchar), CAST(COALESCE(concept_uuid, '') AS varchar) FROM stock_out_selection WHERE sample_id = :sid AND status = 'available'")
             .setParameter("sid", sid);
         List availList = qAvail.list();
         if (availList != null) {
@@ -42,7 +42,7 @@
         }
 
         // Find stock-out test names for this sample to void in OpenMRS
-        org.hibernate.Query qSo = hSession.createSQLQuery("SELECT DISTINCT test_name, concept_uuid FROM stock_out_selection WHERE sample_id = :sid AND status = 'stockout'")
+        org.hibernate.Query qSo = hSession.createSQLQuery("SELECT DISTINCT CAST(test_name AS varchar), CAST(COALESCE(concept_uuid, '') AS varchar) FROM stock_out_selection WHERE sample_id = :sid AND status = 'stockout'")
             .setParameter("sid", sid);
         List soList = qSo.list();
         if (soList != null) {

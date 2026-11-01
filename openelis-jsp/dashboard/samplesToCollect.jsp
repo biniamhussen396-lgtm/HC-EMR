@@ -38,8 +38,8 @@ try {
     org.hibernate.Session dbSession = us.mn.state.health.lims.hibernate.HibernateUtil.getSession();
     java.util.List soRows = dbSession.createSQLQuery(
         "SELECT " +
-        "  CAST(sample_id AS text), " +
-        "  bool_or(COALESCE(sent_to_billing, false)) " +
+        "  CAST(sample_id AS varchar), " +
+        "  MAX(CASE WHEN sent_to_billing = true THEN 1 ELSE 0 END) " +
         "FROM stock_out_selection " +
         "WHERE status IN ('available', 'stockout') " +
         "GROUP BY sample_id"
@@ -50,7 +50,7 @@ try {
                 Object[] r = (Object[]) obj;
                 if (r[0] != null) {
                     String sidVal = r[0].toString().trim();
-                    boolean isSent = (r[1] != null && Boolean.TRUE.equals(r[1]));
+                    boolean isSent = (r[1] != null && ((Number) r[1]).intValue() == 1);
                     if (!sidVal.isEmpty()) {
                         evaluatedSampleIds.add(sidVal);
                         if (isSent) {
@@ -293,6 +293,22 @@ form[name="menuForm"]{position:sticky!important;top:0!important;z-index:50!impor
 .stockout-notice-dialog .order-info strong{color:#0f172a}
 .stockout-info{font-size:11px;color:#64748b;margin:5px 0}
 
+/* Standard In-App Toast Notifications */
+#toastContainer{position:fixed;top:20px;right:20px;z-index:99999;display:flex;flex-direction:column;gap:10px;max-width:380px;pointer-events:none}
+.app-toast{pointer-events:auto;display:flex;align-items:flex-start;gap:10px;background:#ffffff;border-radius:8px;padding:12px 14px;box-shadow:0 10px 25px -5px rgba(0,0,0,0.15),0 8px 10px -6px rgba(0,0,0,0.1);border:1px solid #e2e8f0;border-left:5px solid #10b981;transform:translateX(120%);opacity:0;transition:transform .3s cubic-bezier(.16,1,.3,1),opacity .3s ease;font-family:inherit}
+.app-toast.show{transform:translateX(0);opacity:1}
+.app-toast.hide{transform:translateX(120%);opacity:0}
+.app-toast.toast-success{border-left-color:#10b981}
+.app-toast.toast-error{border-left-color:#ef4444}
+.app-toast.toast-warning{border-left-color:#f59e0b}
+.app-toast.toast-info{border-left-color:#3b82f6}
+.app-toast-icon{flex-shrink:0;width:20px;height:20px;margin-top:1px}
+.app-toast-content{flex:1;min-width:0}
+.app-toast-title{font-size:12px;font-weight:700;color:#0f172a;margin:0 0 2px 0;line-height:1.3}
+.app-toast-message{font-size:11px;color:#475569;margin:0;line-height:1.4;word-break:break-word}
+.app-toast-close{background:none;border:none;color:#94a3b8;cursor:pointer;font-size:16px;line-height:1;padding:0 2px;margin-top:-2px;transition:color .15s}
+.app-toast-close:hover{color:#334155}
+
 @media(max-width:768px){
     .od-header{flex-direction:column;align-items:flex-start;gap:4px}
     .od-stats{grid-template-columns:repeat(3,1fr);gap:4px}
@@ -433,7 +449,7 @@ form[name="menuForm"]{position:sticky!important;top:0!important;z-index:50!impor
             <div class="stockout-actions">
                 <button class="btn btn-secondary" onclick="StockOut.markAllAvailable()">Mark All Available</button>
                 <button class="btn btn-danger" onclick="StockOut.markAllStockOut()">Mark All Stock-Out</button>
-                <button class="btn btn-success" onclick="StockOut.saveSelections()" style="background:#2563eb;color:#fff">Save Selections</button>
+                <button class="btn btn-success" onclick="StockOut.saveSelections()" style="background:#2563eb;color:#fff">Save & Send to Billing</button>
                 <button class="btn btn-success" onclick="StockOut.generateNotice()">Generate Stock-Out Notice</button>
             </div>
         </div>
@@ -473,7 +489,61 @@ form[name="menuForm"]{position:sticky!important;top:0!important;z-index:50!impor
     </div>
 </div>
 
+<div id="toastContainer"></div>
+
 <script type="text/javascript">
+window.showAppToast = function(title, message, type, duration) {
+    type = type || 'success';
+    duration = duration !== undefined ? duration : 4000;
+    var container = document.getElementById('toastContainer');
+    if (!container) return;
+
+    var toast = document.createElement('div');
+    toast.className = 'app-toast toast-' + type;
+
+    var iconSvg = '';
+    if (type === 'success') {
+        iconSvg = '<svg class="app-toast-icon" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>';
+    } else if (type === 'error') {
+        iconSvg = '<svg class="app-toast-icon" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/></svg>';
+    } else if (type === 'warning') {
+        iconSvg = '<svg class="app-toast-icon" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2.2"><path d="m10.29 3.86-8.6 14.9a1.73 1.73 0 0 0 1.5 2.6h17.2a1.73 1.73 0 0 0 1.5-2.6l-8.6-14.9a1.73 1.73 0 0 0-3 0z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>';
+    } else {
+        iconSvg = '<svg class="app-toast-icon" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>';
+    }
+
+    toast.innerHTML = iconSvg +
+        '<div class="app-toast-content">' +
+            '<div class="app-toast-title">' + title + '</div>' +
+            '<div class="app-toast-message">' + message + '</div>' +
+        '</div>' +
+        '<button class="app-toast-close" onclick="this.parentElement.remove()">&times;</button>';
+
+    container.appendChild(toast);
+    setTimeout(function() { toast.classList.add('show'); }, 20);
+
+    if (duration > 0) {
+        setTimeout(function() {
+            toast.classList.remove('show');
+            toast.classList.add('hide');
+            setTimeout(function() { if (toast.parentElement) toast.remove(); }, 350);
+        }, duration);
+    }
+};
+
+(function() {
+    try {
+        var queued = sessionStorage.getItem('pendingToast');
+        if (queued) {
+            sessionStorage.removeItem('pendingToast');
+            var d = JSON.parse(queued);
+            setTimeout(function() {
+                window.showAppToast(d.title, d.message, d.type, d.duration);
+            }, 300);
+        }
+    } catch(e) {}
+})();
+
 var options={enableColumnReorder:false,enableCellNavigation:true,showHeaderRow:true,headerRowHeight:30,explicitInitialization:true,forceFitColumns:true,rowHeight:36,defaultColumnWidth:110};
 
 var showStats=function(s){
@@ -941,11 +1011,11 @@ var StockOut={
         var self=this;
         var order=this.currentOrderId;
         if (!order) {
-            alert('No active order selected.');
+            window.showAppToast('Selection Error', 'No active order selected.', 'error');
             return;
         }
         if (!this.tests || this.tests.length === 0 || (this.tests.length === 1 && this.tests[0].testName === 'Loading tests...')) {
-            alert('Please wait for tests to finish loading before saving.');
+            window.showAppToast('Please Wait', 'Please wait for tests to finish loading before saving.', 'warning');
             return;
         }
         var selections=[];
@@ -959,13 +1029,13 @@ var StockOut={
             selections.push({testId:tId,testName:tName,conceptUuid:cUuid,status:st});
         });
         if(!hasSelection){
-            alert('Please mark at least one test as Available or Stock-Out.');
+            window.showAppToast('Selection Required', 'Please mark at least one test as Available or Stock-Out.', 'warning');
             return;
         }
 
         var saveBtn = document.querySelector('#stockoutPanel .btn-success');
         if (saveBtn) {
-            saveBtn.innerHTML = 'Saving...';
+            saveBtn.innerHTML = 'Saving & Dispatching...';
             saveBtn.style.opacity = '0.7';
             saveBtn.disabled = true;
         }
@@ -984,18 +1054,28 @@ var StockOut={
                         if(window.evaluatedSampleIds){
                             window.evaluatedSampleIds.add(String(order));
                         }
-                        var msg='Stock evaluation saved!\n';
-                        if(resp.stockOutCount>0){
-                            msg+='• '+resp.stockOutCount+' test(s) marked Stock-Out (pruned from Odoo billing & voided in OpenMRS).\n';
+                        if(window.sentToBillingSampleIds){
+                            window.sentToBillingSampleIds.add(String(order));
                         }
-                        if(resp.availableCount>0){
-                            msg+='• '+resp.availableCount+' test(s) verified Available for billing.\n';
+
+                        var detailMsg = '';
+                        if(resp.availableCount > 0 && resp.stockOutCount > 0){
+                            detailMsg = resp.availableCount + ' test(s) sent to Odoo Billing. ' + resp.stockOutCount + ' stock-out test(s) voided in OpenMRS.';
+                        } else if(resp.availableCount > 0){
+                            detailMsg = resp.availableCount + ' test(s) verified Available and sent to Odoo Billing.';
+                        } else {
+                            detailMsg = resp.stockOutCount + ' test(s) marked Stock-Out and excluded from billing.';
                         }
-                        msg+='\nAction updated to "Send to Billing". Click the edit icon anytime to revise.';
-                        alert(msg);
+
+                        sessionStorage.setItem('pendingToast', JSON.stringify({
+                            title: 'Stock Evaluation Saved & Sent to Billing',
+                            message: detailMsg,
+                            type: 'success',
+                            duration: 4500
+                        }));
                         window.location.href = window.location.pathname + '?_t=' + new Date().getTime();
                     }else{
-                        alert('Save failed: '+(resp.error||'unknown error'));
+                        window.showAppToast('Save Failed', (resp.error || 'unknown error'), 'error');
                     }
                 }catch(e){
                     self.hidePanel();
@@ -1004,16 +1084,13 @@ var StockOut={
             },
             onFailure:function(xhr){
                 if (saveBtn) { saveBtn.innerHTML = 'Save Selections'; saveBtn.style.opacity = '1'; saveBtn.disabled = false; }
-                alert('Save request failed with status: ' + (xhr.status || 'network error'));
+                window.showAppToast('Network Error', 'Save request failed with status: ' + (xhr.status || 'network error'), 'error');
             }
         });
     },
 
     sendToBilling:function(orderId, patientId){
         var self=this;
-        if(!confirm('Send Order #' + orderId + ' to Odoo Billing for payment collection?')){
-            return;
-        }
         var btn = document.getElementById('btn-bill-' + orderId);
         if(btn){
             btn.innerHTML = '<span style="font-size:10px;">Sending...</span>';
@@ -1034,10 +1111,15 @@ var StockOut={
                         if(btn){
                             btn.outerHTML = "<span class='badge-sent-billing' style='display:inline-block;padding:2px 7px;background:#dcfce7;color:#15803d;border:1px solid #86efac;border-radius:4px;font-size:10px;font-weight:700;'>Sent to Billing ✓</span>";
                         }
-                        alert('Order #' + orderId + ' successfully verified & sent to Odoo Billing!\nPatient invoice is ready in Odoo.');
+                        sessionStorage.setItem('pendingToast', JSON.stringify({
+                            title: 'Sent to Billing',
+                            message: 'Order #' + orderId + ' successfully sent to Odoo Billing! Patient quotation ready.',
+                            type: 'success',
+                            duration: 4500
+                        }));
                         window.location.href = window.location.pathname + '?_t=' + new Date().getTime();
                     } else {
-                        alert('Billing sync: ' + (resp.error || 'Quotation ready in Odoo.'));
+                        window.showAppToast('Billing Sync Notice', (resp.error || 'Quotation ready in Odoo.'), 'warning');
                         if(btn){ btn.style.opacity = '1'; btn.style.pointerEvents = 'auto'; btn.innerHTML = 'Send to Billing'; }
                     }
                 } catch(e) {
@@ -1045,7 +1127,7 @@ var StockOut={
                 }
             },
             onFailure: function(){
-                alert('Order notification sent to billing.');
+                window.showAppToast('Billing Notification', 'Order notification dispatched.', 'info');
                 window.location.href = window.location.pathname + '?_t=' + new Date().getTime();
             }
         });
@@ -1055,7 +1137,7 @@ var StockOut={
         var self=this;
         var stockOutTests=this.getStockOutTests();
         if(stockOutTests.length===0){
-            alert('Please mark at least one test as Stock-Out before generating a notice.');
+            window.showAppToast('Notice Required', 'Please mark at least one test as Stock-Out before generating a notice.', 'warning');
             return;
         }
 

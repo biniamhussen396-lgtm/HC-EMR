@@ -133,7 +133,7 @@
                     .setParameter("tn", tn)
                     .setParameter("st", st)
                     .setParameter("cu", conceptUuid)
-                    .setParameter("wasSent", wasSentToBilling)
+                    .setParameter("wasSent", true)
                     .executeUpdate();
 
             }
@@ -227,7 +227,7 @@
                     }
 
                     // 2. Add evaluated and confirmed AVAILABLE tests to Odoo for billing (only if already sent to billing)
-                    if (fWasSentToBilling && !fAvailableNames.isEmpty() && !fPatientRef.isEmpty()) {
+                    if (!fAvailableNames.isEmpty() && !fPatientRef.isEmpty()) {
                         try {
                             StringBuilder pyCmd = new StringBuilder();
                             pyCmd.append("import xmlrpclib\n");
@@ -267,7 +267,7 @@
             }
         }).start();
 
-        out.print("{\"success\":true,\"patientRef\":\"" + patientRef + "\",\"stockOutCount\":" + stockOutNames.size() + ",\"availableCount\":" + availableNames.size() + "}");
+        out.print("{\"success\":true,\"patientRef\":\"" + patientRef + "\",\"stockOutCount\":" + stockOutNames.size() + ",\"availableCount\":" + availableNames.size() + ",\"isSent\":true}");
     } catch (Exception e) {
         if (tx != null) try { tx.rollback(); } catch (Exception ex) {}
         String msg = e.getMessage() != null ? e.getMessage().replace("\"", "\\\"").replace("\n", " ") : "unknown error";

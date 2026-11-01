@@ -12,7 +12,7 @@
 
         // 1. Query previously saved selections for this sample
         org.hibernate.Query q = hSession.createSQLQuery(
-            "SELECT DISTINCT ON (test_name) test_id, test_name, status, concept_uuid FROM stock_out_selection " +
+            "SELECT DISTINCT ON (test_name) CAST(test_id AS varchar), CAST(test_name AS varchar), CAST(status AS varchar), CAST(COALESCE(concept_uuid, '') AS varchar) FROM stock_out_selection " +
             "WHERE sample_id = :sid " +
             "ORDER BY test_name, id DESC"
         ).setParameter("sid", sid);
@@ -21,7 +21,7 @@
         // 2. If not yet evaluated, retrieve ordered tests directly from sample_item + analysis + test
         if (rows == null || rows.isEmpty()) {
             rows = hSession.createSQLQuery(
-                "SELECT t.id AS test_id, t.name AS test_name, 'pending' AS status, COALESCE(er.external_id, '') AS concept_uuid " +
+                "SELECT CAST(t.id AS varchar) AS test_id, CAST(t.name AS varchar) AS test_name, CAST('pending' AS varchar) AS status, CAST(COALESCE(er.external_id, '') AS varchar) AS concept_uuid " +
                 "FROM sample_item si " +
                 "JOIN analysis a ON si.id = a.sampitem_id " +
                 "JOIN test t ON a.test_id = t.id " +

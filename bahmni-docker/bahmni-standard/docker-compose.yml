@@ -78,6 +78,7 @@ services:
       - "../../openelis-jsp/dashboard/saveStockOutSelections.jsp:/run/bahmni-lab/bahmni-lab/pages/dashboard/saveStockOutSelections.jsp"
       - "../../openelis-jsp/dashboard/getStockOutSelections.jsp:/run/bahmni-lab/bahmni-lab/pages/dashboard/getStockOutSelections.jsp"
       - "../../openelis-jsp/dashboard/orders.js:/run/bahmni-lab/bahmni-lab/scripts/dashBoard/orders.js"
+      - "../../openelis-jsp/dashboard/sendToBilling.jsp:/run/bahmni-lab/bahmni-lab/pages/dashboard/sendToBilling.jsp"
     environment:
       TZ: ${TZ}
       OPENMRS_HOST: ${OPENMRS_HOST}

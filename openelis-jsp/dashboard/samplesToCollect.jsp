@@ -37,17 +37,32 @@ java.util.Set<String> sentToBillingSampleIds = new java.util.HashSet<String>();
 try {
     org.hibernate.Session dbSession = us.mn.state.health.lims.hibernate.HibernateUtil.getSession();
     java.util.List soRows = dbSession.createSQLQuery(
-        "SELECT CAST(sample_id AS text), bool_or(COALESCE(sent_to_billing, false)) FROM stock_out_selection WHERE status IN ('available', 'stockout') GROUP BY sample_id"
+        "SELECT " +
+        "  CAST(sos.sample_id AS text), " +
+        "  CAST(sh.samp_id AS text), " +
+        "  CAST(sh.id AS text), " +
+        "  CAST(pi.identity_data AS text), " +
+        "  bool_or(COALESCE(sos.sent_to_billing, false)) " +
+        "FROM stock_out_selection sos " +
+        "LEFT JOIN sample_human sh ON (sos.sample_id = sh.samp_id OR sos.sample_id = sh.id) " +
+        "LEFT JOIN patient_identity pi ON (sh.patient_id = pi.patient_id AND pi.identity_data IS NOT NULL AND trim(pi.identity_data) != '') " +
+        "WHERE sos.status IN ('available', 'stockout') " +
+        "GROUP BY sos.sample_id, sh.samp_id, sh.id, pi.identity_data"
     ).list();
     if (soRows != null) {
         for (Object obj : soRows) {
             if (obj instanceof Object[]) {
                 Object[] r = (Object[]) obj;
-                if (r[0] != null) {
-                    String sid = r[0].toString().trim();
-                    evaluatedSampleIds.add(sid);
-                    if (r[1] != null && Boolean.TRUE.equals(r[1])) {
-                        sentToBillingSampleIds.add(sid);
+                boolean isSent = (r[4] != null && Boolean.TRUE.equals(r[4]));
+                for (int i = 0; i <= 3; i++) {
+                    if (r[i] != null) {
+                        String idVal = r[i].toString().trim();
+                        if (!idVal.isEmpty()) {
+                            evaluatedSampleIds.add(idVal);
+                            if (isSent) {
+                                sentToBillingSampleIds.add(idVal);
+                            }
+                        }
                     }
                 }
             }
@@ -713,11 +728,6 @@ function onRowSelection(r){
     }else{
         jQuery("#patientTests").text(r.testNames||(r.totalTestCount?r.totalTestCount+" test(s)":"N/A"));
     }
-    if(r.hasPaid===false){
-        StockOut.showPanel(r.orderId, r.testNames, r.totalTestCount);
-    }else{
-        StockOut.hidePanel();
-    }
 }
 function onRowSelectionSuccess(xhr){
     var dp='<%=SystemConfiguration.getInstance().getPatternForDateLocale()%>';
@@ -733,6 +743,11 @@ var StockOut={
     showPanel:function(orderId, tests, totalTestCount){
         this.currentOrderId=orderId;
         this.selectedStatus={};
+        var p = document.getElementById('stockoutPanel');
+        if (p) {
+            p.style.display = 'flex';
+            p.classList.add('show');
+        }
 
         if(tests&&tests.length>0){
             if(typeof tests==='string'){
@@ -747,12 +762,10 @@ var StockOut={
                 this.tests=tests;
             }
             this._render();
-            document.getElementById('stockoutPanel').classList.add('show');
             this._loadSavedSelections(orderId);
         }else{
             this.tests=[{testName:'Loading tests...',testType:''}];
             this._render();
-            document.getElementById('stockoutPanel').classList.add('show');
             this._fetchTests(orderId);
         }
     },
@@ -886,7 +899,11 @@ var StockOut={
     },
 
     hidePanel:function(){
-        document.getElementById('stockoutPanel').classList.remove('show');
+        var p = document.getElementById('stockoutPanel');
+        if (p) {
+            p.classList.remove('show');
+            p.style.display = 'none';
+        }
     },
 
     setStatus:function(index,status){
@@ -961,6 +978,7 @@ var StockOut={
                 try{
                     var resp=JSON.parse(xhr.responseText);
                     if(resp.success){
+                        self.hidePanel();
                         if(window.evaluatedSampleIds){
                             window.evaluatedSampleIds.add(String(order));
                         }

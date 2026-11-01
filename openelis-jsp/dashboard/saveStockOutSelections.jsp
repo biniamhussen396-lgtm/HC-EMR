@@ -6,7 +6,11 @@
     while ((line = reader.readLine()) != null) bodyBuilder.append(line);
     JSONObject json = new JSONObject(bodyBuilder.toString());
 
-    String orderId = json.optString("orderId", "");
+    String orderId = json.optString("orderId", "").trim();
+    if (orderId.isEmpty()) {
+        out.print("{\"success\":false,\"error\":\"orderId is required\"}");
+        return;
+    }
     JSONArray selections = json.optJSONArray("selections");
 
     Session hSession = null;
@@ -21,16 +25,27 @@
         hSession = HibernateUtil.getSession();
         tx = hSession.beginTransaction();
 
+        java.math.BigDecimal sid = new java.math.BigDecimal(orderId);
+        java.math.BigDecimal altSid = null;
+        try {
+            List shRows = hSession.createSQLQuery(
+                "SELECT CASE WHEN samp_id = :sid THEN id ELSE samp_id END FROM sample_human WHERE samp_id = :sid OR id = :sid LIMIT 1"
+            ).setParameter("sid", sid).list();
+            if (shRows != null && !shRows.isEmpty() && shRows.get(0) != null) {
+                altSid = new java.math.BigDecimal(shRows.get(0).toString().trim());
+            }
+        } catch (Exception ignore) {}
+
         // Get patient identifier (ST number) for Odoo sync
         try {
             List pRows = hSession.createSQLQuery(
                 "SELECT pi.identity_data FROM sample_human sh " +
                 "JOIN patient_identity pi ON sh.patient_id = pi.patient_id " +
                 "JOIN patient_identity_type pit ON pi.identity_type_id = pit.id " +
-                "WHERE sh.samp_id = :sid AND pit.identity_type IN ('ST', 'NATIONAL', 'SUBJECT') " +
+                "WHERE (sh.samp_id = :sid OR sh.id = :sid) AND pit.identity_type IN ('ST', 'NATIONAL', 'SUBJECT') " +
                 "ORDER BY CASE WHEN pit.identity_type = 'ST' THEN 1 WHEN pit.identity_type = 'NATIONAL' THEN 2 ELSE 3 END " +
                 "LIMIT 1"
-            ).setParameter("sid", new java.math.BigDecimal(orderId)).list();
+            ).setParameter("sid", sid).list();
             if (pRows != null && !pRows.isEmpty() && pRows.get(0) != null) {
                 patientRef = pRows.get(0).toString().trim();
             }
@@ -41,9 +56,9 @@
                 List pRows = hSession.createSQLQuery(
                     "SELECT pi.identity_data FROM sample_human sh " +
                     "JOIN patient_identity pi ON sh.patient_id = pi.patient_id " +
-                    "WHERE sh.samp_id = :sid AND pi.identity_data IS NOT NULL AND TRIM(pi.identity_data) != '' " +
+                    "WHERE (sh.samp_id = :sid OR sh.id = :sid) AND pi.identity_data IS NOT NULL AND TRIM(pi.identity_data) != '' " +
                     "ORDER BY LENGTH(pi.identity_data) ASC LIMIT 1"
-                ).setParameter("sid", new java.math.BigDecimal(orderId)).list();
+                ).setParameter("sid", sid).list();
                 if (pRows != null && !pRows.isEmpty() && pRows.get(0) != null) {
                     patientRef = pRows.get(0).toString().trim();
                 }
@@ -51,7 +66,11 @@
         }
 
         hSession.createSQLQuery("DELETE FROM stock_out_selection WHERE sample_id = :sid")
-            .setParameter("sid", new java.math.BigDecimal(orderId)).executeUpdate();
+            .setParameter("sid", sid).executeUpdate();
+        if (altSid != null && !altSid.equals(sid)) {
+            hSession.createSQLQuery("DELETE FROM stock_out_selection WHERE sample_id = :altSid")
+                .setParameter("altSid", altSid).executeUpdate();
+        }
 
         if (selections != null) {
             for (int i = 0; i < selections.length(); i++) {
@@ -92,12 +111,21 @@
                 }
 
                 hSession.createSQLQuery("INSERT INTO stock_out_selection (sample_id, test_id, test_name, status, concept_uuid, created_at, updated_at) VALUES (:sid, :tid, :tn, :st, :cu, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)")
-                    .setParameter("sid", new java.math.BigDecimal(orderId))
+                    .setParameter("sid", sid)
                     .setParameter("tid", tid)
                     .setParameter("tn", tn)
                     .setParameter("st", st)
                     .setParameter("cu", conceptUuid)
                     .executeUpdate();
+                if (altSid != null && !altSid.equals(sid)) {
+                    hSession.createSQLQuery("INSERT INTO stock_out_selection (sample_id, test_id, test_name, status, concept_uuid, created_at, updated_at) VALUES (:sid, :tid, :tn, :st, :cu, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)")
+                        .setParameter("sid", altSid)
+                        .setParameter("tid", tid)
+                        .setParameter("tn", tn)
+                        .setParameter("st", st)
+                        .setParameter("cu", conceptUuid)
+                        .executeUpdate();
+                }
             }
         }
 

@@ -2,8 +2,13 @@
     response.setHeader("Cache-Control", "no-cache");
     String orderId = request.getParameter("orderId");
     String patientId = request.getParameter("patientId");
-    if (orderId == null) orderId = "";
+    if (orderId == null || orderId.trim().isEmpty()) {
+        out.print("{\"success\":false,\"error\":\"orderId is required\"}");
+        return;
+    }
+    orderId = orderId.trim();
     if (patientId == null) patientId = "";
+    patientId = patientId.trim();
 
     Session hSession = null;
     Transaction tx = null;
@@ -14,15 +19,32 @@
         hSession = HibernateUtil.getSession();
         tx = hSession.beginTransaction();
 
+        java.math.BigDecimal sid = new java.math.BigDecimal(orderId);
+        java.math.BigDecimal altSid = null;
+        try {
+            List shRows = hSession.createSQLQuery(
+                "SELECT CASE WHEN samp_id = :sid THEN id ELSE samp_id END FROM sample_human WHERE samp_id = :sid OR id = :sid LIMIT 1"
+            ).setParameter("sid", sid).list();
+            if (shRows != null && !shRows.isEmpty() && shRows.get(0) != null) {
+                altSid = new java.math.BigDecimal(shRows.get(0).toString().trim());
+            }
+        } catch (Exception ignore) {}
+
         // Mark sent_to_billing in stock_out_selection
         hSession.createSQLQuery("UPDATE stock_out_selection SET sent_to_billing = TRUE, updated_at = CURRENT_TIMESTAMP WHERE sample_id = :sid")
-            .setParameter("sid", new java.math.BigDecimal(orderId)).executeUpdate();
+            .setParameter("sid", sid).executeUpdate();
+        if (altSid != null && !altSid.equals(sid)) {
+            hSession.createSQLQuery("UPDATE stock_out_selection SET sent_to_billing = TRUE, updated_at = CURRENT_TIMESTAMP WHERE sample_id = :altSid")
+                .setParameter("altSid", altSid).executeUpdate();
+        }
 
         // Find available test names for this sample
-        List rows = hSession.createSQLQuery("SELECT test_name, concept_uuid FROM stock_out_selection WHERE sample_id = :sid AND status = 'available'")
-            .setParameter("sid", new java.math.BigDecimal(orderId)).list();
-        if (rows != null) {
-            for (Object obj : rows) {
+        org.hibernate.Query q = hSession.createSQLQuery("SELECT DISTINCT test_name, concept_uuid FROM stock_out_selection WHERE (sample_id = :sid" + (altSid != null ? " OR sample_id = :altSid" : "") + ") AND status = 'available'")
+            .setParameter("sid", sid);
+        if (altSid != null) q.setParameter("altSid", altSid);
+        List rowList = q.list();
+        if (rowList != null) {
+            for (Object obj : rowList) {
                 if (obj instanceof Object[]) {
                     Object[] r = (Object[]) obj;
                     if (r[0] != null) availableNames.add(r[0].toString().trim());
@@ -37,9 +59,9 @@
                 List pRows = hSession.createSQLQuery(
                     "SELECT pi.identity_data FROM sample_human sh " +
                     "JOIN patient_identity pi ON sh.patient_id = pi.patient_id " +
-                    "WHERE sh.samp_id = :sid AND pi.identity_data IS NOT NULL AND TRIM(pi.identity_data) != '' " +
+                    "WHERE (sh.samp_id = :sid OR sh.id = :sid) AND pi.identity_data IS NOT NULL AND TRIM(pi.identity_data) != '' " +
                     "ORDER BY LENGTH(pi.identity_data) ASC LIMIT 1"
-                ).setParameter("sid", new java.math.BigDecimal(orderId)).list();
+                ).setParameter("sid", sid).list();
                 if (pRows != null && !pRows.isEmpty() && pRows.get(0) != null) {
                     patientId = pRows.get(0).toString().trim();
                 }

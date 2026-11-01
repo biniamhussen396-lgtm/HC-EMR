@@ -947,6 +947,14 @@ var StockOut={
     saveSelections:function(){
         var self=this;
         var order=this.currentOrderId;
+        if (!order) {
+            alert('No active order selected.');
+            return;
+        }
+        if (!this.tests || this.tests.length === 0 || (this.tests.length === 1 && this.tests[0].testName === 'Loading tests...')) {
+            alert('Please wait for tests to finish loading before saving.');
+            return;
+        }
         var selections=[];
         var hasSelection=false;
         this.tests.forEach(function(t,i){
@@ -961,13 +969,21 @@ var StockOut={
             alert('Please mark at least one test as Available or Stock-Out.');
             return;
         }
+
+        var saveBtn = document.querySelector('#stockoutPanel .btn-success');
+        if (saveBtn) {
+            saveBtn.innerHTML = 'Saving...';
+            saveBtn.style.opacity = '0.7';
+            saveBtn.disabled = true;
+        }
+
         var data={orderId:order,selections:selections};
-        self.hidePanel();
-        new Ajax.Request('pages/dashboard/saveStockOutSelections.jsp',{
+        new Ajax.Request('<%=basePath%>pages/dashboard/saveStockOutSelections.jsp',{
             method:'post',
             contentType:'application/json',
             postBody:JSON.stringify(data),
             onSuccess:function(xhr){
+                if (saveBtn) { saveBtn.innerHTML = 'Save Selections'; saveBtn.style.opacity = '1'; saveBtn.disabled = false; }
                 try{
                     var resp=JSON.parse(xhr.responseText);
                     if(resp.success){
@@ -984,15 +1000,19 @@ var StockOut={
                         }
                         msg+='\nAction updated to "Send to Billing". Click the edit icon anytime to revise.';
                         alert(msg);
-                        window.location.reload();
+                        window.location.href = window.location.pathname + '?_t=' + new Date().getTime();
                     }else{
                         alert('Save failed: '+(resp.error||'unknown error'));
                     }
                 }catch(e){
-                    window.location.reload();
+                    self.hidePanel();
+                    window.location.href = window.location.pathname + '?_t=' + new Date().getTime();
                 }
             },
-            onFailure:function(){alert('Save request failed.');}
+            onFailure:function(xhr){
+                if (saveBtn) { saveBtn.innerHTML = 'Save Selections'; saveBtn.style.opacity = '1'; saveBtn.disabled = false; }
+                alert('Save request failed with status: ' + (xhr.status || 'network error'));
+            }
         });
     },
 
@@ -1007,33 +1027,33 @@ var StockOut={
             btn.style.opacity = '0.7';
             btn.style.pointerEvents = 'none';
         }
-        new Ajax.Request('pages/dashboard/sendToBilling.jsp', {
+        new Ajax.Request('<%=basePath%>pages/dashboard/sendToBilling.jsp', {
             method: 'post',
             parameters: { orderId: orderId, patientId: patientId },
             onSuccess: function(xhr){
                 try {
                     var resp = JSON.parse(xhr.responseText);
                     if(resp.success){
+                        if(window.sentToBillingSampleIds){
+                            window.sentToBillingSampleIds.add(String(orderId));
+                            if(patientId) window.sentToBillingSampleIds.add(String(patientId));
+                        }
                         if(btn){
                             btn.outerHTML = "<span class='badge-sent-billing' style='display:inline-block;padding:2px 7px;background:#dcfce7;color:#15803d;border:1px solid #86efac;border-radius:4px;font-size:10px;font-weight:700;'>Sent to Billing ✓</span>";
                         }
                         alert('Order #' + orderId + ' successfully verified & sent to Odoo Billing!\nPatient invoice is ready in Odoo.');
+                        window.location.href = window.location.pathname + '?_t=' + new Date().getTime();
                     } else {
                         alert('Billing sync: ' + (resp.error || 'Quotation ready in Odoo.'));
                         if(btn){ btn.style.opacity = '1'; btn.style.pointerEvents = 'auto'; btn.innerHTML = 'Send to Billing'; }
                     }
                 } catch(e) {
-                    alert('Order #' + orderId + ' verified and ready in Odoo billing.');
-                    if(btn){
-                        btn.outerHTML = "<span class='badge-sent-billing' style='display:inline-block;padding:2px 7px;background:#dcfce7;color:#15803d;border:1px solid #86efac;border-radius:4px;font-size:10px;font-weight:700;'>Sent to Billing ✓</span>";
-                    }
+                    window.location.href = window.location.pathname + '?_t=' + new Date().getTime();
                 }
             },
             onFailure: function(){
                 alert('Order notification sent to billing.');
-                if(btn){
-                    btn.outerHTML = "<span class='badge-sent-billing' style='display:inline-block;padding:2px 7px;background:#dcfce7;color:#15803d;border:1px solid #86efac;border-radius:4px;font-size:10px;font-weight:700;'>Sent to Billing ✓</span>";
-                }
+                window.location.href = window.location.pathname + '?_t=' + new Date().getTime();
             }
         });
     },

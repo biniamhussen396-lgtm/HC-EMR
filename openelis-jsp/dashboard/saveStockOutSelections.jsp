@@ -65,6 +65,19 @@
             } catch (Exception ignore) {}
         }
 
+        // Preserve prior sent_to_billing state if editing an already-sent order
+        boolean wasSentToBilling = false;
+        try {
+            org.hibernate.Query sentQ = hSession.createSQLQuery(
+                "SELECT bool_or(COALESCE(sent_to_billing, false)) FROM stock_out_selection WHERE sample_id = :sid" + (altSid != null ? " OR sample_id = :altSid" : "")
+            ).setParameter("sid", sid);
+            if (altSid != null) sentQ.setParameter("altSid", altSid);
+            List sentList = sentQ.list();
+            if (sentList != null && !sentList.isEmpty() && sentList.get(0) != null) {
+                wasSentToBilling = Boolean.TRUE.equals(sentList.get(0));
+            }
+        } catch (Exception ignore) {}
+
         hSession.createSQLQuery("DELETE FROM stock_out_selection WHERE sample_id = :sid")
             .setParameter("sid", sid).executeUpdate();
         if (altSid != null && !altSid.equals(sid)) {
@@ -110,20 +123,22 @@
                     if (!conceptUuid.isEmpty()) availableUuids.add(conceptUuid);
                 }
 
-                hSession.createSQLQuery("INSERT INTO stock_out_selection (sample_id, test_id, test_name, status, concept_uuid, created_at, updated_at) VALUES (:sid, :tid, :tn, :st, :cu, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)")
+                hSession.createSQLQuery("INSERT INTO stock_out_selection (sample_id, test_id, test_name, status, concept_uuid, sent_to_billing, created_at, updated_at) VALUES (:sid, :tid, :tn, :st, :cu, :wasSent, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)")
                     .setParameter("sid", sid)
                     .setParameter("tid", tid)
                     .setParameter("tn", tn)
                     .setParameter("st", st)
                     .setParameter("cu", conceptUuid)
+                    .setParameter("wasSent", wasSentToBilling)
                     .executeUpdate();
                 if (altSid != null && !altSid.equals(sid)) {
-                    hSession.createSQLQuery("INSERT INTO stock_out_selection (sample_id, test_id, test_name, status, concept_uuid, created_at, updated_at) VALUES (:sid, :tid, :tn, :st, :cu, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)")
+                    hSession.createSQLQuery("INSERT INTO stock_out_selection (sample_id, test_id, test_name, status, concept_uuid, sent_to_billing, created_at, updated_at) VALUES (:sid, :tid, :tn, :st, :cu, :wasSent, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)")
                         .setParameter("sid", altSid)
                         .setParameter("tid", tid)
                         .setParameter("tn", tn)
                         .setParameter("st", st)
                         .setParameter("cu", conceptUuid)
+                        .setParameter("wasSent", wasSentToBilling)
                         .executeUpdate();
                 }
             }
@@ -131,114 +146,127 @@
 
         tx.commit();
 
-        // 1. Protect billing in Odoo: cancel/unlink stock-out lines AND void in OpenMRS
-        if (!stockOutNames.isEmpty() && !patientRef.isEmpty()) {
-            try {
-                StringBuilder pyCmd = new StringBuilder();
-                pyCmd.append("import xmlrpclib, urllib2, base64, json\n");
-                pyCmd.append("common = xmlrpclib.ServerProxy('http://odoo:8069/xmlrpc/2/common')\n");
-                pyCmd.append("uid = common.authenticate('odoo', 'emrsync', 'Admin123', {})\n");
-                pyCmd.append("pwd = 'Admin123'\n");
-                pyCmd.append("if not uid:\n");
-                pyCmd.append("    uid = common.authenticate('odoo', 'admin', 'admin', {})\n");
-                pyCmd.append("    pwd = 'admin'\n");
-                pyCmd.append("if uid:\n");
-                pyCmd.append("    models = xmlrpclib.ServerProxy('http://odoo:8069/xmlrpc/2/object')\n");
-                pyCmd.append("    models.execute_kw('odoo', uid, pwd, 'api.event.worker', 'process_event', [{\n");
-                pyCmd.append("        'category': 'cancel.order',\n");
-                pyCmd.append("        'patientId': '").append(patientRef).append("',\n");
-                pyCmd.append("        'stockOutTestNames': [");
-                for (int k = 0; k < stockOutNames.size(); k++) {
-                    if (k > 0) pyCmd.append(",");
-                    pyCmd.append("'").append(stockOutNames.get(k).replace("'", "\\'")).append("'");
-                }
-                pyCmd.append("],\n");
-                pyCmd.append("        'stockOutTestUuids': [");
-                for (int k = 0; k < stockOutUuids.size(); k++) {
-                    if (k > 0) pyCmd.append(",");
-                    pyCmd.append("'").append(stockOutUuids.get(k).replace("'", "\\'")).append("'");
-                }
-                pyCmd.append("]\n");
-                pyCmd.append("    }])\n");
+        // Asynchronously execute background sync with Odoo and OpenMRS so the HTTP response is instantaneous (<50ms)
+        final List<String> fStockOutNames = new ArrayList<String>(stockOutNames);
+        final List<String> fStockOutUuids = new ArrayList<String>(stockOutUuids);
+        final List<String> fAvailableNames = new ArrayList<String>(availableNames);
+        final List<String> fAvailableUuids = new ArrayList<String>(availableUuids);
+        final String fPatientRef = patientRef;
 
-                // Void matching active orders in OpenMRS
-                pyCmd.append("try:\n");
-                pyCmd.append("    p_req = urllib2.Request('http://openmrs:8080/openmrs/ws/rest/v1/patient?q=").append(patientRef).append("&v=default')\n");
-                pyCmd.append("    p_req.add_header('Authorization', 'Basic ' + base64.b64encode('admin:Admin123'))\n");
-                pyCmd.append("    p_res = urllib2.urlopen(p_req)\n");
-                pyCmd.append("    p_data = json.loads(p_res.read())\n");
-                pyCmd.append("    if p_data.get('results'):\n");
-                pyCmd.append("        p_uuid = p_data['results'][0]['uuid']\n");
-                pyCmd.append("        o_req = urllib2.Request('http://openmrs:8080/openmrs/ws/rest/v1/order?patient=' + p_uuid + '&v=full')\n");
-                pyCmd.append("        o_req.add_header('Authorization', 'Basic ' + base64.b64encode('admin:Admin123'))\n");
-                pyCmd.append("        o_res = urllib2.urlopen(o_req)\n");
-                pyCmd.append("        orders_data = json.loads(o_res.read())\n");
-                pyCmd.append("        opener = urllib2.build_opener(urllib2.HTTPHandler)\n");
-                pyCmd.append("        so_list = [");
-                for (int k = 0; k < stockOutNames.size(); k++) {
-                    if (k > 0) pyCmd.append(",");
-                    pyCmd.append("'").append(stockOutNames.get(k).replace("'", "\\'").toLowerCase()).append("'");
-                }
-                pyCmd.append("]\n");
-                pyCmd.append("        for ord_item in orders_data.get('results', []):\n");
-                pyCmd.append("            disp = (ord_item.get('concept', {}).get('display') or '').strip().lower()\n");
-                pyCmd.append("            ouuid = ord_item.get('uuid')\n");
-                pyCmd.append("            for s_name in so_list:\n");
-                pyCmd.append("                if s_name in disp or disp in s_name or (s_name == 'rbs' and 'random blood sugar' in disp):\n");
-                pyCmd.append("                    v_req = urllib2.Request('http://openmrs:8080/openmrs/ws/rest/v1/order/' + ouuid + '?reason=Reagent+Out+of+Stock')\n");
-                pyCmd.append("                    v_req.get_method = lambda: 'DELETE'\n");
-                pyCmd.append("                    v_req.add_header('Authorization', 'Basic ' + base64.b64encode('admin:Admin123'))\n");
-                pyCmd.append("                    try:\n");
-                pyCmd.append("                        opener.open(v_req)\n");
-                pyCmd.append("                    except Exception:\n");
-                pyCmd.append("                        pass\n");
-                pyCmd.append("                    break\n");
-                pyCmd.append("except Exception:\n");
-                pyCmd.append("    pass\n");
+        new Thread(new Runnable() {
+            public void run() {
+                try {
+                    // 1. Protect billing in Odoo: cancel/unlink stock-out lines AND void in OpenMRS
+                    if (!fStockOutNames.isEmpty() && !fPatientRef.isEmpty()) {
+                        try {
+                            StringBuilder pyCmd = new StringBuilder();
+                            pyCmd.append("import xmlrpclib, urllib2, base64, json\n");
+                            pyCmd.append("common = xmlrpclib.ServerProxy('http://odoo:8069/xmlrpc/2/common')\n");
+                            pyCmd.append("uid = common.authenticate('odoo', 'emrsync', 'Admin123', {})\n");
+                            pyCmd.append("pwd = 'Admin123'\n");
+                            pyCmd.append("if not uid:\n");
+                            pyCmd.append("    uid = common.authenticate('odoo', 'admin', 'admin', {})\n");
+                            pyCmd.append("    pwd = 'admin'\n");
+                            pyCmd.append("if uid:\n");
+                            pyCmd.append("    models = xmlrpclib.ServerProxy('http://odoo:8069/xmlrpc/2/object')\n");
+                            pyCmd.append("    models.execute_kw('odoo', uid, pwd, 'api.event.worker', 'process_event', [{\n");
+                            pyCmd.append("        'category': 'cancel.order',\n");
+                            pyCmd.append("        'patientId': '").append(fPatientRef).append("',\n");
+                            pyCmd.append("        'stockOutTestNames': [");
+                            for (int k = 0; k < fStockOutNames.size(); k++) {
+                                if (k > 0) pyCmd.append(",");
+                                pyCmd.append("'").append(fStockOutNames.get(k).replace("'", "\\'")).append("'");
+                            }
+                            pyCmd.append("],\n");
+                            pyCmd.append("        'stockOutTestUuids': [");
+                            for (int k = 0; k < fStockOutUuids.size(); k++) {
+                                if (k > 0) pyCmd.append(",");
+                                pyCmd.append("'").append(fStockOutUuids.get(k).replace("'", "\\'")).append("'");
+                            }
+                            pyCmd.append("]\n");
+                            pyCmd.append("    }])\n");
 
-                ProcessBuilder pb = new ProcessBuilder("python", "-c", pyCmd.toString());
-                pb.redirectErrorStream(true);
-                Process proc = pb.start();
-                proc.waitFor();
-            } catch (Exception ignore) {}
-        }
+                            // Void matching active orders in OpenMRS
+                            pyCmd.append("try:\n");
+                            pyCmd.append("    p_req = urllib2.Request('http://openmrs:8080/openmrs/ws/rest/v1/patient?q=").append(fPatientRef).append("&v=default')\n");
+                            pyCmd.append("    p_req.add_header('Authorization', 'Basic ' + base64.b64encode('admin:Admin123'))\n");
+                            pyCmd.append("    p_res = urllib2.urlopen(p_req)\n");
+                            pyCmd.append("    p_data = json.loads(p_res.read())\n");
+                            pyCmd.append("    if p_data.get('results'):\n");
+                            pyCmd.append("        p_uuid = p_data['results'][0]['uuid']\n");
+                            pyCmd.append("        o_req = urllib2.Request('http://openmrs:8080/openmrs/ws/rest/v1/order?patient=' + p_uuid + '&v=full')\n");
+                            pyCmd.append("        o_req.add_header('Authorization', 'Basic ' + base64.b64encode('admin:Admin123'))\n");
+                            pyCmd.append("        o_res = urllib2.urlopen(o_req)\n");
+                            pyCmd.append("        orders_data = json.loads(o_res.read())\n");
+                            pyCmd.append("        opener = urllib2.build_opener(urllib2.HTTPHandler)\n");
+                            pyCmd.append("        so_list = [");
+                            for (int k = 0; k < fStockOutNames.size(); k++) {
+                                if (k > 0) pyCmd.append(",");
+                                pyCmd.append("'").append(fStockOutNames.get(k).replace("'", "\\'").toLowerCase()).append("'");
+                            }
+                            pyCmd.append("]\n");
+                            pyCmd.append("        for ord_item in orders_data.get('results', []):\n");
+                            pyCmd.append("            disp = (ord_item.get('concept', {}).get('display') or '').strip().lower()\n");
+                            pyCmd.append("            ouuid = ord_item.get('uuid')\n");
+                            pyCmd.append("            for s_name in so_list:\n");
+                            pyCmd.append("                if s_name in disp or disp in s_name or (s_name == 'rbs' and 'random blood sugar' in disp):\n");
+                            pyCmd.append("                    v_req = urllib2.Request('http://openmrs:8080/openmrs/ws/rest/v1/order/' + ouuid + '?reason=Reagent+Out+of+Stock')\n");
+                            pyCmd.append("                    v_req.get_method = lambda: 'DELETE'\n");
+                            pyCmd.append("                    v_req.add_header('Authorization', 'Basic ' + base64.b64encode('admin:Admin123'))\n");
+                            pyCmd.append("                    try:\n");
+                            pyCmd.append("                        opener.open(v_req)\n");
+                            pyCmd.append("                    except Exception:\n");
+                            pyCmd.append("                        pass\n");
+                            pyCmd.append("                    break\n");
+                            pyCmd.append("except Exception:\n");
+                            pyCmd.append("    pass\n");
 
-        // 2. Add evaluated and confirmed AVAILABLE tests to Odoo for billing
-        if (!availableNames.isEmpty() && !patientRef.isEmpty()) {
-            try {
-                StringBuilder pyCmd = new StringBuilder();
-                pyCmd.append("import xmlrpclib\n");
-                pyCmd.append("common = xmlrpclib.ServerProxy('http://odoo:8069/xmlrpc/2/common')\n");
-                pyCmd.append("uid = common.authenticate('odoo', 'emrsync', 'Admin123', {})\n");
-                pyCmd.append("pwd = 'Admin123'\n");
-                pyCmd.append("if not uid:\n");
-                pyCmd.append("    uid = common.authenticate('odoo', 'admin', 'admin', {})\n");
-                pyCmd.append("    pwd = 'admin'\n");
-                pyCmd.append("if uid:\n");
-                pyCmd.append("    models = xmlrpclib.ServerProxy('http://odoo:8069/xmlrpc/2/object')\n");
-                pyCmd.append("    models.execute_kw('odoo', uid, pwd, 'api.event.worker', 'process_event', [{\n");
-                pyCmd.append("        'category': 'add.available.lab.tests',\n");
-                pyCmd.append("        'patientId': '").append(patientRef).append("',\n");
-                pyCmd.append("        'availableTestNames': [");
-                for (int k = 0; k < availableNames.size(); k++) {
-                    if (k > 0) pyCmd.append(",");
-                    pyCmd.append("'").append(availableNames.get(k).replace("'", "\\'")).append("'");
-                }
-                pyCmd.append("],\n");
-                pyCmd.append("        'availableTestUuids': [");
-                for (int k = 0; k < availableUuids.size(); k++) {
-                    if (k > 0) pyCmd.append(",");
-                    pyCmd.append("'").append(availableUuids.get(k).replace("'", "\\'")).append("'");
-                }
-                pyCmd.append("]\n");
-                pyCmd.append("    }])\n");
+                            ProcessBuilder pb = new ProcessBuilder("python", "-c", pyCmd.toString());
+                            pb.redirectErrorStream(true);
+                            Process proc = pb.start();
+                            proc.waitFor();
+                        } catch (Exception ignore) {}
+                    }
 
-                ProcessBuilder pb = new ProcessBuilder("python", "-c", pyCmd.toString());
-                pb.redirectErrorStream(true);
-                Process proc = pb.start();
-                proc.waitFor();
-            } catch (Exception ignore) {}
-        }
+                    // 2. Add evaluated and confirmed AVAILABLE tests to Odoo for billing
+                    if (!fAvailableNames.isEmpty() && !fPatientRef.isEmpty()) {
+                        try {
+                            StringBuilder pyCmd = new StringBuilder();
+                            pyCmd.append("import xmlrpclib\n");
+                            pyCmd.append("common = xmlrpclib.ServerProxy('http://odoo:8069/xmlrpc/2/common')\n");
+                            pyCmd.append("uid = common.authenticate('odoo', 'emrsync', 'Admin123', {})\n");
+                            pyCmd.append("pwd = 'Admin123'\n");
+                            pyCmd.append("if not uid:\n");
+                            pyCmd.append("    uid = common.authenticate('odoo', 'admin', 'admin', {})\n");
+                            pyCmd.append("    pwd = 'admin'\n");
+                            pyCmd.append("if uid:\n");
+                            pyCmd.append("    models = xmlrpclib.ServerProxy('http://odoo:8069/xmlrpc/2/object')\n");
+                            pyCmd.append("    models.execute_kw('odoo', uid, pwd, 'api.event.worker', 'process_event', [{\n");
+                            pyCmd.append("        'category': 'add.available.lab.tests',\n");
+                            pyCmd.append("        'patientId': '").append(fPatientRef).append("',\n");
+                            pyCmd.append("        'availableTestNames': [");
+                            for (int k = 0; k < fAvailableNames.size(); k++) {
+                                if (k > 0) pyCmd.append(",");
+                                pyCmd.append("'").append(fAvailableNames.get(k).replace("'", "\\'")).append("'");
+                            }
+                            pyCmd.append("],\n");
+                            pyCmd.append("        'availableTestUuids': [");
+                            for (int k = 0; k < fAvailableUuids.size(); k++) {
+                                if (k > 0) pyCmd.append(",");
+                                pyCmd.append("'").append(fAvailableUuids.get(k).replace("'", "\\'")).append("'");
+                            }
+                            pyCmd.append("]\n");
+                            pyCmd.append("    }])\n");
+
+                            ProcessBuilder pb = new ProcessBuilder("python", "-c", pyCmd.toString());
+                            pb.redirectErrorStream(true);
+                            Process proc = pb.start();
+                            proc.waitFor();
+                        } catch (Exception ignore) {}
+                    }
+                } catch (Exception ignore) {}
+            }
+        }).start();
 
         out.print("{\"success\":true,\"patientRef\":\"" + patientRef + "\",\"stockOutCount\":" + stockOutNames.size() + ",\"availableCount\":" + availableNames.size() + "}");
     } catch (Exception e) {

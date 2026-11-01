@@ -92,49 +92,66 @@ class ApiEventWorker(models.Model):
             ], limit=1)
 
         patient_ref = vals.get("patientId") or vals.get("customer_id") or vals.get("patient_ref")
-        if not sale_order and patient_ref:
+        sale_orders = self.env['sale.order']
+        if sale_order:
+            sale_orders |= sale_order
+
+        if patient_ref:
             partner = self.env['res.partner'].search([('ref', '=', str(patient_ref))], limit=1)
             if partner:
-                sale_order = self.env['sale.order'].search([
+                patient_draft_orders = self.env['sale.order'].search([
                     ('partner_id', '=', partner.id),
-                    ('state', '=', 'draft')
-                ], order='id desc', limit=1)
+                    ('state', 'in', ['draft', 'sent'])
+                ])
+                if patient_draft_orders:
+                    sale_orders |= patient_draft_orders
 
-        if not sale_order:
+        if not sale_orders:
             _logger.warning("No draft sale order found for order: %s, accession: %s, patient: %s", order_uuid, accession_number, patient_ref)
             return
         
-        if stock_out_test_names or stock_out_test_uuids:
-            clean_names = [n.strip().lower() for n in stock_out_test_names if n and n.strip()]
-            clean_uuids = [u.strip().lower() for u in stock_out_test_uuids if u and u.strip()]
+        for current_so in sale_orders:
+            if stock_out_test_names or stock_out_test_uuids:
+                clean_names = [n.strip().lower() for n in stock_out_test_names if n and n.strip()]
+                clean_uuids = [u.strip().lower() for u in stock_out_test_uuids if u and u.strip()]
 
-            for line in list(sale_order.order_line):
-                matched = False
-                prod = line.product_id
-                prod_uuid = (prod.uuid or prod.product_tmpl_id.uuid or '').strip().lower()
-                prod_name = (prod.name or '').strip().lower()
+                for line in list(current_so.order_line):
+                    matched = False
+                    prod = line.product_id
+                    prod_uuid = (getattr(prod, 'uuid', None) or getattr(prod.product_tmpl_id, 'uuid', None) or '').strip().lower()
+                    prod_code = (prod.default_code or '').strip().lower()
+                    prod_name = (prod.name or '').strip().lower()
 
-                if prod_uuid and prod_uuid in clean_uuids:
-                    matched = True
+                    if prod_uuid and prod_uuid in clean_uuids:
+                        matched = True
 
-                if not matched and clean_names:
-                    for test_name in clean_names:
-                        if test_name == prod_name or test_name in prod_name or prod_name.startswith(test_name):
-                            matched = True
-                            break
+                    if not matched and clean_uuids and prod_code and prod_code in clean_uuids:
+                        matched = True
 
-                if matched:
-                    line.sudo().write({'price_subtotal': 0, 'price_unit': 0})
+                    if not matched and clean_names:
+                        for test_name in clean_names:
+                            if test_name == prod_name or test_name in prod_name or prod_name in test_name:
+                                matched = True
+                                break
+                            if test_name == 'rbs' and 'random blood sugar' in prod_name:
+                                matched = True
+                                break
+                            if test_name == 'random blood sugar' and 'rbs' in prod_name:
+                                matched = True
+                                break
+
+                    if matched:
+                        line.sudo().write({'price_subtotal': 0, 'price_unit': 0})
+                        line.sudo().unlink()
+                        _logger.info("Cancelled/Unlinked stock-out order line: %s (%s) from order %s", line.id, prod.name, current_so.name)
+            else:
+                for line in list(current_so.order_line):
                     line.sudo().unlink()
-                    _logger.info("Cancelled/Unlinked stock-out order line: %s (%s) from order %s", line.id, prod.name, sale_order.name)
-        else:
-            for line in list(sale_order.order_line):
-                line.sudo().unlink()
-            _logger.info("Cancelled all lines in sale order: %s (no specific tests)", sale_order.name)
-        
-        if not sale_order.order_line:
-            sale_order.action_cancel()
-            _logger.info("Cancelled entire sale order %s - all lines removed", sale_order.name)
+                _logger.info("Cancelled all lines in sale order: %s (no specific tests)", current_so.name)
+            
+            if not current_so.order_line:
+                current_so.action_cancel()
+                _logger.info("Cancelled entire sale order %s - all lines removed", current_so.name)
 
     @api.model
     def _void_order(self, vals):

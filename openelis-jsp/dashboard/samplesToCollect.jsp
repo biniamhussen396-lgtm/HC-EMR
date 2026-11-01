@@ -932,11 +932,24 @@ var StockOut={
                 try{
                     var resp=JSON.parse(xhr.responseText);
                     if(resp.success){
-                        alert('Selections saved successfully.');
+                        var msg='Stock evaluation saved successfully!\n';
+                        if(resp.stockOutCount>0){
+                            msg+='• '+resp.stockOutCount+' test(s) marked Stock-Out (pruned from Odoo billing & voided in OpenMRS).\n';
+                        }
+                        if(resp.availableCount>0){
+                            msg+='• '+resp.availableCount+' test(s) verified Available for billing.';
+                        }
+                        alert(msg);
+                        self.hidePanel();
+                        window.location.reload();
                     }else{
                         alert('Save failed: '+(resp.error||'unknown error'));
                     }
-                }catch(e){alert('Save completed.');}
+                }catch(e){
+                    alert('Save completed.');
+                    self.hidePanel();
+                    window.location.reload();
+                }
             },
             onFailure:function(){alert('Save request failed.');}
         });

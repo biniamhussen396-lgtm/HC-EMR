@@ -84,7 +84,24 @@ function generateAllLinksForOrder(order, alwaysValidate){
         }else{
             var testNamesArr=order.testNames;
             if(typeof testNamesArr==='string'){try{testNamesArr=JSON.parse(testNamesArr)}catch(e){testNamesArr=[]}}
-            return "<span class='not-paid-badge' style='display:inline-block;padding:2px 6px;background:#fef3c7;color:#b45309;border:1px solid #f59e0b;border-radius:3px;font-size:10px;font-weight:bold;margin-right:6px;'>Not Paid</span><span class='stockout-link' onclick='StockOut.showPanel(\""+order.orderId+"\","+JSON.stringify(testNamesArr||[])+","+order.totalTestCount+")' style='cursor:pointer;color:#dc2626;font-weight:600;font-size:11px;text-decoration:underline'>Stock-Out Check</span>";
+            var sOrder = String(order.orderId);
+            var isEvaluated = (window.evaluatedSampleIds && window.evaluatedSampleIds.has(sOrder));
+            var isSent = (window.sentToBillingSampleIds && window.sentToBillingSampleIds.has(sOrder));
+            var notPaidBadge = "<span class='not-paid-badge' style='display:inline-block;padding:2px 6px;background:#fef3c7;color:#b45309;border:1px solid #f59e0b;border-radius:3px;font-size:10px;font-weight:bold;margin-right:6px;'>Not Paid</span>";
+            var editIconSvg = "<span class='stockout-edit-icon' onclick='StockOut.showPanel(\""+order.orderId+"\","+JSON.stringify(testNamesArr||[])+","+order.totalTestCount+")' title='Edit selections before billing' style='cursor:pointer;display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;vertical-align:middle;color:#475569;background:#f1f5f9;border:1px solid #cbd5e1;border-radius:4px;margin-left:4px;transition:all .15s;' onmouseover='this.style.background=\"#e2e8f0\"' onmouseout='this.style.background=\"#f1f5f9\"'><svg style=\"width:12px;height:12px;\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.2\"><path d=\"M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7\"/><path d=\"M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z\"/></svg></span>";
+
+            if(isSent){
+                return notPaidBadge +
+                       "<span class='badge-sent-billing' style='display:inline-block;padding:3px 7px;background:#dcfce7;color:#15803d;border:1px solid #86efac;border-radius:4px;font-size:10px;font-weight:700;'>Sent to Billing ✓</span>" +
+                       editIconSvg;
+            }else if(isEvaluated){
+                return notPaidBadge +
+                       "<a href='javascript:void(0)' id='btn-bill-"+order.orderId+"' class='btn-send-billing' onclick='StockOut.sendToBilling(\""+order.orderId+"\",\""+(order.stNumber||"")+"\")' style='display:inline-block;padding:3px 8px;background:#2563eb;color:#ffffff;border-radius:4px;font-size:11px;font-weight:600;text-decoration:none;box-shadow:0 1px 2px rgba(0,0,0,0.05);' onmouseover='this.style.background=\"#1d4ed8\"' onmouseout='this.style.background=\"#2563eb\"'>Send to Billing</a>" +
+                       editIconSvg;
+            }else{
+                return notPaidBadge +
+                       "<span class='stockout-link' onclick='StockOut.showPanel(\""+order.orderId+"\","+JSON.stringify(testNamesArr||[])+","+order.totalTestCount+")' style='cursor:pointer;color:#dc2626;font-weight:600;font-size:11px;text-decoration:underline'>Stock-Out Check</span>";
+            }
         }
     }
     var resultMessage = jQuery("#translatedColumnNames").attr("data-link-result");

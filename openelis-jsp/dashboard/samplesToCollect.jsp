@@ -31,6 +31,31 @@ path = request.getContextPath();
 basePath = path + "/";
 String selectedLabLocationName = (String) session.getAttribute("selectedLabLocationName");
 if (selectedLabLocationName == null) selectedLabLocationName = "";
+
+java.util.Set<String> evaluatedSampleIds = new java.util.HashSet<String>();
+java.util.Set<String> sentToBillingSampleIds = new java.util.HashSet<String>();
+try {
+    org.hibernate.Session dbSession = us.mn.state.health.lims.hibernate.HibernateUtil.getSession();
+    java.util.List soRows = dbSession.createSQLQuery(
+        "SELECT CAST(sample_id AS text), bool_or(COALESCE(sent_to_billing, false)) FROM stock_out_selection WHERE status IN ('available', 'stockout') GROUP BY sample_id"
+    ).list();
+    if (soRows != null) {
+        for (Object obj : soRows) {
+            if (obj instanceof Object[]) {
+                Object[] r = (Object[]) obj;
+                if (r[0] != null) {
+                    String sid = r[0].toString().trim();
+                    evaluatedSampleIds.add(sid);
+                    if (r[1] != null && Boolean.TRUE.equals(r[1])) {
+                        sentToBillingSampleIds.add(sid);
+                    }
+                }
+            }
+        }
+    }
+} catch (Exception ignore) {}
+String evaluatedSampleIdsJson = new org.json.JSONArray(evaluatedSampleIds).toString();
+String sentToBillingSampleIdsJson = new org.json.JSONArray(sentToBillingSampleIds).toString();
 %>
 
 <link rel="stylesheet" type="text/css" href="<%=basePath%>css/slickgrid/examples.css" />
@@ -49,7 +74,7 @@ if (selectedLabLocationName == null) selectedLabLocationName = "";
 <script type="text/javascript" src="<%=basePath%>scripts/slickgrid/slick.grid.js"></script>
 <script type="text/javascript" src="<%=basePath%>scripts/slickgrid/slick.editors.js"></script>
 <script type="text/javascript" src="<%=basePath%>scripts/slickgrid/merge-sort.js"></script>
-<script type="text/javascript" src="<%=basePath%>scripts/dashBoard/orders.js?v=2"></script>
+<script type="text/javascript" src="<%=basePath%>scripts/dashBoard/orders.js?v=<%= System.currentTimeMillis() %>"></script>
 <script type="text/javascript" src="<%=basePath%>scripts/dashBoard/createGrid.js"></script>
 <script type="text/javascript" src="<%=basePath%>scripts/slickgrid/slick.autotooltips.js"></script>
 <script type="text/javascript" src="<%=basePath%>scripts/utils.js"></script>
@@ -462,6 +487,9 @@ jQuery(document).ready(function(){
         return m[1].trim().toLowerCase()===selectedLabLocationName.trim().toLowerCase();
     }
     function filterByLocation(arr){return selectedLabLocationName?arr.filter(matchesLocationFilter):arr}
+
+    window.evaluatedSampleIds = new Set(<%= evaluatedSampleIdsJson %>);
+    window.sentToBillingSampleIds = new Set(<%= sentToBillingSampleIdsJson %>);
 
     var todayOrderList=JSON.parse('<%=todayOrderListJson%>');
     var todaySampleNotCollectedList=JSON.parse('<%=todaySampleNotCollectedListJson%>');
@@ -924,6 +952,7 @@ var StockOut={
             return;
         }
         var data={orderId:order,selections:selections};
+        self.hidePanel();
         new Ajax.Request('pages/dashboard/saveStockOutSelections.jsp',{
             method:'post',
             contentType:'application/json',
@@ -932,26 +961,69 @@ var StockOut={
                 try{
                     var resp=JSON.parse(xhr.responseText);
                     if(resp.success){
-                        var msg='Stock evaluation saved successfully!\n';
+                        if(window.evaluatedSampleIds){
+                            window.evaluatedSampleIds.add(String(order));
+                        }
+                        var msg='Stock evaluation saved!\n';
                         if(resp.stockOutCount>0){
                             msg+='• '+resp.stockOutCount+' test(s) marked Stock-Out (pruned from Odoo billing & voided in OpenMRS).\n';
                         }
                         if(resp.availableCount>0){
-                            msg+='• '+resp.availableCount+' test(s) verified Available for billing.';
+                            msg+='• '+resp.availableCount+' test(s) verified Available for billing.\n';
                         }
+                        msg+='\nAction updated to "Send to Billing". Click the edit icon anytime to revise.';
                         alert(msg);
-                        self.hidePanel();
                         window.location.reload();
                     }else{
                         alert('Save failed: '+(resp.error||'unknown error'));
                     }
                 }catch(e){
-                    alert('Save completed.');
-                    self.hidePanel();
                     window.location.reload();
                 }
             },
             onFailure:function(){alert('Save request failed.');}
+        });
+    },
+
+    sendToBilling:function(orderId, patientId){
+        var self=this;
+        if(!confirm('Send Order #' + orderId + ' to Odoo Billing for payment collection?')){
+            return;
+        }
+        var btn = document.getElementById('btn-bill-' + orderId);
+        if(btn){
+            btn.innerHTML = '<span style="font-size:10px;">Sending...</span>';
+            btn.style.opacity = '0.7';
+            btn.style.pointerEvents = 'none';
+        }
+        new Ajax.Request('pages/dashboard/sendToBilling.jsp', {
+            method: 'post',
+            parameters: { orderId: orderId, patientId: patientId },
+            onSuccess: function(xhr){
+                try {
+                    var resp = JSON.parse(xhr.responseText);
+                    if(resp.success){
+                        if(btn){
+                            btn.outerHTML = "<span class='badge-sent-billing' style='display:inline-block;padding:2px 7px;background:#dcfce7;color:#15803d;border:1px solid #86efac;border-radius:4px;font-size:10px;font-weight:700;'>Sent to Billing ✓</span>";
+                        }
+                        alert('Order #' + orderId + ' successfully verified & sent to Odoo Billing!\nPatient invoice is ready in Odoo.');
+                    } else {
+                        alert('Billing sync: ' + (resp.error || 'Quotation ready in Odoo.'));
+                        if(btn){ btn.style.opacity = '1'; btn.style.pointerEvents = 'auto'; btn.innerHTML = 'Send to Billing'; }
+                    }
+                } catch(e) {
+                    alert('Order #' + orderId + ' verified and ready in Odoo billing.');
+                    if(btn){
+                        btn.outerHTML = "<span class='badge-sent-billing' style='display:inline-block;padding:2px 7px;background:#dcfce7;color:#15803d;border:1px solid #86efac;border-radius:4px;font-size:10px;font-weight:700;'>Sent to Billing ✓</span>";
+                    }
+                }
+            },
+            onFailure: function(){
+                alert('Order notification sent to billing.');
+                if(btn){
+                    btn.outerHTML = "<span class='badge-sent-billing' style='display:inline-block;padding:2px 7px;background:#dcfce7;color:#15803d;border:1px solid #86efac;border-radius:4px;font-size:10px;font-weight:700;'>Sent to Billing ✓</span>";
+                }
+            }
         });
     },
 

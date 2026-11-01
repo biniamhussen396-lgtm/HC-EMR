@@ -270,12 +270,13 @@ form[name="menuForm"]{position:sticky!important;top:0!important;z-index:50!impor
 .stockout-test-name{font-weight:600;font-size:12px;color:#1a1a2e}
 .stockout-test-type{font-size:11px;color:#64748b}
 .stockout-toggle{display:flex;gap:5px}
-.stockout-btn{padding:5px 12px;border:none;border-radius:4px;cursor:pointer;font-size:11px;font-weight:600}
+.stockout-btn{padding:5px 14px;border:none;border-radius:4px;cursor:pointer;font-size:11px;font-weight:600;transition:all .15s}
 .stockout-btn.available{background:#dcfce7;color:#16a34a;border:1px solid #16a34a}
 .stockout-btn.available:hover{background:#bbf7d0}
+.stockout-btn.available.selected{background:#16a34a!important;color:#fff!important;box-shadow:0 0 0 2px #15803d}
 .stockout-btn.stockout{background:#fee2e2;color:#dc2626;border:1px solid #dc2626}
 .stockout-btn.stockout:hover{background:#fecaca}
-.stockout-btn.selected{box-shadow:0 0 0 2px currentColor}
+.stockout-btn.stockout.selected{background:#dc2626!important;color:#fff!important;box-shadow:0 0 0 2px #b91c1c}
 .stockout-actions{display:flex;gap:10px;margin-top:15px;justify-content:flex-end}
 .stockout-actions .btn{padding:8px 20px;border:none;border-radius:5px;cursor:pointer;font-size:12px;font-weight:500}
 .stockout-actions .btn-danger{background:#dc2626;color:#fff}
@@ -740,67 +741,53 @@ var StockOut={
     selectedStatus:{},
     currentOrderId:null,
 
-    showPanel:function(orderId, tests, totalTestCount){
+    showPanel:function(orderId){
+        var self=this;
         this.currentOrderId=orderId;
         this.selectedStatus={};
+        this.tests=[];
         var p = document.getElementById('stockoutPanel');
         if (p) {
             p.style.display = 'flex';
             p.classList.add('show');
         }
-
-        if(tests&&tests.length>0){
-            if(typeof tests==='string'){
-                var parts=tests.split(',');
-                this.tests=parts.map(function(t){return{testName:t.trim(),testType:''}});
-            }else if(Array.isArray(tests)){
-                this.tests=tests.map(function(t){
-                    if(typeof t==='string') return {testName:t.trim(),testType:''};
-                    return t;
-                });
-            }else{
-                this.tests=tests;
-            }
-            this._render();
-            this._loadSavedSelections(orderId);
-        }else{
-            this.tests=[{testName:'Loading tests...',testType:''}];
-            this._render();
-            this._fetchTests(orderId);
+        var listContainer = document.getElementById('stockoutTestList');
+        if (listContainer) {
+            listContainer.innerHTML = '<div style="padding:15px;text-align:center;color:#64748b;font-size:12px;">Loading order tests...</div>';
         }
-    },
 
-    _loadSavedSelections:function(sampleId){
-        var self=this;
-        new Ajax.Request('pages/dashboard/getStockOutSelections.jsp',{method:'get',
-            parameters:{sampleId:sampleId},
-            onSuccess:function(xhr){
-                try{
-                    var saved=JSON.parse(xhr.responseText);
-                    if(saved&&saved.length>0){
-                        for(var i=0;i<self.tests.length;i++){
-                            var t=self.tests[i];
-                            var tName=(t.testName||'').trim().toLowerCase();
-                            var tId=t.testId?String(t.testId):'';
-                            var tUuid=(t.conceptUuid||'').trim().toLowerCase();
-                            for(var j=0;j<saved.length;j++){
-                                var sId=saved[j].testId?String(saved[j].testId):'';
-                                var sName=(saved[j].testName||'').trim().toLowerCase();
-                                var sUuid=(saved[j].conceptUuid||'').trim().toLowerCase();
-                                var idMatch=tId&&sId&&tId===sId;
-                                var uuidMatch=tUuid&&sUuid&&tUuid===sUuid;
-                                var nameMatch=tName&&sName&&(tName===sName||tName.indexOf(sName)!==-1||sName.indexOf(tName)!==-1);
-                                if(idMatch||uuidMatch||nameMatch){
-                                    self.selectedStatus[i]=saved[j].status;
-                                    break;
-                                }
-                            }
+        // 1. First, check if selections were already saved in the database
+        new Ajax.Request('pages/dashboard/getStockOutSelections.jsp', {
+            method: 'get',
+            parameters: { sampleId: orderId },
+            onSuccess: function(xhr){
+                try {
+                    var saved = JSON.parse(xhr.responseText);
+                    if (saved && Array.isArray(saved) && saved.length > 0) {
+                        self.tests = [];
+                        for (var i = 0; i < saved.length; i++) {
+                            var s = saved[i];
+                            var st = s.status || 'pending';
+                            self.selectedStatus[i] = st;
+                            self.tests.push({
+                                testId: s.testId ? String(s.testId) : '',
+                                testName: s.testName || ('Test ' + (i + 1)),
+                                testType: '',
+                                conceptUuid: s.conceptUuid || '',
+                                status: st
+                            });
                         }
                         self._render();
+                        return;
                     }
-                }catch(e){}
+                } catch(e) {}
+
+                // 2. Fallback to discover tests from order/sample if never saved before
+                self._fetchTests(orderId);
             },
-            onFailure:function(){}
+            onFailure: function(){
+                self._fetchTests(orderId);
+            }
         });
     },
 
@@ -820,13 +807,15 @@ var StockOut={
                         var tName='';
                         var testId='';
                         var attrs=el.attributes;
-                        for(var a=0;a<attrs.length;a++){
-                            var n=attrs[a].name.toLowerCase();
-                            if(n.indexOf('name')>=0){
-                                tName=attrs[a].value;
-                            }
-                            if(n==='id'||n.indexOf('test')>=0){
-                                testId=attrs[a].value;
+                        if(attrs){
+                            for(var a=0;a<attrs.length;a++){
+                                var n=attrs[a].name.toLowerCase();
+                                if(n.indexOf('name')>=0){
+                                    tName=attrs[a].value;
+                                }
+                                if(n==='id'||n.indexOf('test')>=0){
+                                    testId=attrs[a].value;
+                                }
                             }
                         }
                         if(!tName){tName=el.textContent||'';}
@@ -834,11 +823,13 @@ var StockOut={
                         if(/^\d+$/.test(tName)){testId=tName;tName='';}
                         if(testId){testIds.push(testId);}
                         var sType='';
-                        for(var a=0;a<attrs.length;a++){
-                            var n=attrs[a].name.toLowerCase();
-                            if(n.indexOf('sample')>=0){
-                                sType=attrs[a].value;
-                                break;
+                        if(attrs){
+                            for(var a=0;a<attrs.length;a++){
+                                var n=attrs[a].name.toLowerCase();
+                                if(n.indexOf('sample')>=0){
+                                    sType=attrs[a].value;
+                                    break;
+                                }
                             }
                         }
                         self.tests.push({testName:tName,testType:sType,testId:testId});
@@ -858,22 +849,19 @@ var StockOut={
                                 }
                             }catch(e){}
                             self._render();
-                            self._loadSavedSelections(sampleId);
                         },
-                        onFailure:function(){self._render();self._loadSavedSelections(sampleId);}
+                        onFailure:function(){self._render();}
                     });
                 }else{
                     if(self.tests.length===0){
                         self.tests=[{testName:'All Tests in Order',testType:'N/A'}];
                     }
                     self._render();
-                    self._loadSavedSelections(sampleId);
                 }
             },
             onFailure:function(){
                 self.tests=[{testName:'All Tests in Order',testType:'N/A'}];
                 self._render();
-                self._loadSavedSelections(sampleId);
             }
         });
     },
@@ -881,15 +869,20 @@ var StockOut={
     _render:function(){
         var self=this;
         var html='';
+        if (!this.tests || this.tests.length === 0) {
+            document.getElementById('stockoutTestList').innerHTML = '<div style="padding:15px;text-align:center;color:#64748b;font-size:12px;">No tests found for this order.</div>';
+            return;
+        }
         this.tests.forEach(function(t,i){
-            var name=t.testName||('Test '+(i+1));
-            var type=t.testType||t.testCode||'';
+            var name=(typeof t==='string'?t:(t.testName||('Test '+(i+1)))).trim();
+            var type=(t&&t.testType)?t.testType:'';
             var st=self.selectedStatus[i]||'';
             var availCls='stockout-btn available'+(st==='available'?' selected':'');
             var soCls='stockout-btn stockout'+(st==='stockout'?' selected':'');
             html+='<div class="stockout-test-item">';
             html+='<div><div class="stockout-test-name">'+name+'</div>';
-            html+='<div class="stockout-test-type">'+type+'</div></div>';
+            if(type)html+='<div class="stockout-test-type">'+type+'</div>';
+            html+='</div>';
             html+='<div class="stockout-toggle">';
             html+='<button class="'+availCls+'" id="so-avail-'+i+'" onclick="StockOut.setStatus('+i+',\'available\')">Available</button>';
             html+='<button class="'+soCls+'" id="so-so-'+i+'" onclick="StockOut.setStatus('+i+',\'stockout\')">Stock-Out</button>';

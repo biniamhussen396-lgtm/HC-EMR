@@ -89,7 +89,7 @@ function generateAllLinksForOrder(order, alwaysValidate){
             var isEvaluated = (window.evaluatedSampleIds && (window.evaluatedSampleIds.has(sOrder) || (sPatient && window.evaluatedSampleIds.has(sPatient))));
             var isSent = (window.sentToBillingSampleIds && (window.sentToBillingSampleIds.has(sOrder) || (sPatient && window.sentToBillingSampleIds.has(sPatient))));
             var notPaidBadge = "<span class='not-paid-badge' style='display:inline-block;padding:2px 6px;background:#fef3c7;color:#b45309;border:1px solid #f59e0b;border-radius:3px;font-size:10px;font-weight:bold;margin-right:6px;'>Not Paid</span>";
-            var editIconSvg = "<span class='stockout-edit-icon' onclick='StockOut.showPanel(\""+order.orderId+"\","+JSON.stringify(testNamesArr||[])+","+order.totalTestCount+")' title='Edit selections before billing' style='cursor:pointer;display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;vertical-align:middle;color:#475569;background:#f1f5f9;border:1px solid #cbd5e1;border-radius:4px;margin-left:4px;transition:all .15s;' onmouseover='this.style.background=\"#e2e8f0\"' onmouseout='this.style.background=\"#f1f5f9\"'><svg style=\"width:12px;height:12px;\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.2\"><path d=\"M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7\"/><path d=\"M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z\"/></svg></span>";
+            var editIconSvg = "<span class='stockout-edit-icon' onclick='StockOut.showPanel(\""+order.orderId+"\")' title='Edit selections before billing' style='cursor:pointer;display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;vertical-align:middle;color:#475569;background:#f1f5f9;border:1px solid #cbd5e1;border-radius:4px;margin-left:4px;transition:all .15s;' onmouseover='this.style.background=\"#e2e8f0\"' onmouseout='this.style.background=\"#f1f5f9\"'><svg style=\"width:12px;height:12px;\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.2\"><path d=\"M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7\"/><path d=\"M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z\"/></svg></span>";
 
             if(isSent){
                 return notPaidBadge +
@@ -101,7 +101,7 @@ function generateAllLinksForOrder(order, alwaysValidate){
                        editIconSvg;
             }else{
                 return notPaidBadge +
-                       "<span class='stockout-link' onclick='StockOut.showPanel(\""+order.orderId+"\","+JSON.stringify(testNamesArr||[])+","+order.totalTestCount+")' style='cursor:pointer;color:#dc2626;font-weight:600;font-size:11px;text-decoration:underline;white-space:nowrap;'>Stock-Out Check</span>";
+                       "<span class='stockout-link' onclick='StockOut.showPanel(\""+order.orderId+"\")' style='cursor:pointer;color:#dc2626;font-weight:600;font-size:11px;text-decoration:underline;white-space:nowrap;'>Stock-Out Check</span>";
             }
         }
     }

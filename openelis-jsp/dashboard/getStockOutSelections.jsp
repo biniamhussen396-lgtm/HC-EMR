@@ -8,8 +8,25 @@
     Session hSession = null;
     try {
         hSession = HibernateUtil.getSession();
-        List rows = hSession.createSQLQuery("SELECT test_id, test_name, status, concept_uuid FROM stock_out_selection WHERE sample_id = :sid ORDER BY id")
-            .setParameter("sid", new java.math.BigDecimal(sampleId.trim())).list();
+        java.math.BigDecimal sid = new java.math.BigDecimal(sampleId.trim());
+        java.math.BigDecimal altSid = null;
+        try {
+            List shRows = hSession.createSQLQuery(
+                "SELECT CASE WHEN samp_id = :sid THEN id ELSE samp_id END FROM sample_human WHERE samp_id = :sid OR id = :sid LIMIT 1"
+            ).setParameter("sid", sid).list();
+            if (shRows != null && !shRows.isEmpty() && shRows.get(0) != null) {
+                altSid = new java.math.BigDecimal(shRows.get(0).toString().trim());
+            }
+        } catch (Exception ignore) {}
+
+        org.hibernate.Query q = hSession.createSQLQuery(
+            "SELECT DISTINCT ON (test_name) test_id, test_name, status, concept_uuid FROM stock_out_selection " +
+            "WHERE (sample_id = :sid" + (altSid != null ? " OR sample_id = :altSid" : "") + ") " +
+            "ORDER BY test_name, id DESC"
+        ).setParameter("sid", sid);
+        if (altSid != null) q.setParameter("altSid", altSid);
+        List rows = q.list();
+
         JSONArray arr = new JSONArray();
         for (Object row : rows) {
             Object[] cols = (Object[]) row;
